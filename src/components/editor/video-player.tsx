@@ -33,16 +33,35 @@ export interface RenderedMeasurements {
   // These are passed through as-is (not px values)
   fontFamily: string;
   fontWeight: number;
+  fontItalic: boolean;
+  fontUnderline: boolean;
+  fontTextTransform: string;
+  letterSpacing: number;
+  wordSpacing: number;
+  lineSpacing: number;
   textColor: string;
   backgroundColor: string;
   strokeColor: string;
   strokeWidth: number;
   shadowColor: string;
   shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
   alignment: string;
   position: string;
+  positionX: number;
+  positionY: number;
   highlightMode: string;
+  activeWordColor: string;
+  inactiveOpacity: number;
+  blur: number;
   borderRadius: number;   // computed CSS borderRadius in px
+  transition: {
+    type: string;
+    target: string;
+    speedMode: string;
+    speed: number;
+  };
   layouts?: any[];        // Exact word positions for every segment
 }
 
