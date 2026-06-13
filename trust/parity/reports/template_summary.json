@@ -1,0 +1,863 @@
+{
+  "Kalakar Glow": {
+    "wordCount": 238,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Ali Abdaal": {
+    "wordCount": 238,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Kalakar Shadow": {
+    "wordCount": 238,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Kalakar": {
+    "wordCount": 238,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Clean Motion": {
+    "wordCount": 238,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Double Trouble": {
+    "wordCount": 229,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Bubble Style": {
+    "wordCount": 229,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Hormozi Style": {
+    "wordCount": 229,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Editing Skool": {
+    "wordCount": 223,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Mr Beast Style 1": {
+    "wordCount": 223,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Mr Beast Style 2": {
+    "wordCount": 223,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Iman Gadzhi": {
+    "wordCount": 215,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Devin Jatho": {
+    "wordCount": 215,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Highlighted Word": {
+    "wordCount": 215,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Clean Glow Style": {
+    "wordCount": 204,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Kalakar Clean": {
+    "wordCount": 204,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Black Punch": {
+    "wordCount": 204,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Kalakar Word": {
+    "wordCount": 194,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Pixelated Word": {
+    "wordCount": 194,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Ziada": {
+    "wordCount": 194,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Liquid Glass": {
+    "wordCount": 184,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Top Up": {
+    "wordCount": 184,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Mota": {
+    "wordCount": 184,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Tabahi": {
+    "wordCount": 177,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Deep Glow": {
+    "wordCount": 177,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Seedha Saadha": {
+    "wordCount": 177,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Thora Cinematic": {
+    "wordCount": 169,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Delhi": {
+    "wordCount": 169,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "Zero Gravity": {
+    "wordCount": 169,
+    "sampleText": "Actions",
+    "font": {
+      "family": "Inter, \"Noto Color Emoji\", sans-serif",
+      "size": "10px",
+      "weight": "600",
+      "style": "normal"
+    },
+    "color": "oklch(0.552 0.016 285.938)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "textShadow": "none",
+    "textStroke": "0px oklch(0.552 0.016 285.938)",
+    "textTransform": "uppercase",
+    "letterSpacing": "1px",
+    "lineHeight": "15px",
+    "opacity": "1",
+    "transform": "none",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "filter": "none",
+    "container": {
+      "backgroundColor": "oklch(0.92 0.004 286.32)",
+      "padding": "0px",
+      "borderRadius": "6px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.2) 0px 1px 3px 0px, oklab(0 0 0 / 0.2) 0px 1px 2px -1px"
+    }
+  },
+  "__controls__": {
+    "sliders": [
+      {
+        "label": "Number input",
+        "min": "10",
+        "max": "50",
+        "current": "24"
+      },
+      {
+        "label": "Volume",
+        "min": "0",
+        "max": "1",
+        "current": "1"
+      }
+    ],
+    "textInputs": [
+      {
+        "label": "Number input",
+        "value": "24"
+      },
+      {
+        "label": "Find a template...",
+        "value": ""
+      }
+    ],
+    "selects": [],
+    "switches": [
+      {
+        "label": "",
+        "checked": "false",
+        "state": "unchecked"
+      },
+      {
+        "label": "",
+        "checked": "true",
+        "state": "checked"
+      },
+      {
+        "label": "",
+        "checked": "false",
+        "state": "unchecked"
+      },
+      {
+        "label": "",
+        "checked": "false",
+        "state": "unchecked"
+      }
+    ]
+  }
+}

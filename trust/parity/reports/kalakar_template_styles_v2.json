@@ -1,0 +1,126 @@
+{
+  "Kalakar Glow": {
+    "error": "Not found in sidebar"
+  },
+  "Ali Abdaal": {
+    "error": "Not found in sidebar"
+  },
+  "Kalakar Shadow": {
+    "error": "Not found in sidebar"
+  },
+  "Kalakar": {
+    "name": "Kalakar",
+    "extracted": "2026-06-13T07:00:16.757Z",
+    "panelControls": {
+      "canvas_count": 0,
+      "has_zustand": false,
+      "has_redux": false
+    },
+    "subtitleOverlay": {
+      "tag": "H3",
+      "text": "Welcome to Kalakar",
+      "className": "text-foreground truncate text-lg font-medium",
+      "rect": {
+        "x": 300,
+        "y": 760,
+        "w": 270,
+        "h": 28
+      },
+      "styles": {
+        "fontFamily": "Inter, \"Noto Color Emoji\", sans-serif",
+        "fontSize": "18px",
+        "fontWeight": "500",
+        "fontStyle": "normal",
+        "color": "rgb(235, 235, 235)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "textShadow": "none",
+        "webkitTextStroke": "0px rgb(235, 235, 235)",
+        "textTransform": "none",
+        "letterSpacing": "normal",
+        "lineHeight": "28px",
+        "opacity": "1",
+        "padding": "0px",
+        "borderRadius": "0px",
+        "position": "static",
+        "zIndex": "auto"
+      }
+    },
+    "allOverlays": 5,
+    "screenshot": "C:\\Users\\Kotha\\Desktop\\varun\\vidyut\\parity\\screenshots\\tmpl_kalakar.png"
+  },
+  "Clean Motion": {
+    "error": "Not found in sidebar"
+  },
+  "Double Trouble": {
+    "error": "Not found in sidebar"
+  },
+  "Bubble Style": {
+    "error": "Not found in sidebar"
+  },
+  "Hormozi Style": {
+    "error": "Not found in sidebar"
+  },
+  "Editing Skool": {
+    "error": "Not found in sidebar"
+  },
+  "Mr Beast Style 1": {
+    "error": "Not found in sidebar"
+  },
+  "Mr Beast Style 2": {
+    "error": "Not found in sidebar"
+  },
+  "Iman Gadzhi": {
+    "error": "Not found in sidebar"
+  },
+  "Devin Jatho": {
+    "error": "Not found in sidebar"
+  },
+  "Highlighted Word": {
+    "error": "Not found in sidebar"
+  },
+  "Clean Glow Style": {
+    "error": "Not found in sidebar"
+  },
+  "Kalakar Clean": {
+    "error": "Not found in sidebar"
+  },
+  "Black Punch": {
+    "error": "Not found in sidebar"
+  },
+  "Kalakar Word": {
+    "error": "Not found in sidebar"
+  },
+  "Pixelated Word": {
+    "error": "Not found in sidebar"
+  },
+  "Ziada": {
+    "error": "Not found in sidebar"
+  },
+  "Liquid Glass": {
+    "error": "Not found in sidebar"
+  },
+  "Top Up": {
+    "error": "Not found in sidebar"
+  },
+  "Mota": {
+    "error": "Not found in sidebar"
+  },
+  "Tabahi": {
+    "error": "Not found in sidebar"
+  },
+  "Deep Glow": {
+    "error": "Not found in sidebar"
+  },
+  "Seedha Saadha": {
+    "error": "Not found in sidebar"
+  },
+  "Thora Cinematic": {
+    "error": "Not found in sidebar"
+  },
+  "Delhi": {
+    "error": "Not found in sidebar"
+  },
+  "Zero Gravity": {
+    "error": "Not found in sidebar"
+  }
+}

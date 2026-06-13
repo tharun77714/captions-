@@ -1,0 +1,263 @@
+{
+  "Kalakar Glow": {
+    "id": "kalakar-glow",
+    "name": "Kalakar Glow",
+    "isNew": true,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "Hello and WELCOME to Kalakaar."
+  },
+  "Ali Abdaal": {
+    "id": "ali-abdaal",
+    "name": "Ali Abdaal",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Kalakar Shadow": {
+    "id": "kalakar-shadow",
+    "name": "Kalakar Shadow",
+    "isNew": true,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "Hello and WELCOME to Kalakaar"
+  },
+  "Kalakar": {
+    "id": "kalakar",
+    "name": "Kalakar",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "Hello and WELCOME to Kalakaar."
+  },
+  "Clean Motion": {
+    "id": "clean-motion",
+    "name": "Clean Motion",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Double Trouble": {
+    "id": "double-trouble",
+    "name": "Double Trouble",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "on screen that are in English"
+  },
+  "Bubble Style": {
+    "id": "bubble-style",
+    "name": "Bubble Style",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brownfox"
+  },
+  "Hormozi Style": {
+    "id": "hormozi-style",
+    "name": "Hormozi Style",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX"
+  },
+  "Editing Skool": {
+    "id": "editing-skool",
+    "name": "Editing Skool",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "fox"
+  },
+  "Mr Beast Style 1": {
+    "id": "mr-beast-style-1",
+    "name": "Mr Beast Style 1",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "The quick"
+  },
+  "Mr Beast Style 2": {
+    "id": "mr-beast-style-2",
+    "name": "Mr Beast Style 2",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "The quick brown fox"
+  },
+  "Iman Gadzhi": {
+    "id": "iman-gadzhi",
+    "name": "Iman Gadzhi",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Devin Jatho": {
+    "id": "devin-jatho",
+    "name": "Devin Jatho",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK"
+  },
+  "Highlighted Word": {
+    "id": "highlighted-word",
+    "name": "Highlighted Word",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Clean Glow Style": {
+    "id": "clean-glow-style",
+    "name": "Clean Glow Style",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "The quick brown fox"
+  },
+  "Kalakar Clean": {
+    "id": "kalakar-clean",
+    "name": "Kalakar Clean",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "The quick brown fox"
+  },
+  "Black Punch": {
+    "id": "black-punch",
+    "name": "Black Punch",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX"
+  },
+  "Kalakar Word": {
+    "id": "kalakar-word",
+    "name": "Kalakar Word",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown"
+  },
+  "Pixelated Word": {
+    "id": "pixelated-word",
+    "name": "Pixelated Word",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Ziada": {
+    "id": "ziada",
+    "name": "Ziada",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox jumps over"
+  },
+  "Liquid Glass": {
+    "id": "liquid-glass",
+    "name": "Liquid Glass",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Top Up": {
+    "id": "top-up",
+    "name": "Top Up",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": true,
+    "previewText": "The quick brown fox The quick brown fox"
+  },
+  "Mota": {
+    "id": "mota",
+    "name": "Mota",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX THE QUICK BROWN FOX"
+  },
+  "Tabahi": {
+    "id": "tabahi",
+    "name": "Tabahi",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX"
+  },
+  "Deep Glow": {
+    "id": "deep-glow",
+    "name": "Deep Glow",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX"
+  },
+  "Seedha Saadha": {
+    "id": "seedha-saadha",
+    "name": "Seedha Saadha",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "uppercase",
+    "hasShadow": true,
+    "previewText": "THE QUICK BROWN FOX"
+  },
+  "Thora Cinematic": {
+    "id": "thora-cinematic",
+    "name": "Thora Cinematic",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "uppercase",
+    "hasShadow": false,
+    "previewText": "THE QUICKBROWN FOX"
+  },
+  "Delhi": {
+    "id": "delhi",
+    "name": "Delhi",
+    "isNew": false,
+    "fontWeight": 700,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "The quick brown fox"
+  },
+  "Zero Gravity": {
+    "id": "zero-gravity",
+    "name": "Zero Gravity",
+    "isNew": false,
+    "fontWeight": 800,
+    "textTransform": "none",
+    "hasShadow": false,
+    "previewText": "the quick foxquick brown"
+  }
+}

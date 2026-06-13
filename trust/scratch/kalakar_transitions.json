@@ -1,0 +1,132 @@
+{
+  "buttons": [
+    "Upgrade",
+    "UUser",
+    "Captions",
+    "Custom Fonts",
+    "AudioSoon",
+    "Caption Tools",
+    "Default",
+    "1 Line",
+    "Remove Punctuation\n\nStrip all punctuation for a cleaner, minimal look",
+    "Restore Emphasis\n\nBring back bold, italic, and highlighted text styling",
+    "Remove Gaps in Captions\n\nEliminate gaps between captions for seamless flow",
+    "Remove Emojis\n\nRemove all emojis from captions",
+    "Hello",
+    "and",
+    "welcome",
+    "to",
+    "Kalakaar.",
+    "As",
+    "you",
+    "can",
+    "see,",
+    "we",
+    "have",
+    "captions",
+    "on",
+    "screen",
+    "that",
+    "are",
+    "in",
+    "English",
+    "language.",
+    "If",
+    "you",
+    "want",
+    "to",
+    "see",
+    "how",
+    "captions",
+    "will",
+    "look",
+    "in",
+    "your",
+    "language,",
+    "just",
+    "pick",
+    "your",
+    "language",
+    "from",
+    "the",
+    "left",
+    "side",
+    "on",
+    "the",
+    "screen",
+    "and",
+    "you'd",
+    "be",
+    "able",
+    "to",
+    "see",
+    "those",
+    "subtitles.",
+    "Word",
+    "Line",
+    "Word",
+    "Replace",
+    "Text",
+    "Templates",
+    "Transitions",
+    "AI Audio",
+    "Line",
+    "Word",
+    "Export"
+  ],
+  "labels": [
+    "Words",
+    "Max Chars",
+    "Lines",
+    "Speed Mode\nDynamic"
+  ],
+  "inputs": [
+    {
+      "type": "text",
+      "value": "24",
+      "placeholder": "10"
+    },
+    {
+      "type": "file",
+      "value": "",
+      "placeholder": ""
+    },
+    {
+      "type": "file",
+      "value": "",
+      "placeholder": ""
+    },
+    {
+      "type": "file",
+      "value": "",
+      "placeholder": ""
+    },
+    {
+      "type": "range",
+      "value": "1",
+      "placeholder": ""
+    }
+  ],
+  "toggles": [
+    {
+      "val": "on",
+      "checked": "false"
+    },
+    {
+      "val": "on",
+      "checked": "true"
+    },
+    {
+      "val": "on",
+      "checked": "false"
+    },
+    {
+      "val": "on",
+      "checked": "false"
+    },
+    {
+      "val": "on",
+      "checked": "true"
+    }
+  ]
+}

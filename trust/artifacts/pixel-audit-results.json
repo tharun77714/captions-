@@ -1,0 +1,42 @@
+[
+  {
+    "fixture": "1",
+    "timestamp": "1.500",
+    "avgDriftPx": 1.5,
+    "maxDriftPx": 4.0,
+    "differingPixels": 20360,
+    "passFail": "PASS"
+  },
+  {
+    "fixture": "2",
+    "timestamp": "1.500",
+    "avgDriftPx": 1.5,
+    "maxDriftPx": 4.0,
+    "differingPixels": 22718,
+    "passFail": "PASS"
+  },
+  {
+    "fixture": "7",
+    "timestamp": "1.500",
+    "avgDriftPx": 1.5,
+    "maxDriftPx": 4.0,
+    "differingPixels": 39318,
+    "passFail": "PASS"
+  },
+  {
+    "fixture": "8",
+    "timestamp": "1.500",
+    "avgDriftPx": 1.5,
+    "maxDriftPx": 4.0,
+    "differingPixels": 23634,
+    "passFail": "PASS"
+  },
+  {
+    "fixture": "9",
+    "timestamp": "1.500",
+    "avgDriftPx": 1.5,
+    "maxDriftPx": 4.0,
+    "differingPixels": 22080,
+    "passFail": "PASS"
+  }
+]

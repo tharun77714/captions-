@@ -1,0 +1,31 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 1
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Roboto,48,&H00FFFFFF,&H000000FF,&H00000000,&H7F000000,-1,0,0,0,100,100,0,0,3,2,4,5,40,40,40,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.50,Default,,0,0,0,,{\c&H0015CCFA&}Hello{\c} world this is a test.
+Line breaks are cool.
+Dialogue: 0,0:00:00.50,0:00:01.00,Default,,0,0,0,,Hello {\c&H0015CCFA&}world{\c} this is a test.
+Line breaks are cool.
+Dialogue: 0,0:00:01.00,0:00:01.20,Default,,0,0,0,,Hello world {\c&H0015CCFA&}this{\c} is a test.
+Line breaks are cool.
+Dialogue: 0,0:00:01.20,0:00:01.50,Default,,0,0,0,,Hello world this {\c&H0015CCFA&}is{\c} a test.
+Line breaks are cool.
+Dialogue: 0,0:00:01.50,0:00:01.60,Default,,0,0,0,,Hello world this is {\c&H0015CCFA&}a{\c} test.
+Line breaks are cool.
+Dialogue: 0,0:00:01.60,0:00:02.00,Default,,0,0,0,,Hello world this is a {\c&H0015CCFA&}test.
+Line{\c} breaks are cool.
+Dialogue: 0,0:00:02.00,0:00:02.20,Default,,0,0,0,,Hello world this is a test.
+Line {\c&H0015CCFA&}breaks{\c} are cool.
+Dialogue: 0,0:00:02.20,0:00:02.30,Default,,0,0,0,,Hello world this is a test.
+Line breaks {\c&H0015CCFA&}are{\c} cool.
+Dialogue: 0,0:00:02.30,0:00:02.50,Default,,0,0,0,,Hello world this is a test.
+Line breaks are {\c&H0015CCFA&}cool.{\c}
