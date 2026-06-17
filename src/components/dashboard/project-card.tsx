@@ -7,13 +7,29 @@ import { Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 export function ProjectCard({ project }: { project: any }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   return (
     <Link
       href={`/dashboard/projects/${project.id}`}
       className="group flex flex-col bg-zinc-900/50 border border-white/10 rounded-xl hover:bg-zinc-800/50 transition-all duration-300 hover:border-violet-500/50 overflow-hidden relative"
-      onMouseEnter={() => {
+      onMouseEnter={async () => {
         setIsHovered(true);
+        if (!videoUrl && project.media_url) {
+          try {
+            const res = await fetch('/api/video/url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: project.media_url }),
+            });
+            if (res.ok) {
+              const { url } = await res.json();
+              setVideoUrl(url);
+            }
+          } catch (e) {
+            console.error('Failed to load video url', e);
+          }
+        }
         if (videoRef.current) {
           videoRef.current.play().catch(() => {});
         }
@@ -29,14 +45,16 @@ export function ProjectCard({ project }: { project: any }) {
       {/* Video Preview Background */}
       {project.media_url && (
         <div className={`absolute inset-0 z-0 transition-opacity duration-500 ${isHovered ? 'opacity-40' : 'opacity-0'}`}>
-          <video
-            ref={videoRef}
-            src={project.media_url}
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover"
-          />
+          {videoUrl && (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          )}
         </div>
       )}
 
