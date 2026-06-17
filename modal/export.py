@@ -323,11 +323,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     lb = line.get('box', {})
                     if not lb: continue
                     
-                    bx = int(round(lb.get('x', 0) - line.get('paddingX', 0)))
-                    by = int(round(lb.get('y', 0) - line.get('paddingY', 0)))
-                    bw = int(round(lb.get('w', 0) + line.get('paddingX', 0) * 2))
-                    bh = int(round(lb.get('h', 0) + line.get('paddingY', 0) * 2))
-                    br = int(round(line.get('borderRadius', 0)))
+                    bx = int(round((lb.get('x', 0) - line.get('paddingX', 0)) * scale))
+                    by = int(round((lb.get('y', 0) - line.get('paddingY', 0)) * scale))
+                    bw = int(round((lb.get('w', 0) + line.get('paddingX', 0) * 2) * scale))
+                    bh = int(round((lb.get('h', 0) + line.get('paddingY', 0) * 2) * scale))
+                    br = int(round(line.get('borderRadius', 0) * scale))
                     
                     if bw <= 0 or bh <= 0:
                         continue
@@ -347,10 +347,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     raise ValueError(f"Export safety violation: rendered_box_count ({rendered_box_count}) > line_count ({len(layout_lines)})")
             elif has_bg and layout_box:
                 # Fallback to single bounding box
-                bx = int(round(layout_box['x']))
-                by = int(round(layout_box['y']))
-                bw = int(round(layout_box['w']))
-                bh = int(round(layout_box['h']))
+                bx = int(round(layout_box['x'] * scale))
+                by = int(round(layout_box['y'] * scale))
+                bw = int(round(layout_box['w'] * scale))
+                bh = int(round(layout_box['h'] * scale))
                 
                 nx = bx + border_radius
                 ny = by + border_radius
