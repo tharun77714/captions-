@@ -558,7 +558,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
                 return (
                   <span
-                    key={i}
+                    key={wordObj.id}
                     style={dynamicStyle}
                   >
                     {wordObj.word.trim()}
