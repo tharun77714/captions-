@@ -334,9 +334,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   ) => {
     const mapHierarchical = (segs: RawSegment[] = [], wrds: RawWord[] = []) => {
       return segs.map(seg => {
-        const ownedWords = wrds
+        let ownedWords = wrds
           .filter(w => w.start >= seg.start && w.end <= seg.end)
           .map(w => ({ ...w, id: `w-${generateId()}` }));
+        
+        // Generate synthetic words if missing (e.g., for translated/transliterated segments)
+        if (ownedWords.length === 0 && seg.text.trim().length > 0) {
+          const tokens = seg.text.trim().split(/\s+/).filter(Boolean);
+          const duration = seg.end - seg.start;
+          const wordDuration = duration / Math.max(1, tokens.length);
+          
+          ownedWords = tokens.map((token, i) => ({
+            id: `w-${generateId()}`,
+            word: token,
+            start: seg.start + (i * wordDuration),
+            end: seg.start + ((i + 1) * wordDuration),
+            probability: 0.9
+          }));
+        }
         
         return {
           ...seg,
