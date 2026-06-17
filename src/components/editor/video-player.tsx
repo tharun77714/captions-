@@ -93,6 +93,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [videoDimensions, setVideoDimensions] = useState({ width: 16, height: 9 });
+  const [mountedSegments, setMountedSegments] = useState<Record<string, boolean>>({});
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Expose measurement function to parent via ref
@@ -266,6 +267,16 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
   const activeSegmentWords = React.useMemo(() => {
     return activeSegment ? activeSegment.words : [];
   }, [activeSegment]);
+
+  // Ensure segment is mounted before applying active styles, to trigger CSS transitions
+  useEffect(() => {
+    if (activeSegment && !mountedSegments[activeSegment.id]) {
+      const timer = setTimeout(() => {
+        setMountedSegments(prev => ({ ...prev, [activeSegment.id]: true }));
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [activeSegment, mountedSegments]);
 
   // Sync video time → store
   const handleTimeUpdate = useCallback(() => {
@@ -465,7 +476,14 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
             {activeSegmentWords.length > 0 ? (
               activeSegmentWords.map((wordObj, i) => {
                 const isWordActive = currentTime >= wordObj.start && currentTime <= wordObj.end;
-                const hasStarted = currentTime >= wordObj.start;
+                
+                // For target: 'line', animate all words when the segment mounts.
+                // For target: 'word', animate each word when its time is reached.
+                const isLineMounted = mountedSegments[activeSegment.id] === true;
+                const hasStarted = subtitleStyle.transition.target === 'line' 
+                  ? isLineMounted 
+                  : (isLineMounted && currentTime >= wordObj.start);
+
                 const mode = subtitleStyle.highlightMode || 'none';
                 const computedStyle = resolveWordStyle(subtitleStyle, activeSegment.id, wordObj.id);
                 
