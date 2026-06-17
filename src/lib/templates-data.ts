@@ -1,8 +1,8 @@
 /**
  * TEMPLATE REGISTRY — Data-driven template definitions
  *
- * All 29 Kalakaar templates defined as pure data.
- * Adding template #30 requires ZERO UI code changes — just add an entry here.
+ * All 54 Vidyut templates defined as pure data.
+ * Adding template #55 requires ZERO UI code changes — just add an entry here.
  *
  * Style values derived from:
  * - Live Kalakaar editor DOM extraction (slider values, computed styles)
@@ -501,6 +501,342 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     inactiveOpacity: 0.5,
     transition: { type: 'zoom', target: 'word', speedMode: 'dynamic', speed: 25 },
   }),
+
+  // ─── LIFESTYLE ──────────────────────────────────────────────────────
+
+  'vlog-clean': tmpl('vlog-clean', 'Vlog Clean', 'lifestyle', true, {
+    font: { family: 'Nunito', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: 0,
+    lineSpacing: 1.4,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.25)', blur: 6, offsetX: 0, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#f59e0b',
+    inactiveOpacity: 0.65,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 28 },
+  }),
+
+  'travel-vibes': tmpl('travel-vibes', 'Travel Vibes', 'lifestyle', true, {
+    font: { family: 'Quicksand', weight: 700, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 30,
+    letterSpacing: 1,
+    lineSpacing: 1.3,
+    textColor: { mode: 'solid', solid: '#FFFBEB' },
+    shadow: { color: 'rgba(234, 88, 12, 0.4)', blur: 12, offsetX: 0, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#f97316',
+    inactiveOpacity: 0.55,
+    transition: { type: 'slide-up', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  'wellness': tmpl('wellness', 'Wellness', 'lifestyle', true, {
+    font: { family: 'Comfortaa', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 26,
+    letterSpacing: 1,
+    lineSpacing: 1.5,
+    textColor: { mode: 'solid', solid: '#F0FDF4' },
+    shadow: { color: 'rgba(0, 0, 0, 0.15)', blur: 4, offsetX: 0, offsetY: 1 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#86efac',
+    inactiveOpacity: 0.6,
+    transition: { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 35 },
+  }),
+
+  'aesthetic': tmpl('aesthetic', 'Aesthetic', 'lifestyle', true, {
+    font: { family: 'DM Sans', weight: 500, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 26,
+    letterSpacing: 0,
+    lineSpacing: 1.4,
+    textColor: { mode: 'solid', solid: '#E2E8F0' },
+    shadow: { color: 'rgba(0, 0, 0, 0.1)', blur: 2, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: true, color: 'rgba(255, 255, 255, 0.08)', opacity: 0.08, paddingX: 14, paddingY: 8, borderRadius: 10 },
+    highlightMode: 'color',
+    activeWordColor: '#c4b5fd',
+    inactiveOpacity: 0.55,
+    transition: { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 30 },
+  }),
+
+  'storyteller': tmpl('storyteller', 'Storyteller', 'lifestyle', true, {
+    font: { family: 'Lora', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: 0,
+    lineSpacing: 1.4,
+    textColor: { mode: 'solid', solid: '#FEF3C7' },
+    shadow: { color: 'rgba(0, 0, 0, 0.5)', blur: 8, offsetX: 0, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#fbbf24',
+    inactiveOpacity: 0.5,
+    transition: { type: 'fade', target: 'word', speedMode: 'fixed', speed: 30 },
+  }),
+
+  'daily-vlog': tmpl('daily-vlog', 'Daily Vlog', 'lifestyle', true, {
+    font: { family: 'Karla', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: 0,
+    lineSpacing: 1.3,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.4)', blur: 6, offsetX: 0, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#facc15',
+    inactiveOpacity: 0.6,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  // ─── PROFESSIONAL ───────────────────────────────────────────────────
+
+  'tutorial-clean': tmpl('tutorial-clean', 'Tutorial Clean', 'professional', true, {
+    font: { family: 'Source Sans 3', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: 0,
+    lineSpacing: 1.4,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.2)', blur: 2, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: true, color: 'rgba(0, 0, 0, 0.7)', opacity: 0.7, paddingX: 14, paddingY: 8, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#60a5fa',
+    inactiveOpacity: 0.75,
+    transition: { type: 'none', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  'news-ticker': tmpl('news-ticker', 'News Ticker', 'professional', true, {
+    font: { family: 'Barlow Condensed', weight: 700, italic: false, underline: false, textTransform: 'uppercase' },
+    fontSize: 30,
+    letterSpacing: 2,
+    lineSpacing: 1.2,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.3)', blur: 2, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: true, color: 'rgba(220, 38, 38, 0.9)', opacity: 0.9, paddingX: 16, paddingY: 8, borderRadius: 2 },
+    highlightMode: 'none',
+    activeWordColor: '#FFFFFF',
+    inactiveOpacity: 1.0,
+    transition: { type: 'slide-right', target: 'line', speedMode: 'dynamic', speed: 20 },
+  }),
+
+  'corporate': tmpl('corporate', 'Corporate', 'professional', true, {
+    font: { family: 'IBM Plex Mono', weight: 500, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 24,
+    letterSpacing: 1,
+    lineSpacing: 1.5,
+    textColor: { mode: 'solid', solid: '#F1F5F9' },
+    shadow: { color: 'rgba(0, 0, 0, 0.15)', blur: 2, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#38bdf8',
+    inactiveOpacity: 0.6,
+    transition: { type: 'fade', target: 'word', speedMode: 'fixed', speed: 30 },
+  }),
+
+  'tech-startup': tmpl('tech-startup', 'Tech Startup', 'professional', true, {
+    font: { family: 'Space Grotesk', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: -1,
+    lineSpacing: 1.3,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.35)', blur: 6, offsetX: 0, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'scale',
+    activeWordColor: '#818cf8',
+    inactiveOpacity: 0.6,
+    transition: { type: 'scale', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  'podcast-style': tmpl('podcast-style', 'Podcast Style', 'professional', true, {
+    font: { family: 'DM Sans', weight: 500, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 26,
+    letterSpacing: 0,
+    lineSpacing: 1.4,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.2)', blur: 3, offsetX: 0, offsetY: 1 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#a78bfa',
+    inactiveOpacity: 0.65,
+    transition: { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 30 },
+  }),
+
+  'presentation': tmpl('presentation', 'Presentation', 'professional', true, {
+    font: { family: 'Outfit', weight: 600, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 30,
+    letterSpacing: 0,
+    lineSpacing: 1.3,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.3)', blur: 4, offsetX: 0, offsetY: 1 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#facc15',
+    inactiveOpacity: 0.65,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  'finance-pro': tmpl('finance-pro', 'Finance Pro', 'professional', true, {
+    font: { family: 'Oswald', weight: 600, italic: false, underline: false, textTransform: 'uppercase' },
+    fontSize: 30,
+    letterSpacing: 2,
+    lineSpacing: 1.2,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.7)', blur: 10, offsetX: 1, offsetY: 2 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: true, color: 'rgba(0, 0, 0, 0.75)', opacity: 0.75, paddingX: 14, paddingY: 8, borderRadius: 4 },
+    highlightMode: 'color',
+    activeWordColor: '#4ade80',
+    inactiveOpacity: 0.6,
+    transition: { type: 'none', target: 'word', speedMode: 'dynamic', speed: 25 },
+  }),
+
+  // ─── VIRAL ──────────────────────────────────────────────────────────
+
+  'viral-reels': tmpl('viral-reels', 'Viral Reels', 'viral', true, {
+    font: { family: 'Montserrat', weight: 900, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 44,
+    letterSpacing: -2,
+    lineSpacing: 1.0,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.9)', blur: 10, offsetX: 2, offsetY: 3 },
+    stroke: { enabled: true, color: '#000000', width: 3 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'karaoke',
+    activeWordColor: '#facc15',
+    inactiveOpacity: 0.4,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 18 },
+  }),
+
+  'tiktok-energy': tmpl('tiktok-energy', 'TikTok Energy', 'viral', true, {
+    font: { family: 'Anton', weight: 400, italic: false, underline: false, textTransform: 'uppercase' },
+    fontSize: 42,
+    letterSpacing: 2,
+    lineSpacing: 1.0,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 255, 136, 0.6)', blur: 20, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: true, color: '#000000', width: 3 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'karaoke',
+    activeWordColor: '#00ff88',
+    inactiveOpacity: 0.4,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 18 },
+  }),
+
+  'shorts-fire': tmpl('shorts-fire', 'Shorts Fire', 'viral', true, {
+    font: { family: 'Bebas Neue', weight: 400, italic: false, underline: false, textTransform: 'uppercase' },
+    fontSize: 46,
+    letterSpacing: 4,
+    lineSpacing: 1.0,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.8)', blur: 8, offsetX: 2, offsetY: 2 },
+    stroke: { enabled: true, color: '#000000', width: 2 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#f97316',
+    inactiveOpacity: 0.45,
+    transition: { type: 'slide-up', target: 'word', speedMode: 'dynamic', speed: 20 },
+  }),
+
+  'meme-lord': tmpl('meme-lord', 'Meme Lord', 'viral', true, {
+    font: { family: 'Bangers', weight: 400, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 38,
+    letterSpacing: 2,
+    lineSpacing: 1.1,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.3)', blur: 0, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: true, color: '#000000', width: 4 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#facc15',
+    inactiveOpacity: 0.6,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 20 },
+  }),
+
+  'street-style': tmpl('street-style', 'Street Style', 'viral', true, {
+    font: { family: 'Bungee', weight: 400, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 34,
+    letterSpacing: 1,
+    lineSpacing: 1.1,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.8)', blur: 10, offsetX: 2, offsetY: 3 },
+    stroke: { enabled: true, color: '#000000', width: 2 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'karaoke',
+    activeWordColor: '#fb923c',
+    inactiveOpacity: 0.4,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 18 },
+  }),
+
+  'neon-nights': tmpl('neon-nights', 'Neon Nights', 'viral', true, {
+    font: { family: 'Orbitron', weight: 700, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 30,
+    letterSpacing: 2,
+    lineSpacing: 1.2,
+    textColor: { mode: 'solid', solid: '#E0F2FE' },
+    shadow: { color: 'rgba(139, 92, 246, 0.9)', blur: 30, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: true, color: '#000000', width: 1 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'karaoke',
+    activeWordColor: '#22d3ee',
+    inactiveOpacity: 0.4,
+    transition: { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 22 },
+  }),
+
+  'retro-vhs': tmpl('retro-vhs', 'Retro VHS', 'viral', true, {
+    font: { family: 'Press Start 2P', weight: 400, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 20,
+    letterSpacing: 2,
+    lineSpacing: 1.6,
+    textColor: { mode: 'solid', solid: '#00ff00' },
+    shadow: { color: 'rgba(0, 255, 0, 0.4)', blur: 8, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: false, color: '#000000', width: 0 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#ffffff',
+    inactiveOpacity: 0.5,
+    transition: { type: 'fade', target: 'word', speedMode: 'fixed', speed: 35 },
+  }),
+
+  'gaming-hud': tmpl('gaming-hud', 'Gaming HUD', 'viral', true, {
+    font: { family: 'Audiowide', weight: 400, italic: false, underline: false, textTransform: 'none' },
+    fontSize: 28,
+    letterSpacing: 2,
+    lineSpacing: 1.3,
+    textColor: { mode: 'solid', solid: '#E0F2FE' },
+    shadow: { color: 'rgba(59, 130, 246, 0.6)', blur: 14, offsetX: 0, offsetY: 0 },
+    stroke: { enabled: true, color: '#000000', width: 1 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'color',
+    activeWordColor: '#3b82f6',
+    inactiveOpacity: 0.5,
+    transition: { type: 'slide-up', target: 'word', speedMode: 'dynamic', speed: 22 },
+  }),
+
+  'motivation-beast': tmpl('motivation-beast', 'Motivation Beast', 'viral', true, {
+    font: { family: 'Teko', weight: 700, italic: false, underline: false, textTransform: 'uppercase' },
+    fontSize: 48,
+    letterSpacing: 3,
+    lineSpacing: 1.0,
+    textColor: { mode: 'solid', solid: '#FFFFFF' },
+    shadow: { color: 'rgba(0, 0, 0, 0.9)', blur: 12, offsetX: 2, offsetY: 3 },
+    stroke: { enabled: true, color: '#000000', width: 4 },
+    background: { enabled: false, color: 'rgba(0,0,0,0)', opacity: 0, paddingX: 12, paddingY: 6, borderRadius: 6 },
+    highlightMode: 'karaoke',
+    activeWordColor: '#ef4444',
+    inactiveOpacity: 0.35,
+    transition: { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 15 },
+  }),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -520,7 +856,7 @@ export function getAllTemplates(): TemplateConfig[] {
 }
 
 export function getTemplateCategories(): TemplateCategory[] {
-  return ['featured', 'creator', 'minimal', 'bold', 'cinematic'];
+  return ['featured', 'creator', 'minimal', 'bold', 'cinematic', 'lifestyle', 'professional', 'viral'];
 }
 
 export const TEMPLATE_COUNT = Object.keys(TEMPLATE_REGISTRY).length;

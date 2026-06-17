@@ -70,12 +70,18 @@ export type TransitionType =
   | 'slide-right'
   | 'slide-up'
   | 'slide-down'
-  | 'zoom';
+  | 'zoom'
+  | 'flip-x'
+  | 'flip-y'
+  | 'spin'
+  | 'blur'
+  | 'bounce'
+  | 'elastic';
 
 export const TRANSITION_TYPES: TransitionType[] = [
   'none', 'fade', 'pop', 'scale',
   'slide-left', 'slide-right', 'slide-up', 'slide-down',
-  'zoom',
+  'zoom', 'flip-x', 'flip-y', 'spin', 'blur', 'bounce', 'elastic',
 ];
 
 export interface TransitionConfig {
@@ -165,7 +171,7 @@ export interface SubtitleStyleV2 {
 // TEMPLATE
 // ═══════════════════════════════════════════════════════════════════════
 
-export type TemplateCategory = 'featured' | 'creator' | 'minimal' | 'bold' | 'cinematic';
+export type TemplateCategory = 'featured' | 'creator' | 'minimal' | 'bold' | 'cinematic' | 'lifestyle' | 'professional' | 'viral';
 
 export interface TemplateConfig {
   id: string;
@@ -311,9 +317,17 @@ export function isV2(style: unknown): style is SubtitleStyleV2 {
   return (style as SubtitleStyleV2)?._version === 2;
 }
 
-/** Idempotent: returns V2 whether input is V1 or V2 */
 export function ensureV2(style: unknown): SubtitleStyleV2 {
-  if (isV2(style)) return style;
+  if (isV2(style)) {
+    // Self-heal corrupted double-nested colors from previous bugs
+    const v2 = style as any;
+    if (v2.textColor?.solid && typeof v2.textColor.solid === 'object') {
+      v2.textColor.solid = typeof v2.textColor.solid.solid === 'string' 
+        ? v2.textColor.solid.solid 
+        : '#FFFFFF';
+    }
+    return v2 as SubtitleStyleV2;
+  }
   return migrateV1ToV2(style as SubtitleStyleV1);
 }
 

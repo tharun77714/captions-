@@ -1,0 +1,62 @@
+{
+  "id": "83838c82-3ac6-4ec8-9f3e-b41236bb7287",
+  "user_id": "00000000-0000-0000-0000-000000000000",
+  "title": "WhatsApp Video 2026-06-13 at 00.21.11.mp4",
+  "status": "ready",
+  "media_url": "anon_user/dd693695-16af-4a32-9574-d65ecf93eae6/raw.mp4",
+  "duration_ms": 0,
+  "created_at": "2026-06-14T18:45:43.282279+00:00",
+  "updated_at": "2026-06-14T18:45:43.282279+00:00",
+  "subtitle_style": {
+    "blur": 0,
+    "font": {
+      "family": "Inter",
+      "italic": false,
+      "weight": 700,
+      "underline": false,
+      "textTransform": "none"
+    },
+    "shadow": {
+      "blur": 4,
+      "color": "rgba(0, 0, 0, 0.5)",
+      "offsetX": 0,
+      "offsetY": 0
+    },
+    "stroke": {
+      "color": "#000000",
+      "width": 0,
+      "enabled": false
+    },
+    "_version": 2,
+    "fontSize": 24,
+    "alignment": "center",
+    "positionX": 0,
+    "positionY": 40,
+    "textColor": {
+      "mode": "solid",
+      "solid": "#FFFFFF"
+    },
+    "background": {
+      "color": "rgba(0, 0, 0, 0.75)",
+      "enabled": true,
+      "opacity": 0.75,
+      "paddingX": 12,
+      "paddingY": 6,
+      "borderRadius": 6
+    },
+    "transition": {
+      "type": "none",
+      "speed": 25,
+      "target": "word",
+      "speedMode": "dynamic"
+    },
+    "lineSpacing": 1.375,
+    "wordSpacing": 0,
+    "letterSpacing": 0,
+    "activeWordColor": "#facc15",
+    "inactiveOpacity": 0.5
+  },
+  "export_status": "completed",
+  "export_url": "exports/83838c82-3ac6-4ec8-9f3e-b41236bb7287/final.mp4",
+  "export_error": null
+}

@@ -53,7 +53,11 @@ export function useUpload() {
       const projectRes = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: file.name, s3Key: key }),
+        body: JSON.stringify({ 
+          title: file.name, 
+          s3Key: key,
+          sourceLanguage: useUploadStore.getState().sourceLanguage
+        }),
       });
 
       if (!projectRes.ok) throw new Error('Failed to create project record');

@@ -2,14 +2,17 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useEditorStore, Segment, Word, SubtitleStyle } from '@/store/editor-store';
+import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
 import { VideoPlayer, VideoPlayerRef } from '@/components/editor/video-player';
 import { TranscriptPanel } from '@/components/editor/transcript-panel';
 import { StylePanel } from '@/components/editor/style-panel';
 import { Timeline } from '@/components/editor/timeline';
 import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video } from 'lucide-react';
 import Link from 'next/link';
-import { migrateV1ToV2 } from '@/lib/subtitle-schema-v2';
+import { ensureV3, getAllUsedFonts } from '@/lib/subtitle-schema-v3';
+import { preloadFonts } from '@/lib/font-registry';
 import { ExportModal, ExportOptions } from '@/components/editor/export-modal';
+import { motion } from 'framer-motion';
 
 interface EditorClientProps {
   project: {
@@ -23,6 +26,11 @@ interface EditorClientProps {
     language: string;
     segments: Segment[];
     words: Word[];
+    transliteratedSegments?: Segment[] | null;
+    transliteratedWords?: Word[] | null;
+    translatedSegments?: Segment[] | null;
+    translatedWords?: Word[] | null;
+    waveform?: number[];
   };
 }
 
@@ -31,6 +39,11 @@ export type ExportStatus = 'none' | 'exporting' | 'completed' | 'failed';
 export function EditorClient({ project, transcription }: EditorClientProps) {
   const {
     segments,
+    originalSegments,
+    transliteratedSegments,
+    translatedSegments,
+    subtitleMode,
+    setSubtitleMode,
     subtitleStyle,
     setProjectData,
     setVideoUrl,
@@ -47,6 +60,9 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     setTimelineZoom,
     setEditMode,
     validateTimingModel,
+    waveform,
+    setWaveform,
+    videoUrl,
   } = useEditorStore();
 
   const [loading, setLoading] = useState(true);
@@ -62,11 +78,26 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       projectTitle: project.title,
       language: transcription.language,
     });
-    setTranscriptData(transcription.segments, transcription.words);
+    setTranscriptData(
+      transcription.segments,
+      transcription.words,
+      transcription.transliteratedSegments || undefined,
+      transcription.transliteratedWords || undefined,
+      transcription.translatedSegments || undefined,
+      transcription.translatedWords || undefined
+    );
     if (project.subtitle_style) {
-      setSubtitleStyle(migrateV1ToV2(project.subtitle_style));
+      setSubtitleStyle(ensureV3(project.subtitle_style));
     }
   }, [project, transcription, setProjectData, setTranscriptData, setSubtitleStyle]);
+
+  // Dynamic Font Loading
+  useEffect(() => {
+    if (subtitleStyle) {
+      const fonts = getAllUsedFonts(subtitleStyle);
+      preloadFonts(fonts).catch(err => console.error('Failed to preload fonts:', err));
+    }
+  }, [subtitleStyle]);
 
   const handleSave = React.useCallback(async (): Promise<boolean> => {
     setSaveStatus('saving');
@@ -75,21 +106,42 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       const validation = validateTimingModel();
       if (!validation.isValid) {
         console.error('Save aborted due to timing validation failure:', validation.errors);
-        alert('Cannot save: Timing model corrupted.\\n\\n' + validation.errors.join('\\n'));
+        alert('Cannot save: Timing model corrupted.\n\n' + validation.errors.join('\n'));
         setSaveStatus('error');
         setTimeout(() => setSaveStatus('idle'), 3000);
         return false;
       }
 
-      // Flatten words for backward compatibility with database schema
-      const flatWords = segments.flatMap(s => s.words);
+      // Get all arrays from store state to ensure we save backing arrays
+      const state = useEditorStore.getState();
+
+      const getBackingUpdates = (mode: string, currentSegs: Segment[]) => {
+        const updates: { original?: Segment[], transliterated?: Segment[], translated?: Segment[] } = {};
+        if (mode === 'original') updates.original = currentSegs;
+        else if (mode === 'transliterated') updates.transliterated = currentSegs;
+        else if (mode === 'translated') updates.translated = currentSegs;
+        return updates;
+      };
+
+      const backing = getBackingUpdates(state.subtitleMode, state.segments);
+      const finalOriginal = backing.original || state.originalSegments;
+      const finalTranslit = backing.transliterated || state.transliteratedSegments;
+      const finalTranslated = backing.translated || state.translatedSegments;
+
+      const flatOriginalWords = finalOriginal.flatMap(s => s.words);
+      const flatTranslitWords = finalTranslit.flatMap(s => s.words);
+      const flatTranslatedWords = finalTranslated.flatMap(s => s.words);
 
       const res = await fetch(`/api/transcriptions/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          segments,
-          words: flatWords,
+          segments: finalOriginal,
+          words: flatOriginalWords,
+          transliteratedSegments: finalTranslit,
+          transliteratedWords: flatTranslitWords,
+          translatedSegments: finalTranslated,
+          translatedWords: flatTranslatedWords,
           subtitleStyle,
         }),
       });
@@ -108,7 +160,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       setTimeout(() => setSaveStatus('idle'), 3000);
       return false;
     }
-  }, [project.id, segments, subtitleStyle, validateTimingModel]);
+  }, [project.id, subtitleStyle, validateTimingModel]);
 
   const handleExport = async (options: ExportOptions) => {
     if (exportStatus === 'exporting') return;
@@ -124,11 +176,23 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     try {
       // Capture actual rendered measurements from the browser DOM
       const measurements = videoPlayerRef.current?.getRenderedMeasurements();
-      
+      const state = useEditorStore.getState();
+      const resolvedStyles: Record<string, ReturnType<typeof resolveWordStyle>> = {};
+      state.segments.forEach(seg => {
+        seg.words.forEach(w => {
+          resolvedStyles[w.id] = resolveWordStyle(state.subtitleStyle, seg.id, w.id);
+        });
+      });
+
       const res = await fetch(`/api/projects/${project.id}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ measurements: measurements || null, options }),
+        body: JSON.stringify({
+          measurements: measurements || null,
+          subtitleMode,
+          options,
+          resolvedStyles
+        }),
       });
       
       if (!res.ok) {
@@ -283,6 +347,78 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     fetchVideoUrl();
   }, [project.media_url, setVideoUrl]);
 
+  // Generate waveform if needed
+  useEffect(() => {
+    if (!videoUrl || (waveform && waveform.min.length > 0)) return;
+
+    let isCancelled = false;
+    async function generateWaveform() {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const response = await fetch(videoUrl as string);
+        const arrayBuffer = await response.arrayBuffer();
+        if (isCancelled) return;
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        if (isCancelled) return;
+
+        const channelData = audioBuffer.getChannelData(0);
+        const bucketsPerSecond = 100; // High resolution caching
+        const samplesPerBucket = Math.floor(audioBuffer.sampleRate / bucketsPerSecond);
+        
+        const minPeaks: number[] = [];
+        const maxPeaks: number[] = [];
+        let globalMax = 0;
+        
+        for (let i = 0; i < channelData.length; i += samplesPerBucket) {
+          let min = 0;
+          let max = 0;
+          for (let j = 0; j < samplesPerBucket && i + j < channelData.length; j++) {
+            const val = channelData[i + j];
+            if (val < min) min = val;
+            if (val > max) max = val;
+          }
+          minPeaks.push(min);
+          maxPeaks.push(max);
+          if (max > globalMax) globalMax = max;
+          if (-min > globalMax) globalMax = -min;
+        }
+
+        const normalizedMin = globalMax > 0 ? minPeaks.map(v => v / globalMax) : minPeaks;
+        const normalizedMax = globalMax > 0 ? maxPeaks.map(v => v / globalMax) : maxPeaks;
+        
+        if (!isCancelled) {
+          setWaveform({
+            min: normalizedMin,
+            max: normalizedMax,
+            resolution: bucketsPerSecond
+          });
+        }
+      } catch (err) {
+        console.error('Failed to generate waveform:', err);
+      }
+    }
+    generateWaveform();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [videoUrl, waveform, setWaveform]);
+
+  // Dynamically load font
+  useEffect(() => {
+    const fontName = subtitleStyle.font.family;
+    if (fontName === 'Geist' || fontName === 'Inter') return; // Loaded via next/font
+
+    const linkId = `font-${fontName.replace(/\s+/g, '-')}`;
+    if (document.getElementById(linkId)) return;
+
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&display=swap`;
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, [subtitleStyle.font.family]);
+
   if (loading) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
@@ -339,6 +475,32 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           <span className="text-[10px] font-mono px-2 py-1 bg-zinc-900 text-zinc-500 rounded uppercase">
             {transcription.language}
           </span>
+
+          {/* Subtitle Mode Toggle Group */}
+          <div className="flex items-center bg-zinc-900 border border-white/5 rounded-lg p-0.5 relative select-none">
+            {(['original', 'transliterated', 'translated'] as const).map((mode) => {
+              const isActive = subtitleMode === mode;
+              const label = mode === 'original' ? 'Original' : mode === 'transliterated' ? 'Romanized' : 'Translated';
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setSubtitleMode(mode)}
+                  className={`relative px-2.5 py-1 text-xs font-medium rounded-md transition-colors duration-200 cursor-pointer z-10 ${
+                    isActive ? 'text-white font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-script-mode"
+                      className="absolute inset-0 bg-white/10 rounded-md -z-10 border border-white/10"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <button
             onClick={handleSave}
             disabled={saveStatus === 'saving' || exportStatus === 'exporting'}
@@ -415,7 +577,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             </div>
 
             {/* Style Panel */}
-            <div className="w-[280px] shrink-0 border-l border-white/5">
+            <div className="w-[320px] shrink-0 border-l border-white/5">
               <StylePanel />
             </div>
           </div>

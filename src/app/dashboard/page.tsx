@@ -1,8 +1,8 @@
 import React from 'react';
 import { DragAndDrop } from '@/components/upload/drag-and-drop';
 import { createClient } from '@/lib/supabase/server';
-import Link from 'next/link';
-import { Clock, CheckCircle2, AlertCircle, Loader2, Video } from 'lucide-react';
+import { Video } from 'lucide-react';
+import { ProjectCard } from '@/components/dashboard/project-card';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -41,32 +41,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {projects.map((project) => (
-                <Link
-                  href={`/dashboard/projects/${project.id}`}
-                  key={project.id}
-                  className="group flex flex-col p-5 bg-zinc-900/50 border border-white/10 rounded-xl hover:bg-zinc-800/50 transition-all duration-300 hover:border-violet-500/50"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="font-medium truncate pr-4 group-hover:text-violet-400 transition-colors">
-                      {project.title || 'Untitled Project'}
-                    </h3>
-                    <ProjectStatusBadge status={project.status} />
-                  </div>
-                  <div className="mt-auto flex items-center justify-between text-xs text-zinc-500">
-                    <span>
-                      {new Intl.DateTimeFormat('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      }).format(new Date(project.created_at))}
-                    </span>
-                    {project.language && (
-                      <span className="uppercase px-2 py-1 bg-zinc-800 rounded-md">
-                        {project.language}
-                      </span>
-                    )}
-                  </div>
-                </Link>
+                <ProjectCard key={project.id} project={project} />
               ))}
             </div>
           )}
@@ -74,43 +49,4 @@ export default async function DashboardPage() {
       </main>
     </div>
   );
-}
-
-function ProjectStatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case 'ready':
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 rounded-full">
-          <CheckCircle2 className="w-3 h-3 mr-1" />
-          Ready
-        </span>
-      );
-    case 'transcribing':
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-blue-400 bg-blue-400/10 rounded-full">
-          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-          Processing
-        </span>
-      );
-    case 'queued':
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-zinc-400 bg-zinc-400/10 rounded-full">
-          <Clock className="w-3 h-3 mr-1" />
-          Queued
-        </span>
-      );
-    case 'failed':
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-red-400 bg-red-400/10 rounded-full">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          Failed
-        </span>
-      );
-    default:
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-zinc-400 bg-zinc-400/10 rounded-full">
-          {status}
-        </span>
-      );
-  }
 }

@@ -21,6 +21,8 @@ export function TranscriptPanel() {
     autoLineBreak,
     removeFillers,
     replaceText,
+    selectedWordIds,
+    toggleWordSelection,
   } = useEditorStore();
 
   const [replaceQuery, setReplaceQuery] = React.useState('');
@@ -78,6 +80,7 @@ export function TranscriptPanel() {
             <button 
               onClick={() => setShowReplace(!showReplace)}
               className="absolute right-2 p-1 text-zinc-500 hover:text-white transition-colors"
+              title="Toggle Find and Replace"
             >
               {showReplace ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
@@ -162,6 +165,8 @@ export function TranscriptPanel() {
             currentTime={currentTime}
             onWordClick={handleWordClick}
             updateWordText={updateWordText}
+            selectedWordIds={selectedWordIds}
+            toggleWordSelection={toggleWordSelection}
           />
         )}
       </div>
@@ -280,11 +285,15 @@ function WordList({
   currentTime,
   onWordClick,
   updateWordText,
+  selectedWordIds,
+  toggleWordSelection,
 }: {
   words: { id: string; segId: number; word: string; start: number; end: number }[];
   currentTime: number;
   onWordClick: (start: number) => void;
   updateWordText: (segId: number, wordId: string, text: string) => void;
+  selectedWordIds: string[];
+  toggleWordSelection: (wordId: string, multiSelect: boolean) => void;
 }) {
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
   const [tempValue, setTempValue] = React.useState('');
@@ -320,6 +329,7 @@ function WordList({
           words.map((word, i) => {
             const isActive = currentTime >= word.start && currentTime <= word.end;
             const isEditing = editingIndex === i;
+            const isSelected = selectedWordIds.includes(word.id);
 
             if (isEditing) {
               return (
@@ -343,14 +353,23 @@ function WordList({
               <button
                 key={word.id}
                 ref={isActive ? activeRef : null}
-                onClick={() => onWordClick(word.start)}
+                onClick={(e) => {
+                  if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                    toggleWordSelection(word.id, true);
+                  } else {
+                    onWordClick(word.start);
+                    toggleWordSelection(word.id, false);
+                  }
+                }}
                 onDoubleClick={() => startEditing(i, word.word)}
                 className={`px-2 py-1 rounded text-sm transition-all duration-150 relative ${
-                  isActive
-                    ? 'bg-violet-500 text-white scale-105 shadow-lg shadow-violet-500/20 font-medium'
-                    : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+                  isSelected 
+                    ? 'bg-violet-600 border border-violet-400 text-white shadow-[0_0_10px_rgba(139,92,246,0.5)] z-10'
+                    : isActive
+                      ? 'bg-violet-500/20 text-violet-300 font-medium'
+                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 border border-transparent'
                 }`}
-                title={`Double click to edit | ${word.start.toFixed(2)}s - ${word.end.toFixed(2)}s`}
+                title={`Double click to edit | Shift+Click to multi-select | ${word.start.toFixed(2)}s - ${word.end.toFixed(2)}s`}
               >
                 {word.word}
               </button>

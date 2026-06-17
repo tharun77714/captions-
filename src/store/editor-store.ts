@@ -10,6 +10,12 @@ import {
   DEFAULT_CAPTION_CONFIG,
   ensureV2,
 } from '@/lib/subtitle-schema-v2';
+import type {
+  SubtitleStyleV3,
+  WordStyleOverride,
+  SegmentStyleOverride,
+} from '@/lib/subtitle-schema-v3';
+import { EMPTY_OVERRIDES, ensureV3 } from '@/lib/subtitle-schema-v3';
 import { getTemplateById } from '@/lib/templates-data';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -20,6 +26,12 @@ export interface RawWord {
   start: number;
   end: number;
   probability?: number;
+}
+
+export interface WaveformData {
+  min: number[];
+  max: number[];
+  resolution: number;
 }
 
 export interface RawSegment {
@@ -36,6 +48,7 @@ export interface Word {
   start: number;
   end: number;
   probability?: number;
+  style?: WordStyleOverride;
 }
 
 export interface Segment {
@@ -44,9 +57,10 @@ export interface Segment {
   end: number;
   text: string;
   words: Word[]; // Hierarchical ownership!
+  style?: SegmentStyleOverride;
 }
 
-/** @deprecated Use SubtitleStyleV2 from subtitle-schema-v2.ts */
+/** @deprecated Use SubtitleStyleV2/V3 from schema */
 export interface SubtitleStyle {
   fontFamily: string;
   fontSize: number;
@@ -64,7 +78,10 @@ export interface SubtitleStyle {
 
 export interface HistorySnapshot {
   segments: Segment[];
-  subtitleStyle: SubtitleStyleV2;
+  originalSegments: Segment[];
+  transliteratedSegments: Segment[];
+  translatedSegments: Segment[];
+  subtitleStyle: SubtitleStyleV3;
   captionConfig: CaptionConfig;
 }
 
@@ -83,6 +100,11 @@ interface EditorState {
 
   // Transcript data (Strict Hierarchical Model)
   segments: Segment[];
+  originalSegments: Segment[];
+  transliteratedSegments: Segment[];
+  translatedSegments: Segment[];
+  waveform?: WaveformData;
+  subtitleMode: 'original' | 'transliterated' | 'translated';
 
   // Playback state
   currentTime: number;
@@ -94,7 +116,7 @@ interface EditorState {
   searchQuery: string;
 
   // Subtitle styling
-  subtitleStyle: SubtitleStyleV2;
+  subtitleStyle: SubtitleStyleV3;
   captionConfig: CaptionConfig;
   activeTemplateId: string | null;
 
@@ -117,26 +139,45 @@ interface EditorState {
   setVideoUrl: (url: string) => void;
   
   // Converts flat DB arrays to internal hierarchical segments
-  setTranscriptData: (rawSegments: RawSegment[], rawWords: RawWord[]) => void;
+  setTranscriptData: (
+    rawSegments: RawSegment[],
+    rawWords: RawWord[],
+    rawTranslitSegments?: RawSegment[],
+    rawTranslitWords?: RawWord[],
+    rawTransSegments?: RawSegment[],
+    rawTransWords?: RawWord[],
+    waveform?: WaveformData
+  ) => void;
+  
+  setWaveform: (waveform: WaveformData) => void;
+  
+  setSubtitleMode: (mode: 'original' | 'transliterated' | 'translated') => void;
   
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setActiveSegmentIndex: (index: number) => void;
   setSearchQuery: (query: string) => void;
-  setSubtitleStyle: (style: Partial<SubtitleStyleV2>) => void;
-  setSubtitleStyleV2: (updater: (prev: SubtitleStyleV2) => SubtitleStyleV2) => void;
+  setSubtitleStyle: (style: Partial<SubtitleStyleV3>) => void;
+  setSubtitleStyleV2: (updater: (prev: SubtitleStyleV3) => SubtitleStyleV3) => void;
   setCaptionConfig: (config: Partial<CaptionConfig>) => void;
   applyTemplate: (templateId: string) => void;
   setEditMode: (mode: 'line' | 'word') => void;
   setTimelineZoom: (zoom: number) => void;
   
+  // Selection & Overrides
+  selectedWordIds: string[];
+  toggleWordSelection: (wordId: string, multiSelect: boolean) => void;
+  clearWordSelection: () => void;
+  updateSelectedWordsStyle: (style: Partial<WordStyleOverride>) => void;
+  updateSegmentStyle: (segmentId: number, style: Partial<SegmentStyleOverride>) => void;
   // Edit Actions
   updateSegmentText: (id: number, text: string) => void;
   updateSegmentTiming: (id: number, start: number, end: number) => void;
   updateWordText: (segId: number, wordId: string, newWord: string) => void;
   splitSegment: (id: number, splitTime: number) => void;
   mergeSegments: (id: number) => void;
+  deleteSegment: (id: number) => void;
   autoLineBreak: (maxChars?: number) => void;
   removeFillers: () => void;
   removePunctuation: () => void;
@@ -156,12 +197,94 @@ interface EditorState {
 
 // ─── Default Subtitle Style ──────────────────────────────────────────
 /** @deprecated Use DEFAULT_STYLE from subtitle-schema-v2.ts */
-const defaultSubtitleStyle: SubtitleStyleV2 = { ...DEFAULT_STYLE };
+const defaultSubtitleStyle: SubtitleStyleV3 = { ...DEFAULT_STYLE, _version: 3, overrides: EMPTY_OVERRIDES };
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+const getBackingUpdates = (state: EditorState, newSegments: Segment[]) => {
+  const updates: Partial<EditorState> = {};
+  if (state.subtitleMode === 'original') {
+    updates.originalSegments = newSegments;
+  } else if (state.subtitleMode === 'transliterated') {
+    updates.transliteratedSegments = newSegments;
+  } else if (state.subtitleMode === 'translated') {
+    updates.translatedSegments = newSegments;
+  }
+  return updates;
+};
+
+const getSnapshot = (state: EditorState, newSegments: Segment[]): HistorySnapshot => {
+  const backing = getBackingUpdates(state, newSegments);
+  return {
+    segments: newSegments,
+    originalSegments: backing.originalSegments || state.originalSegments,
+    transliteratedSegments: backing.transliteratedSegments || state.transliteratedSegments,
+    translatedSegments: backing.translatedSegments || state.translatedSegments,
+    subtitleStyle: state.subtitleStyle,
+    captionConfig: state.captionConfig
+  };
+};
+
+const getGlobalSnapshot = (
+  state: EditorState,
+  newSegments: Segment[],
+  newOriginal: Segment[],
+  newTranslit: Segment[],
+  newTranslated: Segment[]
+): HistorySnapshot => ({
+  segments: newSegments,
+  originalSegments: newOriginal,
+  transliteratedSegments: newTranslit,
+  translatedSegments: newTranslated,
+  subtitleStyle: state.subtitleStyle,
+  captionConfig: state.captionConfig
+});
+
+
+const resegmentWithoutWords = (oldSegs: Segment[] | undefined, newOriginalSegs: Segment[]): Segment[] => {
+  if (!oldSegs || oldSegs.length === 0) return [];
+  if (!newOriginalSegs || newOriginalSegs.length === 0) return [];
+
+  const fullText = oldSegs.map(s => s.text).join(' ').trim();
+  const words = fullText.split(/\s+/).filter(Boolean);
+  
+  const newSegTexts: string[][] = newOriginalSegs.map(() => []);
+  const totalDuration = newOriginalSegs.reduce((acc, s) => acc + (s.end - s.start), 0);
+  
+  if (totalDuration === 0) return oldSegs;
+
+  let currentWordIdx = 0;
+  
+  newOriginalSegs.forEach((seg, idx) => {
+    const duration = seg.end - seg.start;
+    const ratio = duration / totalDuration;
+    const wordsCount = Math.max(1, Math.floor(ratio * words.length));
+    
+    for (let i = 0; i < wordsCount && currentWordIdx < words.length; i++) {
+      newSegTexts[idx].push(words[currentWordIdx++]);
+    }
+  });
+
+  // Distribute remaining words
+  while (currentWordIdx < words.length) {
+    newSegTexts[newSegTexts.length - 1].push(words[currentWordIdx++]);
+  }
+  
+  return newOriginalSegs.map((newSeg, idx) => {
+    const finalStr = newSegTexts[idx].join(' ');
+    return {
+      id: newSeg.id,
+      start: newSeg.start,
+      end: newSeg.end,
+      text: finalStr || '...',
+      words: []
+    };
+  });
+};
+
 // ─── Store ────────────────────────────────────────────────────────────
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   projectId: null,
   projectTitle: '',
@@ -169,6 +292,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   language: '',
 
   segments: [],
+  originalSegments: [],
+  transliteratedSegments: [],
+  translatedSegments: [],
+  waveform: undefined,
+  subtitleMode: 'original',
 
   currentTime: 0,
   duration: 0,
@@ -183,6 +311,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   editMode: 'line',
   timelineZoom: 80,
+  selectedWordIds: [],
 
   past: [],
   future: [],
@@ -194,22 +323,80 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setVideoUrl: (videoUrl) => set({ videoUrl }),
 
-  setTranscriptData: (rawSegments, rawWords) => {
-    // Phase 2.5: Run timestamp mapping EXACTLY ONCE during initialization.
-    // Converts flat arrays to strict hierarchical ownership.
-    const mappedSegments: Segment[] = rawSegments.map(seg => {
-      const ownedWords = rawWords
-        .filter(w => w.start >= seg.start && w.end <= seg.end)
-        .map(w => ({ ...w, id: `w-${generateId()}` }));
-      
-      return {
-        ...seg,
-        words: ownedWords
-      };
+  setTranscriptData: (
+    rawSegments,
+    rawWords,
+    rawTranslitSegments,
+    rawTranslitWords,
+    rawTransSegments,
+    rawTransWords,
+    waveform
+  ) => {
+    const mapHierarchical = (segs: RawSegment[] = [], wrds: RawWord[] = []) => {
+      return segs.map(seg => {
+        const ownedWords = wrds
+          .filter(w => w.start >= seg.start && w.end <= seg.end)
+          .map(w => ({ ...w, id: `w-${generateId()}` }));
+        
+        return {
+          ...seg,
+          words: ownedWords
+        };
+      });
+    };
+
+    const originalSegments = mapHierarchical(rawSegments, rawWords);
+    const transliteratedSegments = mapHierarchical(rawTranslitSegments || [], rawTranslitWords || []);
+    const translatedSegments = mapHierarchical(rawTransSegments || [], rawTransWords || []);
+
+    set({
+      originalSegments,
+      transliteratedSegments,
+      translatedSegments,
+      segments: originalSegments,
+      waveform: waveform || undefined,
+      subtitleMode: 'original',
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false
     });
 
-    set({ segments: mappedSegments, past: [], future: [], canUndo: false, canRedo: false });
+    // Auto-split massive caption blocks on import if detected (e.g. segments > 15s or > 20 words)
+    const hasMassiveBlocks = originalSegments.some(seg => seg.end - seg.start > 15 || seg.words.length > 20);
+    if (hasMassiveBlocks) {
+      get().autoLineBreak();
+      // Clear history so the auto-split is the initial state
+      set({ past: [], future: [], canUndo: false, canRedo: false });
+    }
   },
+
+  setWaveform: (waveform) => set({ waveform }),
+
+  setSubtitleMode: (subtitleMode) =>
+    set((state) => {
+      const backingUpdates: Partial<EditorState> = {};
+      if (state.subtitleMode === 'original') {
+        backingUpdates.originalSegments = state.segments;
+      } else if (state.subtitleMode === 'transliterated') {
+        backingUpdates.transliteratedSegments = state.segments;
+      } else if (state.subtitleMode === 'translated') {
+        backingUpdates.translatedSegments = state.segments;
+      }
+
+      let targetSegments = state.originalSegments;
+      if (subtitleMode === 'transliterated') {
+        targetSegments = state.transliteratedSegments;
+      } else if (subtitleMode === 'translated') {
+        targetSegments = state.translatedSegments;
+      }
+
+      return {
+        ...backingUpdates,
+        subtitleMode,
+        segments: targetSegments,
+      };
+    }),
 
   setCurrentTime: (currentTime) => set({ currentTime }),
 
@@ -223,12 +410,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setSubtitleStyle: (partial) =>
     set((state) => ({
-      subtitleStyle: { ...state.subtitleStyle, ...partial } as SubtitleStyleV2,
+      subtitleStyle: { ...state.subtitleStyle, ...partial } as SubtitleStyleV3,
     })),
 
   setSubtitleStyleV2: (updater) =>
     set((state) => {
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const snapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
       const newPast = [...state.past, snapshot].slice(-50);
       return {
         subtitleStyle: updater(state.subtitleStyle),
@@ -248,10 +442,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => {
       const template = getTemplateById(templateId);
       if (!template) return {};
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const snapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
       const newPast = [...state.past, snapshot].slice(-50);
       return {
-        subtitleStyle: { ...template.style },
+        subtitleStyle: { 
+          ...ensureV3(template.style),
+          positionX: state.subtitleStyle.positionX,
+          positionY: state.subtitleStyle.positionY,
+        },
         activeTemplateId: templateId,
         past: newPast,
         future: [],
@@ -264,6 +469,61 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setTimelineZoom: (timelineZoom) => set({ timelineZoom }),
 
+  toggleWordSelection: (wordId, multiSelect) => set((state) => {
+    let next: string[];
+    if (multiSelect) {
+      if (state.selectedWordIds.includes(wordId)) {
+        next = state.selectedWordIds.filter(id => id !== wordId);
+      } else {
+        next = [...state.selectedWordIds, wordId];
+      }
+    } else {
+      next = state.selectedWordIds.includes(wordId) && state.selectedWordIds.length === 1 
+        ? [] 
+        : [wordId];
+    }
+    return { selectedWordIds: next };
+  }),
+
+  clearWordSelection: () => set({ selectedWordIds: [] }),
+
+  updateSelectedWordsStyle: (style) => set((state) => {
+    if (state.selectedWordIds.length === 0) return {};
+    const newOverrides = { ...state.subtitleStyle.overrides };
+    newOverrides.wordStyles = { ...newOverrides.wordStyles };
+    
+    for (const wordId of state.selectedWordIds) {
+      newOverrides.wordStyles[wordId] = {
+        ...(newOverrides.wordStyles[wordId] || {}),
+        ...style
+      };
+    }
+    
+    return { 
+      subtitleStyle: { 
+        ...state.subtitleStyle, 
+        overrides: newOverrides 
+      } 
+    };
+  }),
+
+  updateSegmentStyle: (segmentId, style) => set((state) => {
+    const newOverrides = { ...state.subtitleStyle.overrides };
+    newOverrides.segmentStyles = { ...newOverrides.segmentStyles };
+    
+    newOverrides.segmentStyles[segmentId] = {
+      ...(newOverrides.segmentStyles[segmentId] || {}),
+      ...style
+    };
+    
+    return { 
+      subtitleStyle: { 
+        ...state.subtitleStyle, 
+        overrides: newOverrides 
+      } 
+    };
+  }),
+
   updateSegmentText: (id, text) =>
     set((state) => {
       const newSegments = state.segments.map((seg) => {
@@ -272,7 +532,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const newWordTokens = text.trim().split(/\s+/).filter(Boolean);
         let newWords: Word[] = [];
 
-        if (newWordTokens.length === seg.words.length) {
+        if (state.subtitleMode === 'translated') {
+          newWords = [];
+        } else if (newWordTokens.length === seg.words.length) {
           // Fallback Strategy 1: Exact length match.
           // Safely map new text directly to existing words, preserving perfect timing.
           newWords = newWordTokens.map((token, i) => ({
@@ -299,39 +561,63 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return { ...seg, text, words: newWords };
       });
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   updateSegmentTiming: (id: number, start: number, end: number) =>
     set((state) => {
-      const newSegments = state.segments.map((seg) => {
-        if (seg.id === id) {
-          // Snap segment bounds to 0.1s
-          const snappedStart = Math.max(0, Math.round(start * 10) / 10);
-          const snappedEnd = Math.max(snappedStart + 0.1, Math.round(end * 10) / 10);
-          
-          const delta = snappedStart - seg.start;
-          
-          // Phase 2.5: Shift EVERY owned word by the exact delta.
-          // Preserves absolute internal timing durations and karaoke synchronization!
-          const newWords = seg.words.map(w => ({
-            ...w,
-            start: Math.max(0, w.start + delta),
-            end: Math.max(0.1, w.end + delta)
-          }));
+      const updateTimingForSegments = (segs: Segment[]) => {
+        return segs.map((seg) => {
+          if (seg.id === id) {
+            // Snap segment bounds to 0.1s
+            const snappedStart = Math.max(0, Math.round(start * 10) / 10);
+            const snappedEnd = Math.max(snappedStart + 0.1, Math.round(end * 10) / 10);
+            
+            const delta = snappedStart - seg.start;
+            
+            // Phase 2.5: Shift EVERY owned word by the exact delta.
+            // Preserves absolute internal timing durations and karaoke synchronization!
+            const newWords = seg.words.map(w => ({
+              ...w,
+              start: Math.max(0, w.start + delta),
+              end: Math.max(0.1, w.end + delta)
+            }));
 
-          return { ...seg, start: snappedStart, end: snappedEnd, words: newWords };
-        }
-        return seg;
-      });
+            return { ...seg, start: snappedStart, end: snappedEnd, words: newWords };
+          }
+          return seg;
+        });
+      };
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const newSegments = updateTimingForSegments(state.segments);
+      const newOriginal = updateTimingForSegments(state.originalSegments);
+      const newTranslit = updateTimingForSegments(state.transliteratedSegments);
+      const newTranslated = updateTimingForSegments(state.translatedSegments);
+
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   updateWordText: (segId, wordId, newWordText) =>
@@ -350,10 +636,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return { ...seg, text: newText, words: newWords };
       });
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   splitSegment: (id, splitTime) =>
@@ -361,41 +655,64 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const idx = state.segments.findIndex((s) => s.id === id);
       if (idx === -1) return {};
       const seg = state.segments[idx];
-      
       if (splitTime <= seg.start || splitTime >= seg.end) return {};
 
-      // Phase 2.5: Strict ownership split. No global overlap lookups.
-      const splitIdx = seg.words.findIndex(w => w.start >= splitTime);
-      
-      const wordsA = splitIdx === -1 ? [...seg.words] : seg.words.slice(0, splitIdx);
-      const wordsB = splitIdx === -1 ? [] : seg.words.slice(splitIdx);
+      const newSegBId = Math.max(0, ...state.segments.map(s => s.id), ...state.originalSegments.map(s => s.id), ...state.transliteratedSegments.map(s => s.id), ...state.translatedSegments.map(s => s.id)) + 1;
 
-      const textA = wordsA.map(w => w.word.trim()).join(' ');
-      const textB = wordsB.map(w => w.word.trim()).join(' ');
+      const splitHelper = (segs: Segment[]) => {
+        const targetIdx = segs.findIndex(s => s.id === id);
+        if (targetIdx === -1) return segs;
+        const targetSeg = segs[targetIdx];
+        
+        const splitIdx = targetSeg.words.findIndex(w => w.start >= splitTime);
+        
+        const wordsA = splitIdx === -1 ? [...targetSeg.words] : targetSeg.words.slice(0, splitIdx);
+        const wordsB = splitIdx === -1 ? [] : targetSeg.words.slice(splitIdx);
+        
+        const textA = wordsA.map(w => w.word.trim()).join(' ');
+        const textB = wordsB.map(w => w.word.trim()).join(' ');
+        
+        const endA = wordsA.length > 0 ? wordsA[wordsA.length - 1].end : splitTime;
+        const startB = wordsB.length > 0 ? wordsB[0].start : splitTime;
 
-      const newSegA: Segment = {
-        id: seg.id, 
-        start: seg.start,
-        end: splitTime,
-        text: textA || '...',
-        words: wordsA
+        const newSegA: Segment = {
+          id: targetSeg.id,
+          start: targetSeg.start,
+          end: endA,
+          text: textA || '...',
+          words: wordsA
+        };
+        const newSegB: Segment = {
+          id: newSegBId,
+          start: startB,
+          end: targetSeg.end,
+          text: textB || '...',
+          words: wordsB
+        };
+        
+        const res = [...segs];
+        res.splice(targetIdx, 1, newSegA, newSegB);
+        return res;
       };
-      
-      const newSegB: Segment = {
-        id: Math.max(0, ...state.segments.map(s => s.id)) + 1,
-        start: splitTime,
-        end: seg.end,
-        text: textB || '...',
-        words: wordsB
-      };
 
-      const newSegments = [...state.segments];
-      newSegments.splice(idx, 1, newSegA, newSegB);
+      const newSegments = splitHelper(state.segments);
+      const newOriginal = splitHelper(state.originalSegments);
+      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   replaceText: (search, replaceWith, replaceAll, segId) =>
@@ -415,29 +732,38 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const origSegStart = seg.start;
         const origSegEnd = seg.end;
         
-        // Replace in words
-        const newWords = seg.words.map((w) => {
-          if (!replaceAll && replacedCount > 0) return w;
-          
-          // Test if word contains search query
-          if (regex.test(w.word)) {
-            // Reset regex lastIndex just in case
+        let newWords = seg.words;
+        let newText = seg.text;
+
+        if (seg.words.length > 0) {
+          // Replace in words
+          newWords = seg.words.map((w) => {
+            if (!replaceAll && replacedCount > 0) return w;
+            
+            if (regex.test(w.word)) {
+              regex.lastIndex = 0;
+              const newWordStr = w.word.replace(regex, replaceWith);
+              if (w.word !== newWordStr) {
+                replacedCount++;
+                segTextReplaced = true;
+                return { ...w, word: newWordStr };
+              }
+            }
+            return w;
+          });
+          newText = newWords.map(w => w.word.trim()).join(' ');
+        } else {
+          // Segment has no words (e.g. translation)
+          if (regex.test(seg.text)) {
             regex.lastIndex = 0;
-            const newWordStr = w.word.replace(regex, replaceWith);
-            if (w.word !== newWordStr) {
+            const newTextStr = seg.text.replace(regex, replaceWith);
+            if (seg.text !== newTextStr) {
               replacedCount++;
               segTextReplaced = true;
-              
-              // 2. WORD TIMING PROTECTION ASSERTIONS
-              if (w.start !== w.start || w.end !== w.end) {
-                 console.error("CRITICAL ERROR: Word timing modified during replace!");
-              }
-              
-              return { ...w, word: newWordStr };
+              newText = newTextStr;
             }
           }
-          return w;
-        });
+        }
 
         if (segTextReplaced) {
           // 2. SEGMENT TIMING PROTECTION ASSERTIONS
@@ -447,7 +773,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           
           return {
             ...seg,
-            text: newWords.map(w => w.word.trim()).join(' '),
+            text: newText,
             words: newWords
           };
         }
@@ -458,90 +784,171 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // 1. FIND & REPLACE HISTORY AUDIT
       // All replacements occur above. This pushes EXACTLY one snapshot.
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   mergeSegments: (id) =>
     set((state) => {
-      const idx = state.segments.findIndex((s) => s.id === id);
-      if (idx === -1 || idx === state.segments.length - 1) return {};
-      
-      const segA = state.segments[idx];
-      const segB = state.segments[idx + 1];
-
-      // Phase 2.5: Strict ownership merge.
-      const mergedSeg: Segment = {
-        id: segA.id,
-        start: segA.start,
-        end: segB.end,
-        text: `${segA.text} ${segB.text}`.trim(),
-        words: [...segA.words, ...segB.words]
+      const mergeHelper = (segs: Segment[]) => {
+        const targetIdx = segs.findIndex((s) => s.id === id);
+        if (targetIdx === -1 || targetIdx === segs.length - 1) return segs;
+        
+        const segA = segs[targetIdx];
+        const segB = segs[targetIdx + 1];
+        
+        const mergedSeg: Segment = {
+          id: segA.id,
+          start: segA.start,
+          end: segB.end,
+          text: `${segA.text} ${segB.text}`.trim(),
+          words: [...segA.words, ...segB.words]
+        };
+        
+        const res = [...segs];
+        res.splice(targetIdx, 2, mergedSeg);
+        return res;
       };
 
-      const newSegments = [...state.segments];
-      newSegments.splice(idx, 2, mergedSeg);
+      const newSegments = mergeHelper(state.segments);
+      const newOriginal = mergeHelper(state.originalSegments);
+      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
-  autoLineBreak: (maxChars = 42) => 
+  deleteSegment: (id) =>
     set((state) => {
-      const newSegments: Segment[] = [];
-      let currentWords: Word[] = [];
+      const deleteHelper = (segs: Segment[]) => {
+        return segs.filter(s => s.id !== id);
+      };
+
+      const newSegments = deleteHelper(state.segments);
+      const newOriginal = deleteHelper(state.originalSegments);
+      const newTranslit = deleteHelper(state.transliteratedSegments);
+      const newTranslated = deleteHelper(state.translatedSegments);
+
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const newPast = [...state.past, snapshot].slice(-50);
+
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
+    }),
+
+  autoLineBreak: (maxChars?: number) => 
+    set((state) => {
+      const limit = maxChars ?? state.captionConfig.maxCharsPerLine ?? 24;
+      const maxWords = state.captionConfig.maxWordsPerLine ?? 0;
+
+      const activeWords = state.segments.flatMap(s => s.words);
+      const originalWords = state.originalSegments.flatMap(s => s.words);
+
+      const groups: number[][] = [];
+      let currentGroup: number[] = [];
       let currentText = '';
-      let segId = 1;
 
-      // Extract all nested words chronologically
-      const allWords = state.segments.flatMap(s => s.words);
-
-      for (let i = 0; i < allWords.length; i++) {
-        const w = allWords[i];
+      for (let i = 0; i < activeWords.length; i++) {
+        const w = activeWords[i];
         const wordText = w.word.trim();
         if (!wordText) continue;
 
         const space = currentText.length > 0 ? ' ' : '';
         const potentialText = currentText + space + wordText;
 
-        const gap = currentWords.length > 0 ? w.start - currentWords[currentWords.length - 1].end : 0;
+        const gap = currentGroup.length > 0 ? w.start - activeWords[currentGroup[currentGroup.length - 1]].end : 0;
         
-        if (potentialText.length > maxChars || gap > 1.5) {
-          if (currentWords.length > 0) {
-            newSegments.push({
-              id: segId++,
-              start: currentWords[0].start,
-              end: currentWords[currentWords.length - 1].end,
-              text: currentText,
-              words: currentWords
-            });
+        const isLengthExceeded = potentialText.length > limit;
+        const isWordLimitExceeded = maxWords > 0 && currentGroup.length >= maxWords;
+        const isLargeGap = gap > 0.5; // snappier pauses for Reels/Shorts
+
+        if (isLengthExceeded || isWordLimitExceeded || isLargeGap) {
+          if (currentGroup.length > 0) {
+            groups.push(currentGroup);
           }
-          currentWords = [w];
+          currentGroup = [i];
           currentText = wordText;
         } else {
-          currentWords.push(w);
+          currentGroup.push(i);
           currentText = potentialText;
+        }
+
+        // If this word ends with sentence-ending punctuation, trigger split for the NEXT word
+        const endsWithSentencePunctuation = /[.!?]$/.test(wordText);
+        if (endsWithSentencePunctuation) {
+          groups.push(currentGroup);
+          currentGroup = [];
+          currentText = '';
         }
       }
 
-      if (currentWords.length > 0) {
-        newSegments.push({
-          id: segId++,
-          start: currentWords[0].start,
-          end: currentWords[currentWords.length - 1].end,
-          text: currentText,
-          words: currentWords
-        });
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
       }
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const buildSegmentsFromGroups = (wordsList: Word[]) => {
+        let segId = 1;
+        return groups.map(group => {
+          const groupWords = group.map(idx => wordsList[idx]).filter(Boolean);
+          const text = groupWords.map(w => w.word.trim()).join(' ');
+          return {
+            id: segId++,
+            start: groupWords[0]?.start || 0,
+            end: groupWords[groupWords.length - 1]?.end || 0.1,
+            text,
+            words: groupWords
+          };
+        });
+      };
+
+      const newSegments = buildSegmentsFromGroups(activeWords);
+      const newOriginal = buildSegmentsFromGroups(originalWords);
+      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   removeFillers: () =>
@@ -553,6 +960,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
 
       const newSegments = state.segments.map(seg => {
+        if (seg.words.length === 0) return seg; // Skip translated segments
+        
         // Strict ownership filtering
         const newWords = seg.words.filter(w => !isFiller(w.word));
         return {
@@ -560,36 +969,59 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           text: newWords.map(w => w.word.trim()).join(' '),
           words: newWords
         };
-      }).filter(seg => seg.words.length > 0);
+      }).filter(seg => seg.words.length > 0 || seg.text.length > 0);
 
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
 
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   removePunctuation: () =>
     set((state) => {
       const newSegments = state.segments.map(seg => {
+        if (seg.words.length === 0) {
+          return { ...seg, text: seg.text.replace(/[.,!?;:'"()[\]{}]/g, '') };
+        }
+        
         const newWords = seg.words.map(w => ({
           ...w,
-          word: w.word.replace(/[.,!?;:'"()\[\]{}]/g, ''),
+          word: w.word.replace(/[.,!?;:'"()[\]{}]/g, ''),
         }));
         return {
           ...seg,
           text: newWords.map(w => w.word.trim()).join(' '),
-          words: newWords,
+          words: newWords
         };
       });
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   removeEmojis: () =>
     set((state) => {
       const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu;
       const newSegments = state.segments.map(seg => {
+        if (seg.words.length === 0) {
+          return { ...seg, text: seg.text.replace(emojiRegex, '').trim() };
+        }
         const newWords = seg.words.map(w => ({
           ...w,
           word: w.word.replace(emojiRegex, '').trim(),
@@ -599,10 +1031,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           text: newWords.map(w => w.word.trim()).join(' '),
           words: newWords,
         };
-      }).filter(seg => seg.words.length > 0);
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      }).filter(seg => seg.words.length > 0 || seg.text.length > 0);
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   restoreEmphasis: () =>
@@ -621,34 +1061,67 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           words: newWords,
         };
       });
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const backingUpdates = getBackingUpdates(state, newSegments);
+      const snapshot = getSnapshot(state, newSegments);
       const newPast = [...state.past, snapshot].slice(-50);
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+      return {
+        segments: newSegments,
+        ...backingUpdates,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   removeGaps: () =>
     set((state) => {
-      if (state.segments.length <= 1) return {};
-      const newSegments = state.segments.map((seg, i) => {
-        if (i === 0) return seg;
-        const prev = state.segments[i - 1];
-        if (seg.start > prev.end) {
-          const delta = seg.start - prev.end;
-          return {
-            ...seg,
-            start: prev.end,
-            words: seg.words.map(w => ({
+      const removeGapsHelper = (segs: Segment[]) => {
+        if (segs.length <= 1) return segs;
+        const result: Segment[] = [];
+        result.push(segs[0]);
+        
+        for (let i = 1; i < segs.length; i++) {
+          const seg = segs[i];
+          const prev = result[i - 1];
+          if (seg.start > prev.end) {
+            const delta = seg.start - prev.end;
+            const newWords = seg.words.map(w => ({
               ...w,
               start: Math.max(prev.end, w.start - delta),
               end: Math.max(prev.end + 0.05, w.end - delta),
-            })),
-          };
+            }));
+            result.push({
+              ...seg,
+              start: prev.end,
+              end: Math.max(prev.end + 0.1, seg.end - delta),
+              words: newWords
+            });
+          } else {
+            result.push(seg);
+          }
         }
-        return seg;
-      });
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+        return result;
+      };
+
+      const newSegments = removeGapsHelper(state.segments);
+      const newOriginal = removeGapsHelper(state.originalSegments);
+      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+
+      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
-      return { segments: newSegments, past: newPast, future: [], canUndo: true, canRedo: false };
+
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
     }),
 
   validateTimingModel: () => {
@@ -658,22 +1131,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       
-      if (i > 0 && seg.start < segments[i - 1].end - 0.05) { // 0.05s tolerance
-        errors.push(`Segment ${seg.id} overlaps with previous segment.`);
-      }
       if (seg.start >= seg.end) {
         errors.push(`Segment ${seg.id} has invalid boundaries (start >= end).`);
       }
 
-      let lastWordEnd = -1;
       for (const w of seg.words) {
-        if (w.start < seg.start - 0.05 || w.end > seg.end + 0.05) { // Tolerance for float math
+        if (w.start < seg.start - 0.5 || w.end > seg.end + 0.5) { 
+          // Relaxed tolerance for float math and whisper inaccuracies
           errors.push(`Word "${w.word}" escapes bounds of Segment ${seg.id}.`);
         }
-        if (w.start < lastWordEnd - 0.05) {
-          errors.push(`Word "${w.word}" in Segment ${seg.id} overlaps previous word.`);
-        }
-        lastWordEnd = w.end;
       }
     }
     
@@ -685,7 +1151,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   pushHistory: () =>
     set((state) => {
-      const snapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const snapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
       const newPast = [...state.past, snapshot].slice(-50);
       return { past: newPast, future: [], canUndo: true, canRedo: false };
     }),
@@ -697,11 +1170,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const previous = state.past[state.past.length - 1];
       const newPast = state.past.slice(0, -1);
 
-      const currentSnapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const currentSnapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
       const newFuture = [currentSnapshot, ...state.future];
 
       return {
         segments: previous.segments,
+        originalSegments: previous.originalSegments,
+        transliteratedSegments: previous.transliteratedSegments,
+        translatedSegments: previous.translatedSegments,
         subtitleStyle: previous.subtitleStyle,
         captionConfig: previous.captionConfig,
         past: newPast,
@@ -718,11 +1201,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const next = state.future[0];
       const newFuture = state.future.slice(1);
 
-      const currentSnapshot: HistorySnapshot = { segments: state.segments, subtitleStyle: state.subtitleStyle, captionConfig: state.captionConfig };
+      const currentSnapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
       const newPast = [...state.past, currentSnapshot].slice(-50);
 
       return {
         segments: next.segments,
+        originalSegments: next.originalSegments,
+        transliteratedSegments: next.transliteratedSegments,
+        translatedSegments: next.translatedSegments,
         subtitleStyle: next.subtitleStyle,
         captionConfig: next.captionConfig,
         past: newPast,

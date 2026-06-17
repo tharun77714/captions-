@@ -9,7 +9,14 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { segments, words, subtitleStyle } = body;
+    const {
+      segments,
+      words,
+      transliteratedSegments,
+      transliteratedWords,
+      translatedSegments,
+      subtitleStyle
+    } = body;
 
     // 1. Basic validation
     if (!projectId) {
@@ -32,12 +39,15 @@ export async function PUT(
     );
 
     // 2. Perform updates
-    // Update transcriptions table (segments, words)
+    // Update transcriptions table (segments, words, transliterated and translated)
     const { error: transError } = await supabaseAdmin
       .from('transcriptions')
       .update({
         segments,
         words,
+        transliterated_segments: transliteratedSegments || null,
+        transliterated_words: transliteratedWords || null,
+        translated_segments: translatedSegments || null,
       })
       .eq('project_id', projectId);
 

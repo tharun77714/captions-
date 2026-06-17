@@ -7,11 +7,13 @@ interface UploadState {
   progress: number; // 0 to 100
   error: string | null;
   projectId: string | null;
+  sourceLanguage: string;
   
   setStatus: (status: UploadStatus) => void;
   setProgress: (progress: number) => void;
   setError: (error: string | null) => void;
   setProjectId: (id: string | null) => void;
+  setSourceLanguage: (lang: string) => void;
   reset: () => void;
 }
 
@@ -20,10 +22,12 @@ export const useUploadStore = create<UploadState>((set) => ({
   progress: 0,
   error: null,
   projectId: null,
+  sourceLanguage: 'auto',
   
   setStatus: (status) => set({ status }),
   setProgress: (progress) => set({ progress }),
   setError: (error) => set({ error, status: error ? 'error' : 'idle' }),
   setProjectId: (projectId) => set({ projectId }),
-  reset: () => set({ status: 'idle', progress: 0, error: null, projectId: null }),
+  setSourceLanguage: (sourceLanguage) => set({ sourceLanguage }),
+  reset: () => set({ status: 'idle', progress: 0, error: null, projectId: null, sourceLanguage: 'auto' }),
 }));

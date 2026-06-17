@@ -9,12 +9,16 @@ export async function POST(
     const { id } = await params;
     const supabase = await createClient();
 
-    // Parse body to get measurements
+    // Parse body to get measurements and subtitleMode
     let measurements = null;
+    let subtitleMode = 'original';
+    let resolvedStyles = null;
     try {
       const body = await request.json();
       measurements = body.measurements || null;
-      console.log('[EXPORT PARITY] Measurements received:', measurements ? 'YES' : 'NO');
+      subtitleMode = body.subtitleMode || 'original';
+      resolvedStyles = body.resolvedStyles || null;
+      console.log('[EXPORT PARITY] Measurements received:', measurements ? 'YES' : 'NO', 'SubtitleMode:', subtitleMode);
       if (measurements) {
         console.log('[EXPORT PARITY] containerHeight:', measurements.containerHeight);
         console.log('[EXPORT PARITY] videoHeight:', measurements.videoHeight);
@@ -53,7 +57,7 @@ export async function POST(
       console.warn('DB update failed (likely missing columns). Bypassing for testing:', updateError);
     }
 
-    // Trigger Modal worker with measurements
+    // Trigger Modal worker with measurements and subtitle_mode
     const modalWebhookUrl = process.env.MODAL_EXPORT_WEBHOOK_URL;
     if (modalWebhookUrl) {
       fetch(modalWebhookUrl, {
@@ -63,6 +67,8 @@ export async function POST(
           project_id: id,
           s3_key: project.media_url,
           measurements: measurements,
+          subtitle_mode: subtitleMode,
+          resolved_styles: resolvedStyles,
         })
       }).catch(err => console.error('Failed to trigger Modal export worker:', err));
     } else {

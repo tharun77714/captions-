@@ -1,0 +1,5 @@
+Telugu -> Raw: 'ఎలా ఉన్నావు' | Translit: 'Ela Unnavu' | Translate: 'how are you'
+Hindi -> Raw: 'कैसे हो' | Translit: 'Kaise Ho' | Translate: 'How are you'
+Tamil -> Raw: 'எப்படி இருக்கீங்க' | Translit: 'Eppati Irukkinka' | Translate: 'how are you'
+Kannada -> Raw: 'ಹೇಗಿದ್ದೀರಾ' | Translit: 'Hegiddira' | Translate: 'how are you'
+Malayalam -> Raw: 'സുഖമാണോ' | Translit: 'Sukhamano' | Translate: 'how are you'

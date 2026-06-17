@@ -146,6 +146,60 @@ export function getCSSTransitionParams(
         initialStyle: { transform: 'scale(0.5)', opacity: 0 },
         activeStyle: { transform: 'scale(1)', opacity: 1 },
       };
+
+    case 'flip-x':
+      return {
+        property: 'transform',
+        durationMs: dur,
+        easing: ease,
+        initialStyle: { transform: 'perspective(400px) rotateX(90deg)', opacity: 0 },
+        activeStyle: { transform: 'perspective(400px) rotateX(0deg)', opacity: 1 },
+      };
+
+    case 'flip-y':
+      return {
+        property: 'transform',
+        durationMs: dur,
+        easing: ease,
+        initialStyle: { transform: 'perspective(400px) rotateY(90deg)', opacity: 0 },
+        activeStyle: { transform: 'perspective(400px) rotateY(0deg)', opacity: 1 },
+      };
+
+    case 'spin':
+      return {
+        property: 'transform',
+        durationMs: dur,
+        easing: ease,
+        initialStyle: { transform: 'rotate(180deg) scale(0)', opacity: 0 },
+        activeStyle: { transform: 'rotate(0deg) scale(1)', opacity: 1 },
+      };
+
+    case 'blur':
+      return {
+        property: 'filter, opacity',
+        durationMs: dur,
+        easing: ease,
+        initialStyle: { filter: 'blur(10px)', opacity: 0 },
+        activeStyle: { filter: 'blur(0px)', opacity: 1 },
+      };
+
+    case 'bounce':
+      return {
+        property: 'transform',
+        durationMs: dur,
+        easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)', // Custom bounce easing
+        initialStyle: { transform: 'translateY(30px) scale(0.8)', opacity: 0 },
+        activeStyle: { transform: 'translateY(0) scale(1)', opacity: 1 },
+      };
+
+    case 'elastic':
+      return {
+        property: 'transform',
+        durationMs: dur,
+        easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Elastic pop
+        initialStyle: { transform: 'scaleX(1.5) scaleY(0.5)', opacity: 0 },
+        activeStyle: { transform: 'scaleX(1) scaleY(1)', opacity: 1 },
+      };
   }
 }
 
@@ -265,6 +319,58 @@ export function getASSTransitionParams(
         useTimedTransform: true,
         useFade: true,
         fadeInMs: Math.round(durationMs / 2),
+      };
+
+    case 'flip-x':
+      return {
+        ...base,
+        startTags: '\\frx90',
+        endTags: '\\frx0',
+        useTimedTransform: true,
+      };
+
+    case 'flip-y':
+      return {
+        ...base,
+        startTags: '\\fry90',
+        endTags: '\\fry0',
+        useTimedTransform: true,
+      };
+
+    case 'spin':
+      return {
+        ...base,
+        startTags: '\\frz180\\fscx0\\fscy0',
+        endTags: '\\frz0\\fscx100\\fscy100',
+        useTimedTransform: true,
+      };
+
+    case 'blur':
+      return {
+        ...base,
+        startTags: '\\blur10',
+        endTags: '\\blur0',
+        useTimedTransform: true,
+        useFade: true,
+        fadeInMs: durationMs,
+      };
+
+    case 'bounce':
+      return {
+        ...base,
+        startTags: '\\fscx80\\fscy80',
+        endTags: '\\fscx100\\fscy100',
+        useTimedTransform: true,
+        useMove: true,
+        moveDelta: { dx: 0, dy: Math.round(30 * scale) },
+      };
+
+    case 'elastic':
+      return {
+        ...base,
+        startTags: '\\fscx150\\fscy50',
+        endTags: '\\fscx100\\fscy100',
+        useTimedTransform: true,
       };
   }
 }

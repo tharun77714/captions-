@@ -53,31 +53,64 @@ def format_ass_time(seconds):
 
 def download_google_font(font_name: str) -> str:
     import urllib.request
+    import urllib.parse
     import os
-    font_dir = "/tmp/fonts"
+    import re
+    import shutil
+    import subprocess
+    
+    font_dir = "/usr/share/fonts/custom"
     os.makedirs(font_dir, exist_ok=True)
     
     safe_name = font_name.replace(" ", "")
     ttf_path = os.path.join(font_dir, f"{safe_name}.ttf")
     
-    if os.path.exists(ttf_path):
+    # Check if we've already downloaded at least one TTF for this font
+    font_files = [f for f in os.listdir(font_dir) if f.startswith(safe_name) and f.endswith(".ttf")]
+    if font_files:
         return font_dir
         
+    print(f"Downloading {font_name} via Google Fonts CSS parser...")
     try:
-        url = f"https://fonts.google.com/download?family={urllib.parse.quote(font_name)}"
-        zip_path = os.path.join(font_dir, f"{safe_name}.zip")
-        urllib.request.urlretrieve(url, zip_path)
-        import zipfile
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(font_dir)
-        print(f"Downloaded and extracted font {font_name} from Google Fonts ZIP")
+        # Requesting with 'curl' User-Agent forces Google Fonts to return pure .ttf links instead of .woff/.woff2
+        url = f"https://fonts.googleapis.com/css2?family={urllib.parse.quote(font_name)}:wght@300;400;500;600;700;800;900&display=swap"
+        
+        req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.68.0'})
+        with urllib.request.urlopen(req) as response:
+            css = response.read().decode('utf-8')
+            
+        weights = [300, 400, 500, 600, 700, 800, 900]
+        downloaded = 0
+        for w in weights:
+            # Match font-weight and src URL
+            pattern = f"font-weight:\\s*{w};.*?src:\\s*url\\((https://[^)]+)\\)"
+            match = re.search(pattern, css, re.DOTALL | re.IGNORECASE)
+            if match:
+                ttf_url = match.group(1)
+                ttf_path_w = os.path.join(font_dir, f"{safe_name}-{w}.ttf")
+                urllib.request.urlretrieve(ttf_url, ttf_path_w)
+                downloaded += 1
+                
+        if downloaded > 0:
+            print(f"Successfully downloaded {downloaded} weights for font {font_name}")
+            regular_path = os.path.join(font_dir, f"{safe_name}-400.ttf")
+            generic_path = os.path.join(font_dir, f"{safe_name}.ttf")
+            if os.path.exists(regular_path) and not os.path.exists(generic_path):
+                shutil.copy(regular_path, generic_path)
+            return font_dir
+            
     except Exception as e:
-        print(f"Failed to download font {font_name} via ZIP: {e}")
-        try:
-            url = f"https://raw.githubusercontent.com/google/fonts/main/ofl/{safe_name.lower()}/{safe_name}-Regular.ttf"
-            urllib.request.urlretrieve(url, ttf_path)
-        except Exception:
-            pass
+        print(f"Failed to download font {font_name} via CSS parser: {e}")
+        
+    # Fallback to direct raw github download of Regular weight
+    try:
+        print(f"Falling back to GitHub raw download for {font_name}...")
+        url = f"https://raw.githubusercontent.com/google/fonts/main/ofl/{safe_name.lower()}/{safe_name}-Regular.ttf"
+        urllib.request.urlretrieve(url, ttf_path)
+    except Exception as e:
+        print(f"Font fallback failed: {e}")
+        
+    subprocess.run(["fc-cache", "-fv", font_dir], check=False)
     return font_dir
 
 def get_video_info(file_path):
@@ -98,7 +131,7 @@ def get_video_info(file_path):
         'color_primaries': stream.get('color_primaries')
     }
 
-def generate_ass(segments, style, output_path, video_width, video_height, measurements=None):
+def generate_ass(segments, style, output_path, video_width, video_height, measurements=None, resolved_styles=None):
     """
     Generate ASS subtitle file.
     
@@ -114,6 +147,9 @@ def generate_ass(segments, style, output_path, video_width, video_height, measur
     # ═══════════════════════════════════════════════════════════════════
     # SCALE FACTOR COMPUTATION
     # ═══════════════════════════════════════════════════════════════════
+    video_height = float(video_height)
+    video_width = float(video_width)
+    
     if measurements:
         # EXACT PATH: Use actual browser-measured values
         scale = measurements.get('scaleFactor', video_height / 644.0)
@@ -271,29 +307,51 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             words = seg.get('words', [])
             layout_words = layouts[s_idx]['words'] if layouts and s_idx < len(layouts) else None
             layout_box = layouts[s_idx]['box'] if layouts and 'box' in layouts[s_idx] else None
-
-            if not words or not layout_words or len(words) != len(layout_words):
-                # Fallback if no layout or mismatch
-                start = format_ass_time(seg['start'])
-                end = format_ass_time(seg['end'])
-                clean_text = seg['text'].replace('\\n', '\\N')
-                f.write(f"Dialogue: 1,{start},{end},Default,,0,0,0,,{clean_text}\n")
-                continue
+            layout_lines = layouts[s_idx].get('lines') if layouts and s_idx < len(layouts) else None
 
             s_ass_seg = format_ass_time(seg['start'])
             e_ass_seg = format_ass_time(seg['end'])
 
+            has_bg = 'rgba(0, 0, 0, 0)' not in style.get('backgroundColor', '') and style.get('backgroundColor') != 'transparent'
+
             # ──────────────────────────────────────────────────────
             # 1. Background Box Rendering
             # ──────────────────────────────────────────────────────
-            has_bg = 'rgba(0, 0, 0, 0)' not in style.get('backgroundColor', '') and style.get('backgroundColor') != 'transparent'
-            if has_bg and layout_box:
-                bx = int(round(layout_box['x'] * scale))
-                by = int(round(layout_box['y'] * scale))
-                bw = int(round(layout_box['w'] * scale))
-                bh = int(round(layout_box['h'] * scale))
+            if has_bg and layout_lines:
+                rendered_box_count = 0
+                for line in layout_lines:
+                    lb = line.get('box', {})
+                    if not lb: continue
+                    
+                    bx = int(round(lb.get('x', 0) - line.get('paddingX', 0)))
+                    by = int(round(lb.get('y', 0) - line.get('paddingY', 0)))
+                    bw = int(round(lb.get('w', 0) + line.get('paddingX', 0) * 2))
+                    bh = int(round(lb.get('h', 0) + line.get('paddingY', 0) * 2))
+                    br = int(round(line.get('borderRadius', 0)))
+                    
+                    if bw <= 0 or bh <= 0:
+                        continue
+                        
+                    nx = bx + br
+                    ny = by + br
+                    nw = max(1, bw - br * 2)
+                    nh = max(1, bh - br * 2)
+                    
+                    prefix = f"{{\\an7\\pos({nx},{ny})\\bord{br * 2}\\shad0\\p1}}"
+                    path = f"m 0 0 l {nw} 0 l {nw} {nh} l 0 {nh}"
+                    suffix = "{\\p0}"
+                    f.write(f"Dialogue: 0,{s_ass_seg},{e_ass_seg},Background,,0,0,0,,{prefix}{path}{suffix}\n")
+                    rendered_box_count += 1
                 
-                # To get rounded corners with radius R, we shrink the rect by R and use outline 2*R
+                if rendered_box_count > len(layout_lines):
+                    raise ValueError(f"Export safety violation: rendered_box_count ({rendered_box_count}) > line_count ({len(layout_lines)})")
+            elif has_bg and layout_box:
+                # Fallback to single bounding box
+                bx = int(round(layout_box['x']))
+                by = int(round(layout_box['y']))
+                bw = int(round(layout_box['w']))
+                bh = int(round(layout_box['h']))
+                
                 nx = bx + border_radius
                 ny = by + border_radius
                 nw = max(1, bw - border_radius * 2)
@@ -303,6 +361,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 path = f"m 0 0 l {nw} 0 l {nw} {nh} l 0 {nh}"
                 suffix = "{\\p0}"
                 f.write(f"Dialogue: 0,{s_ass_seg},{e_ass_seg},Background,,0,0,0,,{prefix}{path}{suffix}\n")
+
+            # ──────────────────────────────────────────────────────
+            # 2. Text Rendering
+            # ──────────────────────────────────────────────────────
+            if not words or not layout_words or len(words) != len(layout_words):
+                # Fallback if no layout or mismatch
+                clean_text = seg['text'].replace('\\n', '\\N')
+                f.write(f"Dialogue: 1,{s_ass_seg},{e_ass_seg},Default,,0,0,0,,{clean_text}\n")
+                continue
 
             # ──────────────────────────────────────────────────────
             # 2. Explicit Layout Text Rendering
@@ -316,24 +383,61 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 layout_w = layout_words[w_idx]
                 word_str = word_obj['word'].strip()
                 
-                if text_transform == 'uppercase': word_str = word_str.upper()
-                elif text_transform == 'lowercase': word_str = word_str.lower()
-                elif text_transform == 'capitalize': word_str = word_str.title()
-                
-                nx = int(round(layout_w['x'] * scale))
-                ny = int(round(layout_w['y'] * scale))
-                
                 is_active = (w_idx == active_idx)
                 
+                # Default style values
+                word_primary_col = primary_col
+                word_fsp = ass_fsp
+                word_shadow_x = shadow_x
+                word_shadow_y = shadow_y
+                word_shadow_blur = shadow_blur
+                word_font_size = font_size
+                word_italic = italic
+                word_underline = underline_ass
+                word_bold = bold
+
+                if resolved_styles and word_obj['id'] in resolved_styles:
+                    rs = resolved_styles[word_obj['id']]
+                    word_primary_col = css_to_ass_color(rs.get('textColor', word_primary_col))
+                    word_fsp = round(rs.get('letterSpacing', 0) * scale, 2)
+                    word_shadow_x = int(round(rs.get('shadowOffsetX', 0) * scale))
+                    word_shadow_y = int(round(rs.get('shadowOffsetY', 0) * scale))
+                    word_shadow_blur = int(round(rs.get('shadowBlur', 0) * scale))
+                    word_font_size = int(round(rs.get('fontSize', 24) * scale))
+                    word_italic = '-1' if rs.get('italic') else '0'
+                    word_underline = '-1' if rs.get('underline') else '0'
+                    word_bold = '-1' if int(rs.get('fontWeight', 700)) >= 700 else '0'
+                    
+                word_transform = text_transform
+                if resolved_styles and word_obj['id'] in resolved_styles:
+                    word_transform = rs.get('textTransform', text_transform)
+                    
+                if word_transform == 'uppercase': word_str = word_str.upper()
+                elif word_transform == 'lowercase': word_str = word_str.lower()
+                elif word_transform == 'capitalize': word_str = word_str.title()
+                
+                nx = int(round(layout_w['x']))
+                ny = int(round(layout_w['y']))
+                if resolved_styles and word_obj['id'] in resolved_styles:
+                    rs = resolved_styles[word_obj['id']]
+                    nx += int(round(rs.get('x', 0) * scale))
+                    ny += int(round(rs.get('y', 0) * scale))
+                
                 base_alpha = "&H00&" if (is_active or highlight_mode == 'none') else ass_inactive_alpha
-                base_c = ass_active_color if (is_active and highlight_mode in ['color', 'karaoke', 'background']) else primary_col
+                base_c = ass_active_color if (is_active and highlight_mode in ['color', 'karaoke', 'background']) else word_primary_col
                 base_scale = 115 if (is_active and highlight_mode == 'scale') else (110 if (is_active and highlight_mode == 'karaoke') else 100)
                 
                 tags = [f"\\an7\\pos({nx},{ny})"]
-                if ass_fsp != 0: tags.append(f"\\fsp{ass_fsp}")
                 
-                if shadow_x != 0 or shadow_y != 0 or shadow_blur != 0:
-                    tags.append(f"\\xshad{shadow_x}\\yshad{shadow_y}\\blur{shadow_blur}")
+                # Apply word-specific overrides if they differ from global defaults
+                if word_font_size != font_size: tags.append(f"\\fs{word_font_size}")
+                if word_bold != bold: tags.append(f"\\b{word_bold}")
+                if word_italic != italic: tags.append(f"\\i{word_italic}")
+                
+                if word_fsp != 0: tags.append(f"\\fsp{word_fsp}")
+                
+                if word_shadow_x != 0 or word_shadow_y != 0:
+                    tags.append(f"\\xshad{word_shadow_x}\\yshad{word_shadow_y}")
                 
                 if highlight_mode != 'none':
                     tags.append(f"\\alpha{base_alpha}\\c{base_c}\\fscx{base_scale}\\fscy{base_scale}")
@@ -341,6 +445,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         tags.append("\\c&H000000FF&") # Black text over background
                     elif is_active and highlight_mode == 'underline':
                         tags.append("\\u1")
+                elif word_underline == '-1':
+                    tags.append("\\u1")
+                
+                if word_primary_col != primary_col and highlight_mode == 'none':
+                    tags.append(f"\\c{word_primary_col}")
                 
                 if trans_type != 'none':
                     eff_start = word_obj.get('start', seg['start']) if trans_target == 'word' else seg['start']
@@ -381,6 +490,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         elif trans_type == 'zoom':
                             init_tags = "\\fscx50\\fscy50\\alpha&HFF&"
                             target_tags = f"\\fscx{base_scale}\\fscy{base_scale}\\alpha{base_alpha}"
+                        elif trans_type == 'flip-x':
+                            init_tags = "\\frx90\\alpha&HFF&"
+                            target_tags = f"\\frx0\\alpha{base_alpha}"
+                        elif trans_type == 'flip-y':
+                            init_tags = "\\fry90\\alpha&HFF&"
+                            target_tags = f"\\fry0\\alpha{base_alpha}"
+                        elif trans_type == 'spin':
+                            init_tags = "\\frz180\\fscx0\\fscy0\\alpha&HFF&"
+                            target_tags = f"\\frz0\\fscx{base_scale}\\fscy{base_scale}\\alpha{base_alpha}"
+                        elif trans_type == 'blur':
+                            init_tags = "\\blur20\\alpha&HFF&"
+                            target_tags = f"\\blur0\\alpha{base_alpha}"
+                        elif trans_type in ['bounce', 'elastic']:
+                            # Fallback to pop for complex easings
+                            init_tags = "\\fscx0\\fscy0"
+                            target_tags = f"\\fscx{base_scale}\\fscy{base_scale}"
                             
                         tags.append(init_tags)
                         tags.append(f"\\t({max(0, rel_t1)},{rel_t2},{target_tags})")
@@ -430,7 +555,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     timeout=3600,
     secrets=[modal.Secret.from_name("vidyut-secrets")]
 )
-def render_video(project_id: str, s3_key: str, measurements: dict = None):
+def render_video(project_id: str, s3_key: str, measurements: dict = None, subtitle_mode: str = "original", resolved_styles: dict = None):
     import boto3
     from supabase import create_client, Client
 
@@ -443,8 +568,44 @@ def render_video(project_id: str, s3_key: str, measurements: dict = None):
         project = supabase.table("projects").select("*").eq("id", project_id).single().execute()
         project_data = project.data
         
-        transcription = supabase.table("transcriptions").select("segments", "words").eq("project_id", project_id).single().execute()
-        segments = transcription.data.get("segments", [])
+        # Determine columns based on subtitle_mode
+        select_cols = "segments, words"
+        if subtitle_mode == "transliterated":
+            select_cols = "transliterated_segments, transliterated_words"
+        elif subtitle_mode == "translated":
+            select_cols = "translated_segments"
+
+        transcription = supabase.table("transcriptions").select(select_cols).eq("project_id", project_id).single().execute()
+        
+        if subtitle_mode == "transliterated":
+            raw_segments = transcription.data.get("transliterated_segments", []) or []
+            raw_words = transcription.data.get("transliterated_words", []) or []
+        elif subtitle_mode == "translated":
+            raw_segments = transcription.data.get("translated_segments", []) or []
+            raw_words = []
+        else:
+            raw_segments = transcription.data.get("segments", []) or []
+            raw_words = transcription.data.get("words", []) or []
+
+        # Fallback to original if selected script arrays are completely missing
+        if not raw_segments and subtitle_mode != "original":
+            print(f"Warning: {subtitle_mode} segments are empty. Falling back to original segments.")
+            transcription = supabase.table("transcriptions").select("segments, words").eq("project_id", project_id).single().execute()
+            raw_segments = transcription.data.get("segments", []) or []
+            raw_words = transcription.data.get("words", []) or []
+
+        # Map flat words to segments hierarchically if not already nested
+        segments = []
+        for seg in raw_segments:
+            seg_copy = dict(seg)
+            if 'words' not in seg_copy or not seg_copy['words']:
+                seg_words = [
+                    w for w in raw_words
+                    if w.get('start', 0.0) >= seg_copy['start'] - 0.05
+                    and w.get('end', 0.0) <= seg_copy['end'] + 0.05
+                ]
+                seg_copy['words'] = seg_words
+            segments.append(seg_copy)
         
         # Load style
         style = project_data.get("subtitle_style", {})
@@ -483,7 +644,7 @@ def render_video(project_id: str, s3_key: str, measurements: dict = None):
         font_name = (measurements or {}).get('fontFamily') or style.get('fontFamily', 'Inter')
         font_dir = download_google_font(font_name)
 
-        generate_ass(segments, style, local_subs_path, width, height, measurements)
+        generate_ass(segments, style, local_subs_path, width, height, measurements, resolved_styles)
         
         # Print the generated ASS for verification
         with open(local_subs_path, 'r') as f:
@@ -501,7 +662,7 @@ def render_video(project_id: str, s3_key: str, measurements: dict = None):
             "-pix_fmt", "yuv420p"
         ]
 
-        # Add ASS filter with fontsdir
+        # Add ASS filter
         cmd.extend(["-vf", f"ass={local_subs_path}:fontsdir={font_dir}"])
         
         # Preserve color metadata
@@ -559,8 +720,10 @@ def trigger_export(data: dict):
     project_id = data.get("project_id")
     s3_key = data.get("s3_key")
     measurements = data.get("measurements")
+    subtitle_mode = data.get("subtitle_mode", "original")
+    resolved_styles = data.get("resolved_styles")
     if not project_id or not s3_key:
         return {"error": "Missing project_id or s3_key"}, 400
     
-    render_video.spawn(project_id, s3_key, measurements)
+    render_video.spawn(project_id, s3_key, measurements, subtitle_mode, resolved_styles)
     return {"status": "export_started", "project_id": project_id}

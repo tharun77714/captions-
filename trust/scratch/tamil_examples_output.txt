@@ -1,0 +1,141 @@
+TAMIL TRANSLITERATION EXAMPLES SUMMARY:
+
+--- Example 1 ---
+Original:        எப்படி இருக்கீங்க
+Aksharamukha:    ĕppaṭi irukkīṅka
+Post-processed:  ĕppadi irukkīnga
+Diacritics-free: eppadi irukkinga
+Final (Vidyut):  Eppadi Irukkinga
+
+--- Example 2 ---
+Original:        நன்றி
+Aksharamukha:    naṉṟi
+Post-processed:  naṉṟi
+Diacritics-free: naṉri
+Final (Vidyut):  Naṉri
+
+--- Example 3 ---
+Original:        வணக்கம்
+Aksharamukha:    vaṇakkam
+Post-processed:  vaṇakkam
+Diacritics-free: vanakkam
+Final (Vidyut):  Vanakkam
+
+--- Example 4 ---
+Original:        தம்பி
+Aksharamukha:    tampi
+Post-processed:  tambi
+Diacritics-free: tambi
+Final (Vidyut):  Tambi
+
+--- Example 5 ---
+Original:        வண்டி
+Aksharamukha:    vaṇṭi
+Post-processed:  vandi
+Diacritics-free: vandi
+Final (Vidyut):  Vandi
+
+--- Example 6 ---
+Original:        இருக்குங்க
+Aksharamukha:    irukkuṅka
+Post-processed:  irukkunga
+Diacritics-free: irukkunga
+Final (Vidyut):  Irukkunga
+
+--- Example 7 ---
+Original:        போங்க
+Aksharamukha:    poṅka
+Post-processed:  ponga
+Diacritics-free: ponga
+Final (Vidyut):  Ponga
+
+--- Example 8 ---
+Original:        கொஞ்சம்
+Aksharamukha:    kŏñcam
+Post-processed:  kŏnjam
+Diacritics-free: konjam
+Final (Vidyut):  Konjam
+
+--- Example 9 ---
+Original:        தம்பி எங்கே
+Aksharamukha:    tampi ĕṅke
+Post-processed:  tambi ĕnge
+Diacritics-free: tambi enge
+Final (Vidyut):  Tambi Enge
+
+--- Example 10 ---
+Original:        படம்
+Aksharamukha:    paṭam
+Post-processed:  padam
+Diacritics-free: padam
+Final (Vidyut):  Padam
+
+--- Example 11 ---
+Original:        பக்கம்
+Aksharamukha:    pakkam
+Post-processed:  pakkam
+Diacritics-free: pakkam
+Final (Vidyut):  Pakkam
+
+--- Example 12 ---
+Original:        பட்டம்
+Aksharamukha:    paṭṭam
+Post-processed:  pattam
+Diacritics-free: pattam
+Final (Vidyut):  Pattam
+
+--- Example 13 ---
+Original:        சாப்பாடு
+Aksharamukha:    cāppāṭu
+Post-processed:  cāppādu
+Diacritics-free: cappadu
+Final (Vidyut):  Cappadu
+
+--- Example 14 ---
+Original:        வீடு
+Aksharamukha:    vīṭu
+Post-processed:  vīdu
+Diacritics-free: vidu
+Final (Vidyut):  Vidu
+
+--- Example 15 ---
+Original:        நாடு
+Aksharamukha:    nāṭu
+Post-processed:  nādu
+Diacritics-free: nadu
+Final (Vidyut):  Nadu
+
+--- Example 16 ---
+Original:        பாட்டு
+Aksharamukha:    pāṭṭu
+Post-processed:  pāttu
+Diacritics-free: pattu
+Final (Vidyut):  Pattu
+
+--- Example 17 ---
+Original:        சந்தோஷம்
+Aksharamukha:    cantoṣam
+Post-processed:  candoṣam
+Diacritics-free: candosham
+Final (Vidyut):  Candosham
+
+--- Example 18 ---
+Original:        வாழ்த்துக்கள்
+Aksharamukha:    vāḻttukkal̤
+Post-processed:  vāḻttukkal̤
+Diacritics-free: valttukkal̤
+Final (Vidyut):  Valttukkal̤
+
+--- Example 19 ---
+Original:        சாப்பாடு எப்படி இருக்கு
+Aksharamukha:    cāppāṭu ĕppaṭi irukku
+Post-processed:  cāppādu ĕppadi irukku
+Diacritics-free: cappadu eppadi irukku
+Final (Vidyut):  Cappadu Eppadi Irukku
+
+--- Example 20 ---
+Original:        நண்பா நலம் தானா
+Aksharamukha:    naṇpā nalam tāṉā
+Post-processed:  naṇpā nalam tāṉā
+Diacritics-free: nanpa nalam taṉa
+Final (Vidyut):  Nanpa Nalam Taṉa

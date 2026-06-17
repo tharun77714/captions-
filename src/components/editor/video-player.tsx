@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
+import { motion } from 'framer-motion';
 import { useEditorStore } from '@/store/editor-store';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { computeDurationMs, getCSSTransitionParams } from '@/lib/transition-engine';
+import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
 
 /**
  * Measured subtitle rendering data captured directly from the browser DOM.
@@ -84,6 +86,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
     setDuration,
     setIsPlaying,
     setActiveSegmentIndex,
+    setSubtitleStyleV2,
   } = useEditorStore();
 
   const [volume, setVolume] = useState(1);
@@ -105,8 +108,27 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       const nativeW = video.videoWidth || 1920;
       const nativeH = video.videoHeight || 1080;
 
-      // The exact scale factor: how many native pixels per CSS pixel
-      const scaleFactor = nativeH / containerRect.height;
+      const nativeRatio = nativeW / nativeH;
+      const containerRatio = containerRect.width / containerRect.height;
+      
+      let actualVideoWidth, actualVideoHeight, videoLeftOffset, videoTopOffset;
+      
+      if (containerRatio > nativeRatio) {
+        // Container is wider than video (pillarboxing on sides)
+        actualVideoHeight = containerRect.height;
+        actualVideoWidth = actualVideoHeight * nativeRatio;
+        videoTopOffset = 0;
+        videoLeftOffset = (containerRect.width - actualVideoWidth) / 2;
+      } else {
+        // Container is taller than video (letterboxing on top/bottom)
+        actualVideoWidth = containerRect.width;
+        actualVideoHeight = actualVideoWidth / nativeRatio;
+        videoLeftOffset = 0;
+        videoTopOffset = (containerRect.height - actualVideoHeight) / 2;
+      }
+
+      // The exact scale factor: how many native pixels per CSS pixel of the ACTUAL video
+      const scaleFactor = nativeH / actualVideoHeight;
 
       // Measure subtitle box if it exists, otherwise use style defaults
       let fontSize = subtitleStyle.fontSize;
@@ -147,8 +169,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
               const wRect = wSpan.getBoundingClientRect();
               words.push({
                  word: wSpan.textContent || '',
-                 x: wRect.left - containerRect.left,
-                 y: wRect.top - containerRect.top,
+                 x: wRect.left - containerRect.left - videoLeftOffset,
+                 y: wRect.top - containerRect.top - videoTopOffset,
                  w: wRect.width,
                  h: wRect.height
               });
@@ -157,8 +179,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
            layouts.push({ 
              words,
              box: {
-               x: segRect.left - containerRect.left,
-               y: segRect.top - containerRect.top,
+               x: segRect.left - containerRect.left - videoLeftOffset,
+               y: segRect.top - containerRect.top - videoTopOffset,
                w: segRect.width,
                h: segRect.height
              }
@@ -326,12 +348,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
     setCurrentTime(newTime);
   }, [setCurrentTime]);
 
-  // Subtitle position: direct CSS values (these ARE the source of truth)
-  const positionClass = subtitleStyle.positionY > 20
-    ? 'top-8'
-    : subtitleStyle.positionY > -20 && subtitleStyle.positionY < 20
-    ? 'top-1/2 -translate-y-1/2'
-    : 'bottom-16';
+  // Subtitle position: direct CSS values using top/left percentages
 
   return (
     <div
@@ -362,7 +379,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       {/* Hidden Layout Measurement Container */}
       <div
         ref={hiddenMeasureRef}
-        className={`absolute left-0 right-0 pointer-events-none opacity-0 ${positionClass}`}
+        className="absolute left-0 right-0 pointer-events-none opacity-0 top-1/2"
         style={{
           justifyContent: subtitleStyle.alignment === 'left' ? 'flex-start' : subtitleStyle.alignment === 'right' ? 'flex-end' : 'center',
           padding: '0 24px',
@@ -395,17 +412,42 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
       {/* Subtitle Overlay */}
       {activeSegment && (
-        <div
-          className={`absolute left-0 right-0 flex pointer-events-none ${positionClass}`}
+        <motion.div
+          drag
+          dragMomentum={false}
+          onDragEnd={(e, info) => {
+            if (!containerRef.current || !subtitleBoxRef.current) return;
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const boxRect = subtitleBoxRef.current.getBoundingClientRect();
+            
+            const newCenterX = boxRect.left + boxRect.width / 2;
+            const newCenterY = boxRect.top + boxRect.height / 2;
+            
+            const containerCenterX = containerRect.left + containerRect.width / 2;
+            const containerCenterY = containerRect.top + containerRect.height / 2;
+
+            const percentX = ((newCenterX - containerCenterX) / containerRect.width) * 100;
+            const percentY = ((newCenterY - containerCenterY) / containerRect.height) * 100;
+
+            setSubtitleStyleV2(prev => ({
+              ...prev,
+              positionX: Math.max(-50, Math.min(50, percentX)),
+              positionY: Math.max(-50, Math.min(50, percentY))
+            }));
+          }}
+          className="absolute pointer-events-none"
           style={{
-            justifyContent: subtitleStyle.alignment === 'left' ? 'flex-start' : subtitleStyle.alignment === 'right' ? 'flex-end' : 'center',
-            padding: '0 24px',
-            transform: `translateX(${subtitleStyle.positionX}%)`,
+            top: `${50 + subtitleStyle.positionY}%`,
+            left: `${50 + subtitleStyle.positionX}%`,
+            x: 0,
+            y: 0,
+            zIndex: 50,
           }}
         >
-          <span
-            ref={subtitleBoxRef}
-            className="px-3 py-1.5 rounded-md max-w-[85%] text-center"
+          <div style={{ transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span
+              ref={subtitleBoxRef}
+              className="px-3 py-1.5 rounded-md max-w-full whitespace-pre-wrap pointer-events-auto cursor-move hover:ring-2 hover:ring-violet-500/50 transition-shadow"
             style={{
               fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", "Noto Sans Arabic", "Noto Sans JP", sans-serif`,
               fontSize: `${subtitleStyle.fontSize}px`,
@@ -413,6 +455,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
               letterSpacing: `${subtitleStyle.letterSpacing}px`,
               wordSpacing: `${subtitleStyle.wordSpacing}px`,
               lineHeight: subtitleStyle.lineSpacing,
+              textAlign: subtitleStyle.alignment,
               color: subtitleStyle.textColor.solid,
               backgroundColor: subtitleStyle.background.enabled ? subtitleStyle.background.color : 'transparent',
               textShadow: subtitleStyle.shadow.blur > 0 ? `0 0 ${subtitleStyle.shadow.blur}px ${subtitleStyle.shadow.color}` : undefined,
@@ -424,6 +467,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                 const isWordActive = currentTime >= wordObj.start && currentTime <= wordObj.end;
                 const hasStarted = currentTime >= wordObj.start;
                 const mode = subtitleStyle.highlightMode || 'none';
+                const computedStyle = resolveWordStyle(subtitleStyle, activeSegment.id, wordObj.id);
                 
                 // 1. Transition Engine
                 const durationMs = computeDurationMs(subtitleStyle.transition, wordObj.start, wordObj.end);
@@ -434,19 +478,35 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
                 // 2. Base Style
                 const dynamicStyle: React.CSSProperties = {
-                  color: subtitleStyle.textColor.solid,
-                  opacity: hasStarted ? 1.0 : subtitleStyle.inactiveOpacity ?? 0.5,
+                  color: computedStyle.gradient ? 'transparent' : computedStyle.textColor,
+                  backgroundImage: computedStyle.gradient ? `linear-gradient(${computedStyle.gradient.angle}deg, ${computedStyle.gradient.stops.map(s => `${s.color} ${s.position}%`).join(', ')})` : undefined,
+                  WebkitBackgroundClip: computedStyle.gradient ? 'text' : undefined,
+                  WebkitTextFillColor: computedStyle.gradient ? 'transparent' : undefined,
+                  fontFamily: `"${computedStyle.fontFamily}", sans-serif`,
+                  fontSize: `${computedStyle.fontSize}px`,
+                  fontWeight: computedStyle.fontWeight,
+                  fontStyle: computedStyle.italic ? 'italic' : 'normal',
+                  textDecoration: computedStyle.underline ? 'underline' : 'none',
+                  textTransform: computedStyle.textTransform !== 'none' ? computedStyle.textTransform : undefined,
+                  letterSpacing: `${computedStyle.letterSpacing}px`,
+                  opacity: hasStarted ? computedStyle.opacity : subtitleStyle.inactiveOpacity ?? 0.5,
                   filter: !hasStarted && subtitleStyle.blur > 0 ? `blur(${subtitleStyle.blur}px)` : undefined,
-                  transform: 'scale(1)',
-                  textDecoration: 'none',
-                  backgroundColor: 'transparent',
+                  transform: `scale(${computedStyle.scaleX}, ${computedStyle.scaleY}) translate(${computedStyle.x}px, ${computedStyle.y}px) rotate(${computedStyle.rotation}deg)`,
+                  backgroundColor: computedStyle.backgroundEnabled ? computedStyle.backgroundColor : 'transparent',
                   marginRight: '6px',
                   display: 'inline-block',
                   transition: `all ${transitionParams.durationMs}ms ${transitionParams.easing}`,
-                  padding: '0 2px',
-                  borderRadius: '4px',
+                  padding: `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 2}px`,
+                  borderRadius: `${computedStyle.borderRadius}px`,
                   ...transitionState, // Apply initial or active transform/opacity
                 };
+
+                if (computedStyle.shadowBlur > 0) {
+                  dynamicStyle.textShadow = `${computedStyle.shadowOffsetX}px ${computedStyle.shadowOffsetY}px ${computedStyle.shadowBlur}px ${computedStyle.shadowColor}`;
+                }
+                if (computedStyle.strokeEnabled && computedStyle.strokeWidth > 0) {
+                  dynamicStyle.WebkitTextStroke = `${computedStyle.strokeWidth}px ${computedStyle.strokeColor}`;
+                }
 
                 // 3. Highlight Mode (only applies while actively spoken)
                 if (isWordActive && mode !== 'none') {
@@ -487,11 +547,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                   </span>
                 );
               })
-            ) : (
-              activeSegment.text
-            )}
-          </span>
-        </div>
+              ) : (
+                activeSegment.text
+              )}
+            </span>
+          </div>
+        </motion.div>
       )}
 
       {/* Custom Controls */}

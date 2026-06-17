@@ -1,0 +1,24 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 1
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Inter,143,&H00FFFFFF,&H000000FF,&H00000000,&H7F000000,-1,0,0,0,100,100,0,0,1,0,0,2,81,81,191,1
+Style: Background,Arial,10,&H00FFFFFF,&H000000FF,&H00FFFFFF,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(100,800)\xshad15\yshad15\blur0}Hello,
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(230,800)\xshad15\yshad15\blur0}this
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(320,800)\xshad15\yshad15\blur0}is
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(370,800)\xshad15\yshad15\blur0}an
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(420,800)\xshad15\yshad15\blur0}English
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(570,800)\xshad15\yshad15\blur0}test
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(660,800)\xshad15\yshad15\blur0}with
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(750,800)\xshad15\yshad15\blur0}perfectly
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(100,860)\xshad15\yshad15\blur0}matched
+Dialogue: 1,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an7\pos(250,860)\xshad15\yshad15\blur0}parity.

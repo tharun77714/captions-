@@ -4,27 +4,20 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { title, s3Key, durationMs } = await request.json();
+    const { title, s3Key, durationMs, sourceLanguage } = await request.json();
 
     if (!title || !s3Key) {
       return NextResponse.json({ error: 'Missing title or s3Key' }, { status: 400 });
     }
 
-    // In a real app, auth.uid() would populate user_id automatically via RLS.
-    // For Feature 001 testing without a login page, we will use the Service Role Key
-    // to bypass RLS and insert a dummy user_id if needed, or if Auth is required,
-    // you must be logged in. 
-    
-    // We'll attempt a standard insert first. If RLS blocks it (because you aren't logged in),
-    // we'll need to disable RLS temporarily or handle auth.
     const { data: project, error } = await supabase
       .from('projects')
       .insert({
         title,
         media_url: s3Key,
         duration_ms: durationMs || 0,
-        status: 'queued', // Once uploaded, it's queued for transcription
-        user_id: '00000000-0000-0000-0000-000000000000' // Mock ID if bypassing RLS, otherwise omit for Auth
+        status: 'queued',
+        user_id: '00000000-0000-0000-0000-000000000000'
       })
       .select('id')
       .single();
@@ -40,7 +33,11 @@ export async function POST(request: Request) {
       fetch(modalWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, s3_key: s3Key })
+        body: JSON.stringify({ 
+          project_id: project.id, 
+          s3_key: s3Key,
+          source_language: sourceLanguage || 'auto'
+        })
       }).catch(err => console.error('Failed to trigger Modal worker:', err));
     }
 

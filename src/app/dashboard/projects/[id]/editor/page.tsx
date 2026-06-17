@@ -47,6 +47,11 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
         language: transcription.language,
         segments: transcription.segments,
         words: transcription.words,
+        transliteratedSegments: transcription.transliterated_segments || null,
+        transliteratedWords: transcription.transliterated_words || null,
+        translatedSegments: transcription.translated_segments || null,
+        translatedWords: null,
+        waveform: transcription.waveform || [],
       }}
     />
   );

@@ -8,7 +8,7 @@ import { useUpload } from '@/hooks/use-upload';
 import { cn } from '@/lib/utils';
 
 export function DragAndDrop() {
-  const { status, progress, error, projectId } = useUploadStore();
+  const { status, progress, error, projectId, sourceLanguage, setSourceLanguage } = useUploadStore();
   const { uploadFile } = useUpload();
 
   const onDrop = useCallback(
@@ -38,7 +38,7 @@ export function DragAndDrop() {
         <h3 className="text-xl font-semibold text-white">Upload Complete</h3>
         <p className="text-zinc-400 mt-2">Project ID: {projectId}</p>
         <button 
-          onClick={() => window.location.href = `/editor/${projectId}`}
+          onClick={() => window.location.href = `/dashboard/projects/${projectId}`}
           className="mt-6 px-6 py-2 bg-white text-black font-medium rounded-lg hover:bg-zinc-200 transition-colors"
         >
           View Transcript
@@ -66,10 +66,28 @@ export function DragAndDrop() {
             <UploadCloud className="w-8 h-8 text-zinc-400" />
           </div>
           <h3 className="text-xl font-semibold text-white">Upload your video</h3>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-2 text-sm text-zinc-400 text-center">
             Drag and drop your file here, or click to browse.
           </p>
-          <div className="flex gap-2 mt-4 text-xs text-zinc-500">
+          
+          <div className="mt-6 flex flex-col items-center z-10 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
+            <label className="text-xs text-zinc-400 mb-2 uppercase tracking-wider font-semibold">Video Language</label>
+            <select
+              className="w-full bg-zinc-950 border border-zinc-700 text-white text-sm rounded-lg focus:ring-violet-500 focus:border-violet-500 block p-2.5"
+              value={sourceLanguage}
+              onChange={(e) => setSourceLanguage(e.target.value)}
+            >
+              <option value="auto">Auto Detect (Default)</option>
+              <option value="te">Telugu</option>
+              <option value="ta">Tamil</option>
+              <option value="kn">Kannada</option>
+              <option value="ml">Malayalam</option>
+              <option value="hi">Hindi</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div className="flex gap-2 mt-6 text-xs text-zinc-500">
             <span>MP4, MOV, WEBM</span>
             <span>•</span>
             <span>Up to 500MB</span>

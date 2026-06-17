@@ -1,0 +1,19 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 1
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Inter,143,&H00FFFFFF,&H000000FF,&H00000000,&H7F000000,-1,0,0,0,100,100,0,0,1,0,0,2,81,81,191,1
+Style: Background,Arial,10,&H00FFFFFF,&H000000FF,&H00FFFFFF,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.00,0:00:02.50,Default,,0,0,0,,{\an7\pos(100,800)\xshad15\yshad15\blur0}வணக்கம்,
+Dialogue: 1,0:00:00.00,0:00:02.50,Default,,0,0,0,,{\an7\pos(270,800)\xshad15\yshad15\blur0}இது
+Dialogue: 1,0:00:00.00,0:00:02.50,Default,,0,0,0,,{\an7\pos(340,800)\xshad15\yshad15\blur0}தமிழில்
+Dialogue: 1,0:00:00.00,0:00:02.50,Default,,0,0,0,,{\an7\pos(490,800)\xshad15\yshad15\blur0}ஒரு
+Dialogue: 1,0:00:00.00,0:00:02.50,Default,,0,0,0,,{\an7\pos(560,800)\xshad15\yshad15\blur0}சோதனை
