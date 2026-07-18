@@ -149,6 +149,9 @@ export interface WordStyleOverride {
   animation?: WordAnimation;
   animationDelay?: number;   // ms
   animationDuration?: number; // ms
+
+  // AI Semantic
+  emoji?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -196,6 +199,9 @@ export interface SegmentStyleOverride {
   animation?: WordAnimation;
   animationDelay?: number;
   animationDuration?: number;
+
+  // AI Semantic additions
+  emoji?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -219,6 +225,10 @@ export const EMPTY_OVERRIDES: StyleOverrides = {
 export interface SubtitleStyleV3 extends Omit<SubtitleStyleV2, '_version'> {
   _version: 3;
   overrides: StyleOverrides;
+  activePreset?: {
+    id: string;
+    version: number;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -269,6 +279,9 @@ export interface ResolvedWordStyle {
   animationDelay: number;
   animationDuration: number;
 
+  // AI Semantic additions
+  emoji?: string;
+
   // Meta (for UI indication)
   hasWordOverride: boolean;
   hasSegmentOverride: boolean;
@@ -288,10 +301,13 @@ export const DEFAULT_STYLE_V3: SubtitleStyleV3 = {
 // STYLE RESOLUTION — Cascade: Project → Line → Word
 // ═══════════════════════════════════════════════════════════════════════
 
+import { evaluatePresetRule } from './preset-engine';
+import type { SemanticTag } from './semantic-engine';
+
 /**
  * Resolves the final computed style for a specific word.
  * Applies the full inheritance chain:
- *   Project Style (SubtitleStyleV3) → Segment Override → Word Override
+ *   Project Style (SubtitleStyleV3) → Preset Rule → Segment Override → Word Override
  *
  * Only explicitly set overrides take effect; undefined properties
  * inherit from the parent level.
@@ -300,9 +316,20 @@ export function resolveWordStyle(
   projectStyle: SubtitleStyleV3,
   segmentId: number,
   wordId: string,
+  semanticTag?: SemanticTag
 ): ResolvedWordStyle {
   const segOverride = projectStyle.overrides.segmentStyles[segmentId];
   const wordOverride = projectStyle.overrides.wordStyles[wordId];
+
+  // Dynamic Rule Evaluation (JIT)
+  let presetOverride: Partial<ResolvedWordStyle> | null = null;
+  if (projectStyle.activePreset && semanticTag) {
+    presetOverride = evaluatePresetRule(
+      semanticTag, 
+      projectStyle.activePreset.id, 
+      projectStyle.activePreset.version
+    );
+  }
 
   const hasSegmentOverride = !!segOverride && Object.keys(segOverride).length > 0;
   const hasWordOverride = !!wordOverride && Object.keys(wordOverride).length > 0;
@@ -311,28 +338,31 @@ export function resolveWordStyle(
   const resolve = <T>(
     wordVal: T | undefined,
     segVal: T | undefined,
+    presetVal: T | undefined,
     projectVal: T,
   ): T => {
     if (wordVal !== undefined) return wordVal;
     if (segVal !== undefined) return segVal;
+    if (presetVal !== undefined) return presetVal;
     return projectVal;
   };
 
   return {
     // Typography
-    fontFamily: resolve(wordOverride?.fontFamily, segOverride?.fontFamily, projectStyle.font.family),
-    fontWeight: resolve(wordOverride?.fontWeight, segOverride?.fontWeight, projectStyle.font.weight),
-    fontSize: resolve(wordOverride?.fontSize, segOverride?.fontSize, projectStyle.fontSize),
-    italic: resolve(wordOverride?.italic, segOverride?.italic, projectStyle.font.italic),
-    underline: resolve(wordOverride?.underline, segOverride?.underline, projectStyle.font.underline),
-    textTransform: resolve(wordOverride?.textTransform, segOverride?.textTransform, projectStyle.font.textTransform),
-    letterSpacing: resolve(wordOverride?.letterSpacing, segOverride?.letterSpacing, projectStyle.letterSpacing),
+    fontFamily: resolve(wordOverride?.fontFamily, segOverride?.fontFamily, presetOverride?.fontFamily, projectStyle.font.family),
+    fontWeight: resolve(wordOverride?.fontWeight, segOverride?.fontWeight, presetOverride?.fontWeight, projectStyle.font.weight),
+    fontSize: resolve(wordOverride?.fontSize, segOverride?.fontSize, presetOverride?.fontSize, projectStyle.fontSize),
+    italic: resolve(wordOverride?.italic, segOverride?.italic, presetOverride?.italic, projectStyle.font.italic),
+    underline: resolve(wordOverride?.underline, segOverride?.underline, presetOverride?.underline, projectStyle.font.underline),
+    textTransform: resolve(wordOverride?.textTransform, segOverride?.textTransform, presetOverride?.textTransform, projectStyle.font.textTransform),
+    letterSpacing: resolve(wordOverride?.letterSpacing, segOverride?.letterSpacing, presetOverride?.letterSpacing, projectStyle.letterSpacing),
 
     // Color
-    textColor: resolve(wordOverride?.textColor, segOverride?.textColor, projectStyle.textColor.solid),
+    textColor: resolve(wordOverride?.textColor, segOverride?.textColor, presetOverride?.textColor, projectStyle.textColor.solid),
     gradient: resolve(
       wordOverride?.gradient, 
       segOverride?.gradient, 
+      presetOverride?.gradient,
       projectStyle.textColor.mode === 'gradient' ? {
         type: 'linear',
         angle: projectStyle.textColor.gradientAngle ?? 90,
@@ -342,40 +372,45 @@ export function resolveWordStyle(
         ]
       } : null
     ),
-    strokeColor: resolve(wordOverride?.strokeColor, segOverride?.strokeColor, projectStyle.stroke.color),
-    strokeWidth: resolve(wordOverride?.strokeWidth, segOverride?.strokeWidth, projectStyle.stroke.width),
+    strokeColor: resolve(wordOverride?.strokeColor, segOverride?.strokeColor, presetOverride?.strokeColor, projectStyle.stroke.color),
+    strokeWidth: resolve(wordOverride?.strokeWidth, segOverride?.strokeWidth, presetOverride?.strokeWidth, projectStyle.stroke.width),
     strokeEnabled: projectStyle.stroke.enabled || 
       (wordOverride?.strokeWidth !== undefined && wordOverride.strokeWidth > 0) ||
-      (segOverride?.strokeWidth !== undefined && segOverride.strokeWidth > 0),
-    shadowColor: resolve(wordOverride?.shadowColor, segOverride?.shadowColor, projectStyle.shadow.color),
-    shadowBlur: resolve(wordOverride?.shadowBlur, segOverride?.shadowBlur, projectStyle.shadow.blur),
-    shadowOffsetX: resolve(wordOverride?.shadowOffsetX, segOverride?.shadowOffsetX, projectStyle.shadow.offsetX),
-    shadowOffsetY: resolve(wordOverride?.shadowOffsetY, segOverride?.shadowOffsetY, projectStyle.shadow.offsetY),
+      (segOverride?.strokeWidth !== undefined && segOverride.strokeWidth > 0) ||
+      (presetOverride?.strokeWidth !== undefined && presetOverride.strokeWidth > 0),
+    shadowColor: resolve(wordOverride?.shadowColor, segOverride?.shadowColor, presetOverride?.shadowColor, projectStyle.shadow.color),
+    shadowBlur: resolve(wordOverride?.shadowBlur, segOverride?.shadowBlur, presetOverride?.shadowBlur, projectStyle.shadow.blur),
+    shadowOffsetX: resolve(wordOverride?.shadowOffsetX, segOverride?.shadowOffsetX, presetOverride?.shadowOffsetX, projectStyle.shadow.offsetX),
+    shadowOffsetY: resolve(wordOverride?.shadowOffsetY, segOverride?.shadowOffsetY, presetOverride?.shadowOffsetY, projectStyle.shadow.offsetY),
 
     // Background
-    backgroundColor: resolve(wordOverride?.backgroundColor, segOverride?.backgroundColor, projectStyle.background.color),
-    backgroundGradient: resolve(wordOverride?.backgroundGradient, segOverride?.backgroundGradient, null),
+    backgroundColor: resolve(wordOverride?.backgroundColor, segOverride?.backgroundColor, presetOverride?.backgroundColor, projectStyle.background.color),
+    backgroundGradient: resolve(wordOverride?.backgroundGradient, segOverride?.backgroundGradient, presetOverride?.backgroundGradient, null),
     backgroundEnabled: projectStyle.background.enabled ||
       wordOverride?.backgroundColor !== undefined ||
-      segOverride?.backgroundColor !== undefined,
-    borderRadius: resolve(wordOverride?.borderRadius, segOverride?.borderRadius, projectStyle.background.borderRadius),
-    borderWidth: resolve(wordOverride?.borderWidth, segOverride?.borderWidth, 0),
-    borderColor: resolve(wordOverride?.borderColor, segOverride?.borderColor, 'transparent'),
-    paddingX: resolve(wordOverride?.paddingX, segOverride?.paddingX, projectStyle.background.paddingX),
-    paddingY: resolve(wordOverride?.paddingY, segOverride?.paddingY, projectStyle.background.paddingY),
+      segOverride?.backgroundColor !== undefined ||
+      presetOverride?.backgroundColor !== undefined,
+    borderRadius: resolve(wordOverride?.borderRadius, segOverride?.borderRadius, presetOverride?.borderRadius, projectStyle.background.borderRadius),
+    borderWidth: resolve(wordOverride?.borderWidth, segOverride?.borderWidth, presetOverride?.borderWidth, 0),
+    borderColor: resolve(wordOverride?.borderColor, segOverride?.borderColor, presetOverride?.borderColor, 'transparent'),
+    paddingX: resolve(wordOverride?.paddingX, segOverride?.paddingX, presetOverride?.paddingX, projectStyle.background.paddingX),
+    paddingY: resolve(wordOverride?.paddingY, segOverride?.paddingY, presetOverride?.paddingY, projectStyle.background.paddingY),
 
     // Transform
-    x: resolve(wordOverride?.x, segOverride?.x, 0),
-    y: resolve(wordOverride?.y, segOverride?.y, 0),
-    rotation: resolve(wordOverride?.rotation, segOverride?.rotation, 0),
-    scaleX: resolve(wordOverride?.scaleX, segOverride?.scaleX, 1),
-    scaleY: resolve(wordOverride?.scaleY, segOverride?.scaleY, 1),
-    opacity: resolve(wordOverride?.opacity, segOverride?.opacity, 1),
+    x: resolve(wordOverride?.x, segOverride?.x, presetOverride?.x, 0),
+    y: resolve(wordOverride?.y, segOverride?.y, presetOverride?.y, 0),
+    rotation: resolve(wordOverride?.rotation, segOverride?.rotation, presetOverride?.rotation, 0),
+    scaleX: resolve(wordOverride?.scaleX, segOverride?.scaleX, presetOverride?.scaleX, 1),
+    scaleY: resolve(wordOverride?.scaleY, segOverride?.scaleY, presetOverride?.scaleY, 1),
+    opacity: resolve(wordOverride?.opacity, segOverride?.opacity, presetOverride?.opacity, 1),
 
     // Animation
-    animation: resolve(wordOverride?.animation, segOverride?.animation, 'none'),
-    animationDelay: resolve(wordOverride?.animationDelay, segOverride?.animationDelay, 0),
-    animationDuration: resolve(wordOverride?.animationDuration, segOverride?.animationDuration, 300),
+    animation: resolve(wordOverride?.animation, segOverride?.animation, presetOverride?.animation, 'none'),
+    animationDelay: resolve(wordOverride?.animationDelay, segOverride?.animationDelay, presetOverride?.animationDelay, 0),
+    animationDuration: resolve(wordOverride?.animationDuration, segOverride?.animationDuration, presetOverride?.animationDuration, 0),
+
+    // AI Semantic
+    emoji: resolve(wordOverride?.emoji, segOverride?.emoji, presetOverride?.emoji, semanticTag?.suggestedEmoji),
 
     // Meta
     hasWordOverride,
@@ -452,6 +487,13 @@ export function cleanOverride<T extends Record<string, unknown>>(override: T): P
 export function getAllUsedFonts(style: SubtitleStyleV3): string[] {
   const fonts = new Set<string>();
   fonts.add(style.font.family);
+
+  if (style.activePreset) {
+    const { PRESET_FONT_MAP } = require('./preset-engine');
+    if (PRESET_FONT_MAP[style.activePreset.id]) {
+      fonts.add(PRESET_FONT_MAP[style.activePreset.id]);
+    }
+  }
 
   for (const override of Object.values(style.overrides.segmentStyles)) {
     if (override.fontFamily) fonts.add(override.fontFamily);

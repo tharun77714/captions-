@@ -6,6 +6,7 @@ import { getTemplatesByCategory, getTemplateCategories } from '@/lib/templates-d
 import { sanitizeTransitionType } from '@/lib/subtitle-schema-v2';
 import { FontPicker } from './font-picker';
 import { GradientPicker } from './gradient-picker';
+import { PresetGallery } from './preset-gallery';
 import {
   Type,
   Wand2,
@@ -91,6 +92,10 @@ function TemplatesTab() {
 
   return (
     <div className="p-3 space-y-5">
+      <PresetGallery />
+      
+      <div className="h-px bg-white/5 my-2" />
+      
       {categories.map((category) => {
         const templates = getTemplatesByCategory(category);
         if (templates.length === 0) return null;
@@ -287,8 +292,8 @@ function TextTab() {
       <div className="grid grid-cols-2 gap-2">
         <Section title="Size">
           <SliderWithValue
-            min={12}
-            max={72}
+            min={36}
+            max={250}
             step={1}
             value={activeStyle.fontSize}
             onChange={(v) => updateNumber('fontSize', 'fontSize', v)}
@@ -369,7 +374,7 @@ function TextTab() {
       <Section title="Letter Spacing">
         <SliderWithValue
           min={-5}
-          max={20}
+          max={60}
           step={0.5}
           value={activeStyle.letterSpacing}
           onChange={(v) => updateNumber('letterSpacing', 'letterSpacing', v)}
@@ -380,7 +385,7 @@ function TextTab() {
       <Section title="Word Spacing">
         <SliderWithValue
           min={-5}
-          max={30}
+          max={100}
           step={1}
           value={activeStyle.wordSpacing}
           onChange={(v) => setSubtitleStyleV2((s) => ({ ...s, wordSpacing: v }))}
@@ -435,7 +440,7 @@ function TextTab() {
             />
             <SliderWithValue
               min={0}
-              max={10}
+              max={30}
               step={0.5}
               value={activeStyle.stroke.width}
               onChange={(v) =>
@@ -454,7 +459,7 @@ function TextTab() {
             <span className="text-[9px] text-zinc-500 w-8">Blur</span>
             <SliderWithValue
               min={0}
-              max={50}
+              max={150}
               step={1}
               value={activeStyle.shadow.blur}
               onChange={(v) =>
@@ -467,7 +472,7 @@ function TextTab() {
             <span className="text-[9px] text-zinc-500 w-8">X</span>
             <SliderWithValue
               min={-20}
-              max={20}
+              max={60}
               step={1}
               value={activeStyle.shadow.offsetX}
               onChange={(v) =>
@@ -480,7 +485,7 @@ function TextTab() {
             <span className="text-[9px] text-zinc-500 w-8">Y</span>
             <SliderWithValue
               min={-20}
-              max={20}
+              max={60}
               step={1}
               value={activeStyle.shadow.offsetY}
               onChange={(v) =>
@@ -530,7 +535,7 @@ function TextTab() {
               <span className="text-[9px] text-zinc-500 w-12">Radius</span>
               <SliderWithValue
                 min={0}
-                max={24}
+                max={72}
                 step={1}
                 value={activeStyle.background.borderRadius}
                 onChange={(v) =>
@@ -688,7 +693,7 @@ function PositionTab() {
       <Section title="Position X">
         <SliderWithValue
           min={-50}
-          max={50}
+          max={150}
           step={1}
           value={subtitleStyle.positionX}
           onChange={(v) => setSubtitleStyleV2((s) => ({ ...s, positionX: v }))}
@@ -699,7 +704,7 @@ function PositionTab() {
       <Section title="Position Y">
         <SliderWithValue
           min={-50}
-          max={50}
+          max={150}
           step={1}
           value={subtitleStyle.positionY}
           onChange={(v) => setSubtitleStyleV2((s) => ({ ...s, positionY: v }))}
@@ -867,7 +872,7 @@ function TransitionsTab() {
             {subtitleStyle.transition.speedMode === 'fixed' && (
               <SliderWithValue
                 min={1}
-                max={50}
+                max={150}
                 step={1}
                 value={subtitleStyle.transition.speed}
                 onChange={(v) =>

@@ -89,6 +89,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
     setSubtitleStyleV2,
   } = useEditorStore();
 
+  const isExportMode = typeof window !== 'undefined' && (window as any).__EXPORT_MODE__;
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -280,6 +281,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
   // Sync video time → store
   const handleTimeUpdate = useCallback(() => {
+    if (isExportMode) return;
     if (videoRef.current) {
       const time = videoRef.current.currentTime;
       setCurrentTime(time);
@@ -288,14 +290,15 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       );
       setActiveSegmentIndex(idx);
     }
-  }, [segments, setCurrentTime, setActiveSegmentIndex]);
+  }, [isExportMode, segments, setCurrentTime, setActiveSegmentIndex]);
 
   // Sync store time → video (seek from transcript clicks)
   useEffect(() => {
-    if (videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
+    if (isExportMode) return;
+    if (videoRef.current && videoRef.current.readyState >= 1 && Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
       videoRef.current.currentTime = currentTime;
     }
-  }, [currentTime]);
+  }, [isExportMode, currentTime]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {
@@ -364,8 +367,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
   return (
     <div
       ref={containerRef}
+      id="video-player-container"
       className="relative bg-black rounded-xl overflow-hidden shadow-2xl group flex items-center justify-center max-w-full max-h-full"
-      style={{ aspectRatio: `${videoDimensions.width} / ${videoDimensions.height}` }}
+      style={{ aspectRatio: isExportMode ? "9 / 16" : `${videoDimensions.width} / ${videoDimensions.height}` }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -382,9 +386,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
           playsInline
         />
       ) : (
-        <div className="flex items-center justify-center h-full">
-          <p className="text-zinc-600 text-sm">Loading video...</p>
-        </div>
+        !isExportMode && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-zinc-600 text-sm">Loading video...</p>
+          </div>
+        )
       )}
 
       {/* Hidden Layout Measurement Container */}
@@ -494,6 +500,69 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                 // Active/Inactive state based on transition
                 const transitionState = hasStarted ? transitionParams.activeStyle : transitionParams.initialStyle;
 
+                let exportOverrideStyle: React.CSSProperties = {};
+
+                if (isExportMode && subtitleStyle.transition.type !== 'none') {
+                  const animStart = subtitleStyle.transition.target === 'line' ? activeSegment.start : wordObj.start;
+                  const animEnd = animStart + (durationMs / 1000.0);
+                  let progress = 0;
+                  if (currentTime >= animEnd) {
+                    progress = 1;
+                  } else if (currentTime > animStart) {
+                    progress = (currentTime - animStart) / (animEnd - animStart);
+                  }
+
+                  const transType = subtitleStyle.transition.type;
+                  let tStyle: React.CSSProperties = {};
+                  
+                  if (transType === 'fade') {
+                    tStyle.opacity = progress;
+                  } else if (transType === 'pop') {
+                    tStyle.transform = `scale(${progress})`;
+                    tStyle.opacity = progress > 0 ? 1 : 0;
+                  } else if (transType === 'scale') {
+                    tStyle.transform = isWordActive ? 'scale(1.15)' : 'scale(1)';
+                  } else if (transType === 'slide-left') {
+                    tStyle.transform = `translateX(${-20 * (1 - progress)}px)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'slide-right') {
+                    tStyle.transform = `translateX(${20 * (1 - progress)}px)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'slide-up') {
+                    tStyle.transform = `translateY(${-20 * (1 - progress)}px)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'slide-down') {
+                    tStyle.transform = `translateY(${20 * (1 - progress)}px)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'zoom') {
+                    tStyle.transform = `scale(${0.5 + 0.5 * progress})`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'flip-x') {
+                    tStyle.transform = `perspective(400px) rotateX(${90 * (1 - progress)}deg)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'flip-y') {
+                    tStyle.transform = `perspective(400px) rotateY(${90 * (1 - progress)}deg)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'spin') {
+                    tStyle.transform = `rotate(${180 * (1 - progress)}deg) scale(${progress})`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'blur') {
+                    tStyle.filter = `blur(${10 * (1 - progress)}px)`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'bounce') {
+                    tStyle.transform = `translateY(${30 * (1 - progress)}px) scale(${0.8 + 0.2 * progress})`;
+                    tStyle.opacity = progress;
+                  } else if (transType === 'elastic') {
+                    tStyle.transform = `scaleX(${1.5 - 0.5 * progress}) scaleY(${0.5 + 0.5 * progress})`;
+                    tStyle.opacity = progress;
+                  }
+
+                  exportOverrideStyle = {
+                    ...tStyle,
+                    transition: 'none',
+                  };
+                }
+
                 // 2. Base Style
                 const dynamicStyle: React.CSSProperties = {
                   color: computedStyle.gradient ? 'transparent' : computedStyle.textColor,
@@ -513,10 +582,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                   backgroundColor: computedStyle.backgroundEnabled ? computedStyle.backgroundColor : 'transparent',
                   marginRight: '6px',
                   display: 'inline-block',
-                  transition: `all ${transitionParams.durationMs}ms ${transitionParams.easing}`,
+                  transition: isExportMode ? 'none' : `all ${transitionParams.durationMs}ms ${transitionParams.easing}`,
                   padding: `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 2}px`,
                   borderRadius: `${computedStyle.borderRadius}px`,
-                  ...transitionState, // Apply initial or active transform/opacity
+                  ...(isExportMode ? exportOverrideStyle : transitionState), // Apply initial or active transform/opacity
                 };
 
                 if (computedStyle.shadowBlur > 0) {
@@ -574,6 +643,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       )}
 
       {/* Custom Controls */}
+      {!isExportMode && (
       <div
         className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -640,8 +710,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
           </button>
         </div>
       </div>
+      )}
 
-      {!isPlaying && videoUrl && (
+      {!isPlaying && videoUrl && !isExportMode && (
         <button
           onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity"

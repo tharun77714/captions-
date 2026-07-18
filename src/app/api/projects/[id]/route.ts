@@ -24,10 +24,27 @@ export async function GET(
       return NextResponse.json({ export_status: 'completed', export_url: 'exports/mock.mp4' }); // Fallback for robust testing
     }
 
-    // Default to 'none' if columns exist but are null
+    // Fetch latest export job details if table exists
+    let latestJob = null;
+    try {
+      const { data } = await supabase
+        .from('export_jobs')
+        .select('id, status, progress, stage')
+        .eq('project_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      latestJob = data;
+    } catch (e) {
+      console.warn("Failed to query export_jobs, falling back:", e);
+    }
+
     const result = {
-      ...project,
-      export_status: project.export_status || 'none'
+      export_status: latestJob?.status || project.export_status || 'none',
+      export_url: project.export_url,
+      progress: latestJob?.progress || 0,
+      stage: latestJob?.stage || '',
+      job_id: latestJob?.id || null
     };
 
     return NextResponse.json(result);

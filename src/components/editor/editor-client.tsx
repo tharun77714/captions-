@@ -7,12 +7,11 @@ import { VideoPlayer, VideoPlayerRef } from '@/components/editor/video-player';
 import { TranscriptPanel } from '@/components/editor/transcript-panel';
 import { StylePanel } from '@/components/editor/style-panel';
 import { Timeline } from '@/components/editor/timeline';
-import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video } from 'lucide-react';
+import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video, AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { ensureV3, getAllUsedFonts } from '@/lib/subtitle-schema-v3';
 import { preloadFonts } from '@/lib/font-registry';
-import { ExportModal, ExportOptions } from '@/components/editor/export-modal';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface EditorClientProps {
   project: {
@@ -33,8 +32,6 @@ interface EditorClientProps {
     waveform?: number[];
   };
 }
-
-export type ExportStatus = 'none' | 'exporting' | 'completed' | 'failed';
 
 export function EditorClient({ project, transcription }: EditorClientProps) {
   const {
@@ -67,9 +64,16 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
 
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [exportStatus, setExportStatus] = useState<ExportStatus>('none');
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+
+  // Milestone 5 Export States
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string>('none');
+  const [exportProgress, setExportProgress] = useState<number>(0);
+  const [exportStage, setExportStage] = useState<string>('');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
 
   // Initialize store with server data
   useEffect(() => {
@@ -78,13 +82,23 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       projectTitle: project.title,
       language: transcription.language,
     });
+    
+    const serverWaveform = transcription.waveform && transcription.waveform.length > 0
+      ? {
+          min: transcription.waveform.map(v => -(v / 100)),
+          max: transcription.waveform.map(v => (v / 100)),
+          resolution: 100
+        }
+      : undefined;
+
     setTranscriptData(
       transcription.segments,
       transcription.words,
       transcription.transliteratedSegments || undefined,
       transcription.transliteratedWords || undefined,
       transcription.translatedSegments || undefined,
-      transcription.translatedWords || undefined
+      transcription.translatedWords || undefined,
+      serverWaveform
     );
     if (project.subtitle_style) {
       setSubtitleStyle(ensureV3(project.subtitle_style));
@@ -99,10 +113,18 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     }
   }, [subtitleStyle]);
 
+  // Clean up SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+    };
+  }, []);
+
   const handleSave = React.useCallback(async (): Promise<boolean> => {
     setSaveStatus('saving');
     try {
-      // Phase 2.5: Strict validation before saving
       const validation = validateTimingModel();
       if (!validation.isValid) {
         console.error('Save aborted due to timing validation failure:', validation.errors);
@@ -112,9 +134,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
         return false;
       }
 
-      // Get all arrays from store state to ensure we save backing arrays
       const state = useEditorStore.getState();
-
       const getBackingUpdates = (mode: string, currentSegs: Segment[]) => {
         const updates: { original?: Segment[], transliterated?: Segment[], translated?: Segment[] } = {};
         if (mode === 'original') updates.original = currentSegs;
@@ -162,96 +182,96 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     }
   }, [project.id, subtitleStyle, validateTimingModel]);
 
-  const handleExport = async (options: ExportOptions) => {
-    if (exportStatus === 'exporting') return;
-    
-    // Save first
-    const saved = await handleSave();
-    if (!saved) {
-      alert("Failed to save project. Export aborted.");
-      return;
+  const startSSEStream = React.useCallback((jobId: string) => {
+    if (sseRef.current) {
+      sseRef.current.close();
     }
 
-    setExportStatus('exporting');
-    try {
-      // Capture actual rendered measurements from the browser DOM
-      const measurements = videoPlayerRef.current?.getRenderedMeasurements();
-      const state = useEditorStore.getState();
-      const resolvedStyles: Record<string, ReturnType<typeof resolveWordStyle>> = {};
-      state.segments.forEach(seg => {
-        seg.words.forEach(w => {
-          resolvedStyles[w.id] = resolveWordStyle(state.subtitleStyle, seg.id, w.id);
-        });
-      });
+    const sse = new EventSource(`/api/export/${jobId}/progress`);
+    sseRef.current = sse;
 
-      const res = await fetch(`/api/projects/${project.id}/export`, {
+    sse.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setExportStatus(data.status);
+        setExportProgress(data.progress);
+        setExportStage(data.stage);
+        setExportError(data.error || null);
+
+        if (data.status === 'completed') {
+          sse.close();
+          try {
+            const dlRes = await fetch(`/api/projects/${project.id}/download`);
+            if (dlRes.ok) {
+              const dlData = await dlRes.json();
+              setDownloadUrl(dlData.url);
+            }
+          } catch (dlErr) {
+            console.error('Failed to get signed download link:', dlErr);
+          }
+        } else if (['failed', 'cancelled'].includes(data.status)) {
+          sse.close();
+        }
+      } catch (err) {
+        console.error('Error parsing SSE data:', err);
+      }
+    };
+
+    sse.onerror = () => {
+      sse.close();
+    };
+  }, [project.id]);
+
+  const handleExport = React.useCallback(async () => {
+    const saved = await handleSave();
+    if (!saved) return;
+
+    setExportStatus('queued');
+    setExportProgress(0);
+    setExportStage('Submitting export job...');
+    setExportError(null);
+    setDownloadUrl(null);
+
+    try {
+      const res = await fetch('/api/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          measurements: measurements || null,
-          subtitleMode,
-          options,
-          resolvedStyles
-        }),
+        body: JSON.stringify({ projectId: project.id }),
       });
-      
-      if (!res.ok) {
-        const data = await res.json();
-        alert(`Export failed to start: ${data.error}`);
-        setExportStatus('failed');
-      }
-    } catch (err) {
-      console.error('Export trigger failed:', err);
-      setExportStatus('failed');
-    }
-  };
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(`/api/projects/${project.id}/download`);
       if (res.ok) {
-        const { url } = await res.json();
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `vidyut_export_${project.id}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const { jobId } = await res.json();
+        setExportJobId(jobId);
+        startSSEStream(jobId);
       } else {
-        alert("Download link not ready or expired.");
+        const errData = await res.json();
+        setExportStatus('failed');
+        setExportError(errData.error || 'Failed to submit export job.');
       }
     } catch (err) {
-      console.error("Download failed:", err);
+      console.error('Export failed:', err);
+      setExportStatus('failed');
+      setExportError('Network error starting export.');
     }
-  };
+  }, [project.id, handleSave, startSSEStream]);
 
-  // Poll for export status
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (exportStatus === 'exporting') {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/projects/${project.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.export_status === 'completed') {
-              setExportStatus('completed');
-              clearInterval(interval);
-            } else if (data.export_status === 'failed') {
-              setExportStatus('failed');
-              clearInterval(interval);
-            }
-          }
-        } catch {}
-      }, 5000);
+  const handleCancel = React.useCallback(async () => {
+    if (!exportJobId) return;
+    try {
+      await fetch(`/api/export/${exportJobId}/cancel`, { method: 'POST' });
+      setExportStatus('cancelled');
+      setExportStage('Export cancelled by user.');
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+    } catch (err) {
+      console.error('Failed to cancel export:', err);
     }
-    return () => clearInterval(interval);
-  }, [exportStatus, project.id]);
+  }, [exportJobId]);
 
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input/textarea
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 
@@ -272,7 +292,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           handleSave();
         }
       } else {
-        // Single key shortcuts
         switch (e.key.toLowerCase()) {
           case ' ':
             e.preventDefault();
@@ -347,78 +366,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     fetchVideoUrl();
   }, [project.media_url, setVideoUrl]);
 
-  // Generate waveform if needed
-  useEffect(() => {
-    if (!videoUrl || (waveform && waveform.min.length > 0)) return;
-
-    let isCancelled = false;
-    async function generateWaveform() {
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const response = await fetch(videoUrl as string);
-        const arrayBuffer = await response.arrayBuffer();
-        if (isCancelled) return;
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        if (isCancelled) return;
-
-        const channelData = audioBuffer.getChannelData(0);
-        const bucketsPerSecond = 100; // High resolution caching
-        const samplesPerBucket = Math.floor(audioBuffer.sampleRate / bucketsPerSecond);
-        
-        const minPeaks: number[] = [];
-        const maxPeaks: number[] = [];
-        let globalMax = 0;
-        
-        for (let i = 0; i < channelData.length; i += samplesPerBucket) {
-          let min = 0;
-          let max = 0;
-          for (let j = 0; j < samplesPerBucket && i + j < channelData.length; j++) {
-            const val = channelData[i + j];
-            if (val < min) min = val;
-            if (val > max) max = val;
-          }
-          minPeaks.push(min);
-          maxPeaks.push(max);
-          if (max > globalMax) globalMax = max;
-          if (-min > globalMax) globalMax = -min;
-        }
-
-        const normalizedMin = globalMax > 0 ? minPeaks.map(v => v / globalMax) : minPeaks;
-        const normalizedMax = globalMax > 0 ? maxPeaks.map(v => v / globalMax) : maxPeaks;
-        
-        if (!isCancelled) {
-          setWaveform({
-            min: normalizedMin,
-            max: normalizedMax,
-            resolution: bucketsPerSecond
-          });
-        }
-      } catch (err) {
-        console.error('Failed to generate waveform:', err);
-      }
-    }
-    generateWaveform();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [videoUrl, waveform, setWaveform]);
-
-  // Dynamically load font
-  useEffect(() => {
-    const fontName = subtitleStyle.font.family;
-    if (fontName === 'Geist' || fontName === 'Inter') return; // Loaded via next/font
-
-    const linkId = `font-${fontName.replace(/\s+/g, '-')}`;
-    if (document.getElementById(linkId)) return;
-
-    const link = document.createElement('link');
-    link.id = linkId;
-    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&display=swap`;
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-  }, [subtitleStyle.font.family]);
-
   if (loading) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
@@ -429,6 +376,8 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       </div>
     );
   }
+
+  const isExporting = ['queued', 'starting', 'planning', 'rendering', 'encoding', 'mixing', 'muxing', 'uploading'].includes(exportStatus);
 
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -447,7 +396,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           </h1>
           <div className="w-px h-5 bg-white/10 mx-2" />
           
-          {/* Undo/Redo Controls */}
           <div className="flex items-center gap-1">
             <button
               onClick={undo}
@@ -476,7 +424,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             {transcription.language}
           </span>
 
-          {/* Subtitle Mode Toggle Group */}
           <div className="flex items-center bg-zinc-900 border border-white/5 rounded-lg p-0.5 relative select-none">
             {(['original', 'transliterated', 'translated'] as const).map((mode) => {
               const isActive = subtitleMode === mode;
@@ -503,7 +450,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           </div>
           <button
             onClick={handleSave}
-            disabled={saveStatus === 'saving' || exportStatus === 'exporting'}
+            disabled={saveStatus === 'saving'}
             className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border ${
               saveStatus === 'saving'
                 ? 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed'
@@ -516,50 +463,40 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           >
             {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Save Failed!' : 'Save'}
           </button>
-          
-          {exportStatus === 'completed' ? (
-            <button
-              onClick={handleDownload}
-              className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border bg-emerald-600 hover:bg-emerald-500 border-emerald-500/30 text-white shadow-lg shadow-emerald-500/15 flex items-center gap-2"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download Video
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              disabled={exportStatus === 'exporting'}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border flex items-center gap-2 ${
-                exportStatus === 'exporting'
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed'
-                  : exportStatus === 'failed'
-                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
-                  : 'bg-violet-600 hover:bg-violet-500 border-violet-500/30 text-white shadow-lg shadow-violet-500/15'
-              }`}
-            >
-              {exportStatus === 'exporting' ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Exporting...
-                </>
-              ) : exportStatus === 'failed' ? (
-                <>
-                  <Video className="w-3.5 h-3.5" />
-                  Export Failed - Retry
-                </>
-              ) : (
-                <>
-                  <Video className="w-3.5 h-3.5" />
-                  Export Video
-                </>
-              )}
-            </button>
-          )}
+
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border flex items-center gap-1.5 ${
+              isExporting
+                ? 'bg-violet-600/20 border-violet-500/30 text-violet-400 cursor-not-allowed'
+                : exportStatus === 'completed'
+                ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white'
+                : 'bg-violet-600 hover:bg-violet-500 border-violet-500 text-white'
+            }`}
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Exporting...
+              </>
+            ) : exportStatus === 'completed' ? (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                Re-export
+              </>
+            ) : (
+              <>
+                <Video className="w-3.5 h-3.5" />
+                Export Video
+              </>
+            )}
+          </button>
         </div>
       </header>
 
       {/* Main Editor Layout */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
         {/* Left: Transcript Panel */}
         <div className="w-[340px] shrink-0">
           <TranscriptPanel />
@@ -585,14 +522,113 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           {/* Bottom: Timeline Panel */}
           <Timeline />
         </div>
-      </div>
 
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        onExport={handleExport}
-        isExporting={exportStatus === 'exporting'}
-      />
+        {/* Milestone 5 Premium Export Progress Overlay */}
+        <AnimatePresence>
+          {exportStatus !== 'none' && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed bottom-6 right-6 w-96 backdrop-blur-xl bg-zinc-950/85 border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+            >
+              {/* Overlay Header */}
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-violet-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Video Export</span>
+                </div>
+                <button
+                  onClick={() => setExportStatus('none')}
+                  className="p-1 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Overlay Body */}
+              <div className="p-5">
+                {isExporting ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-zinc-400 font-medium">{exportStage || 'Processing...'}</span>
+                      <span className="font-mono text-violet-400 font-bold">{exportProgress}%</span>
+                    </div>
+
+                    {/* Progress Bar Container */}
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full shadow-[0_0_12px_rgba(139,92,246,0.5)]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${exportProgress}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-[10px] text-zinc-500">Do not close this page</span>
+                      <button
+                        onClick={handleCancel}
+                        className="px-3 py-1.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        Cancel Export
+                      </button>
+                    </div>
+                  </div>
+                ) : exportStatus === 'completed' ? (
+                  <div className="space-y-4 text-center py-2">
+                    <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-400">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Export Finished Successfully!</h4>
+                      <p className="text-xs text-zinc-400 mt-1">Your video with subtitles is ready for download.</p>
+                    </div>
+                    {downloadUrl ? (
+                      <a
+                        href={downloadUrl}
+                        download={`vidyut_export_${project.id}.mp4`}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-600/10"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download MP4
+                      </a>
+                    ) : (
+                      <div className="text-xs text-zinc-500 animate-pulse">Generating secure download link...</div>
+                    )}
+                  </div>
+                ) : exportStatus === 'cancelled' ? (
+                  <div className="text-center py-4 space-y-3">
+                    <AlertCircle className="w-8 h-8 text-zinc-500 mx-auto" />
+                    <p className="text-xs text-zinc-400">Export was cancelled by user.</p>
+                    <button
+                      onClick={handleExport}
+                      className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Start Export
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 space-y-3">
+                    <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
+                    <div>
+                      <h4 className="text-xs font-semibold text-rose-400">Export Failed</h4>
+                      <p className="text-[10px] text-zinc-500 mt-1 max-w-[280px] mx-auto truncate">{exportError || 'An unknown error occurred.'}</p>
+                    </div>
+                    <button
+                      onClick={handleExport}
+                      className="px-4 py-2 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Retry Export
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

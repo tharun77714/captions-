@@ -1,0 +1,31 @@
+[01:42:43] Headless Chromium launched in 78.79 ms.
+[01:42:43] Registered deterministic local assets; the /test-parity React page is served normally.
+[01:42:43] Injected the validated RenderPayload before React scripts executed.
+[01:42:46] Ready-state contract confirmed: Zustand, fonts, video, document, and SET_CURRENT_TIME are ready.
+[01:42:46] Injected CSS overrides to disable all CSS animations and transitions.
+[01:42:46] Captured frame-0-000pct.png after SET_CURRENT_TIME(0.0) command 1.
+[01:42:47] Captured frame-0-000pct-repeat-1.png after SET_CURRENT_TIME(0.0) command 2.
+[01:42:47] Pixel comparison passed for frame-0-000pct-repeat-1.png: 0 differing pixels.
+[01:42:47] Captured frame-0-000pct-repeat-2.png after SET_CURRENT_TIME(0.0) command 3.
+[01:42:47] Pixel comparison passed for frame-0-000pct-repeat-2.png: 0 differing pixels.
+[01:42:48] Captured frame-1-025pct.png after SET_CURRENT_TIME(2.5) command 4.
+[01:42:48] Captured frame-1-025pct-repeat-1.png after SET_CURRENT_TIME(2.5) command 5.
+[01:42:48] Pixel comparison passed for frame-1-025pct-repeat-1.png: 0 differing pixels.
+[01:42:48] Captured frame-1-025pct-repeat-2.png after SET_CURRENT_TIME(2.5) command 6.
+[01:42:48] Pixel comparison passed for frame-1-025pct-repeat-2.png: 0 differing pixels.
+[01:42:49] Captured frame-2-050pct.png after SET_CURRENT_TIME(5.0) command 7.
+[01:42:49] Captured frame-2-050pct-repeat-1.png after SET_CURRENT_TIME(5.0) command 8.
+[01:42:49] Pixel comparison passed for frame-2-050pct-repeat-1.png: 0 differing pixels.
+[01:42:50] Captured frame-2-050pct-repeat-2.png after SET_CURRENT_TIME(5.0) command 9.
+[01:42:50] Pixel comparison passed for frame-2-050pct-repeat-2.png: 0 differing pixels.
+[01:42:50] Captured frame-3-075pct.png after SET_CURRENT_TIME(7.5) command 10.
+[01:42:50] Captured frame-3-075pct-repeat-1.png after SET_CURRENT_TIME(7.5) command 11.
+[01:42:50] Pixel comparison passed for frame-3-075pct-repeat-1.png: 0 differing pixels.
+[01:42:51] Captured frame-3-075pct-repeat-2.png after SET_CURRENT_TIME(7.5) command 12.
+[01:42:51] Pixel comparison passed for frame-3-075pct-repeat-2.png: 0 differing pixels.
+[01:42:51] Captured frame-4-100pct.png after SET_CURRENT_TIME(10.0) command 13.
+[01:42:51] Captured frame-4-100pct-repeat-1.png after SET_CURRENT_TIME(10.0) command 14.
+[01:42:52] Pixel comparison passed for frame-4-100pct-repeat-1.png: 0 differing pixels.
+[01:42:52] Captured frame-4-100pct-repeat-2.png after SET_CURRENT_TIME(10.0) command 15.
+[01:42:52] Pixel comparison passed for frame-4-100pct-repeat-2.png: 0 differing pixels.
+[01:42:52] All five frames passed repeated pixel-identical capture checks.

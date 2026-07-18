@@ -1,0 +1,143 @@
+{
+  "browser_console": [
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "warning: Video load timed out (2s limit), proceeding with render."
+  ],
+  "browser_errors": [],
+  "comparisons": [
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-0-000pct",
+      "identical": true,
+      "reference_file": "frame-0-000pct.png",
+      "repeat_file": "frame-0-000pct-repeat-1.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-0-000pct",
+      "identical": true,
+      "reference_file": "frame-0-000pct.png",
+      "repeat_file": "frame-0-000pct-repeat-2.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-1-025pct",
+      "identical": true,
+      "reference_file": "frame-1-025pct.png",
+      "repeat_file": "frame-1-025pct-repeat-1.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-1-025pct",
+      "identical": true,
+      "reference_file": "frame-1-025pct.png",
+      "repeat_file": "frame-1-025pct-repeat-2.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-2-050pct",
+      "identical": true,
+      "reference_file": "frame-2-050pct.png",
+      "repeat_file": "frame-2-050pct-repeat-1.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-2-050pct",
+      "identical": true,
+      "reference_file": "frame-2-050pct.png",
+      "repeat_file": "frame-2-050pct-repeat-2.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-3-075pct",
+      "identical": true,
+      "reference_file": "frame-3-075pct.png",
+      "repeat_file": "frame-3-075pct-repeat-1.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-3-075pct",
+      "identical": true,
+      "reference_file": "frame-3-075pct.png",
+      "repeat_file": "frame-3-075pct-repeat-2.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-4-100pct",
+      "identical": true,
+      "reference_file": "frame-4-100pct.png",
+      "repeat_file": "frame-4-100pct-repeat-1.png"
+    },
+    {
+      "diff_file": null,
+      "differing_pixels": 0,
+      "frame_label": "frame-4-100pct",
+      "identical": true,
+      "reference_file": "frame-4-100pct.png",
+      "repeat_file": "frame-4-100pct-repeat-2.png"
+    }
+  ],
+  "failure": null,
+  "metrics": {
+    "browser_startup_ms": 78.79439998941962,
+    "font_loading_time_ms": 46.5,
+    "hydration_time_ms": 0.30000001192092896,
+    "ready_state_wait_ms": 2726.450999994995,
+    "screenshot_capture_average_ms": 401.0860799996105,
+    "screenshot_capture_total_ms": 6016.291199994157,
+    "total_execution_ms": 9310.503500004415
+  },
+  "milestone": 2,
+  "pixel_differences_exist": false,
+  "ready_state": {
+    "documentReady": true,
+    "fontsLoaded": true,
+    "payloadInjected": true,
+    "phase": "ready",
+    "renderedCommandId": 0,
+    "renderedTime": 0,
+    "requestedCommandId": 0,
+    "requestedTime": null,
+    "timings": {
+      "fontLoadingMs": 46.5,
+      "hydrationMs": 0.30000001192092896
+    },
+    "videoReady": true,
+    "zustandHydrated": true
+  },
+  "repeats_per_frame": 3,
+  "result": "passed",
+  "screenshots": [
+    "frame-0-000pct.png",
+    "frame-0-000pct-repeat-1.png",
+    "frame-0-000pct-repeat-2.png",
+    "frame-1-025pct.png",
+    "frame-1-025pct-repeat-1.png",
+    "frame-1-025pct-repeat-2.png",
+    "frame-2-050pct.png",
+    "frame-2-050pct-repeat-1.png",
+    "frame-2-050pct-repeat-2.png",
+    "frame-3-075pct.png",
+    "frame-3-075pct-repeat-1.png",
+    "frame-3-075pct-repeat-2.png",
+    "frame-4-100pct.png",
+    "frame-4-100pct-repeat-1.png",
+    "frame-4-100pct-repeat-2.png"
+  ],
+  "time_points": [
+    0.0,
+    2.5,
+    5.0,
+    7.5,
+    10.0
+  ]
+}

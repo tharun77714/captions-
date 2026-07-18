@@ -17,6 +17,7 @@ import type {
 } from '@/lib/subtitle-schema-v3';
 import { EMPTY_OVERRIDES, ensureV3 } from '@/lib/subtitle-schema-v3';
 import { getTemplateById } from '@/lib/templates-data';
+import { enrichTranscript, SemanticTag } from '@/lib/semantic-engine';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -112,6 +113,9 @@ interface EditorState {
   isPlaying: boolean;
   activeSegmentIndex: number;
 
+  // Semantic Enrichment
+  semanticTags: Record<string, SemanticTag>;
+
   // Search
   searchQuery: string;
 
@@ -162,6 +166,9 @@ interface EditorState {
   setSubtitleStyleV2: (updater: (prev: SubtitleStyleV3) => SubtitleStyleV3) => void;
   setCaptionConfig: (config: Partial<CaptionConfig>) => void;
   applyTemplate: (templateId: string) => void;
+  applyCreatorPreset: (presetId: string, version: number) => void;
+  applyAiHighlighting: () => void;
+  applyAiEmojis: () => void;
   setEditMode: (mode: 'line' | 'word') => void;
   setTimelineZoom: (zoom: number) => void;
   
@@ -305,6 +312,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   searchQuery: '',
 
+  semanticTags: {},
+
   subtitleStyle: defaultSubtitleStyle,
   captionConfig: { ...DEFAULT_CAPTION_CONFIG },
   activeTemplateId: null,
@@ -371,6 +380,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       segments: originalSegments,
       waveform: waveform || undefined,
       subtitleMode: 'original',
+      semanticTags: enrichTranscript(originalSegments.flatMap(s => s.words)),
       past: [],
       future: [],
       canUndo: false,
@@ -479,6 +489,83 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         canRedo: false,
       };
     }),
+
+  applyCreatorPreset: (presetId, version) =>
+    set((state) => {
+      const snapshot: HistorySnapshot = {
+        segments: state.segments,
+        originalSegments: state.originalSegments,
+        transliteratedSegments: state.transliteratedSegments,
+        translatedSegments: state.translatedSegments,
+        subtitleStyle: state.subtitleStyle,
+        captionConfig: state.captionConfig
+      };
+      const newPast = [...state.past, snapshot].slice(-50);
+      return {
+        subtitleStyle: { 
+          ...state.subtitleStyle,
+          activePreset: { id: presetId, version }
+        },
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false,
+      };
+    }),
+
+  applyAiHighlighting: () => set((state) => {
+    const newOverrides = { ...state.subtitleStyle.overrides };
+    newOverrides.wordStyles = { ...newOverrides.wordStyles };
+    let hasChanges = false;
+
+    Object.entries(state.semanticTags).forEach(([wordId, tag]) => {
+      if (tag.suggestedColor) {
+        newOverrides.wordStyles[wordId] = {
+          ...(newOverrides.wordStyles[wordId] || {}),
+          textColor: tag.suggestedColor,
+        };
+        hasChanges = true;
+      }
+    });
+
+    if (!hasChanges) return {};
+
+    const snapshot: HistorySnapshot = { ...state, subtitleStyle: state.subtitleStyle } as any; // simplified snapshot
+    return {
+      subtitleStyle: { ...state.subtitleStyle, overrides: newOverrides },
+      past: [...state.past, snapshot].slice(-50),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+    };
+  }),
+
+  applyAiEmojis: () => set((state) => {
+    const newOverrides = { ...state.subtitleStyle.overrides };
+    newOverrides.wordStyles = { ...newOverrides.wordStyles };
+    let hasChanges = false;
+
+    Object.entries(state.semanticTags).forEach(([wordId, tag]) => {
+      if (tag.suggestedEmoji) {
+        newOverrides.wordStyles[wordId] = {
+          ...(newOverrides.wordStyles[wordId] || {}),
+          emoji: tag.suggestedEmoji,
+        };
+        hasChanges = true;
+      }
+    });
+
+    if (!hasChanges) return {};
+
+    const snapshot: HistorySnapshot = { ...state, subtitleStyle: state.subtitleStyle } as any; // simplified snapshot
+    return {
+      subtitleStyle: { ...state.subtitleStyle, overrides: newOverrides },
+      past: [...state.past, snapshot].slice(-50),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+    };
+  }),
 
   setEditMode: (editMode) => set({ editMode }),
 

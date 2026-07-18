@@ -9,43 +9,40 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: projectId } = await params;
     const supabase = await createClient();
 
-    const { data: project, error: fetchError } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('export_status, export_url')
-      .eq('id', id)
+      .select('user_id, export_status, export_url')
+      .eq('id', projectId)
       .single();
 
-    if (fetchError) {
-      console.error("Download fetch error:", fetchError);
-      return NextResponse.json({ url: 'https://example.com/mock-export.mp4' });
+    if (projectError || !project) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
     }
 
-    if (!project || (project.export_status && project.export_status !== 'completed')) {
-      return NextResponse.json({ error: 'Export not ready' }, { status: 400 });
-    }
-    
-    // If we have a successful fetch but no export_url (missing column fallback)
-    const finalUrl = project.export_url || 'https://example.com/mock-export.mp4';
-
-    if (finalUrl.startsWith('http')) {
-      return NextResponse.json({ url: finalUrl });
+    if (project.export_status !== 'completed' || !project.export_url) {
+      return NextResponse.json({ error: 'Export is not completed yet' }, { status: 400 });
     }
 
-    // Generate signed URL
+    let key = project.export_url;
+    if (key.includes('.cloudflarestorage.com/')) {
+      key = key.split('.cloudflarestorage.com/')[1];
+    } else if (key.startsWith('http')) {
+      key = key.split('/').slice(3).join('/');
+    }
+
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: finalUrl,
-      ResponseContentDisposition: `attachment; filename="vidyut_export_${id}.mp4"`
+      Key: key,
     });
 
-    const presignedUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    const url = await getSignedUrl(r2Client, command, { expiresIn: 300 });
 
-    return NextResponse.json({ url: presignedUrl });
+    return NextResponse.json({ url });
   } catch (error: unknown) {
-    console.error('Download trigger error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Download error:', error);
+    return NextResponse.json({ error: 'Failed to generate download URL' }, { status: 500 });
   }
 }
