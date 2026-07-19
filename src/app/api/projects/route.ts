@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Trigger Modal Worker asynchronously if webhook URL is configured
     const modalWebhookUrl = process.env.MODAL_WEBHOOK_URL;
     if (modalWebhookUrl) {
-      fetch(modalWebhookUrl, {
+      await fetch(modalWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
