@@ -8,7 +8,7 @@ import { useUpload } from '@/hooks/use-upload';
 import { cn } from '@/lib/utils';
 
 export function DragAndDrop() {
-  const { status, progress, error, projectId, sourceLanguage, setSourceLanguage } = useUploadStore();
+  const { status, progress, error, setError, projectId, sourceLanguage, setSourceLanguage } = useUploadStore();
   const { uploadFile } = useUpload();
 
   const onDrop = useCallback(
