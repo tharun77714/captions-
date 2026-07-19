@@ -345,7 +345,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, canUndo, canRedo, currentTime, segments, splitSegment, mergeSegments, timelineZoom, setTimelineZoom, setEditMode, handleSave]);
 
-  // Fetch video presigned URL
+  // Load video via same-origin proxy to avoid R2 CORS restrictions
   useEffect(() => {
     async function fetchVideoUrl() {
       // If media_url is already a full URL (e.g. from a public CDN), use it directly
@@ -355,22 +355,12 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
         return;
       }
       try {
-        const res = await fetch('/api/video/url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: project.media_url }),
-        });
-        if (res.ok) {
-          const { url } = await res.json();
-          setVideoUrl(url);
-        } else {
-          const body = await res.json().catch(() => ({}));
-          const msg = body?.error || `Server error ${res.status}`;
-          console.error('Video URL fetch failed:', msg);
-          setVideoLoadError(`Could not load video: ${msg}`);
-        }
+        // Use the server-side proxy route instead of a presigned URL.
+        // This avoids CORS since the browser fetches from the same Vercel origin.
+        const proxyUrl = `/api/video/stream?key=${encodeURIComponent(project.media_url)}`;
+        setVideoUrl(proxyUrl);
       } catch (err) {
-        console.error('Failed to load video:', err);
+        console.error('Failed to set video URL:', err);
         setVideoLoadError('Could not load video — check your network or storage configuration.');
       } finally {
         setLoading(false);
