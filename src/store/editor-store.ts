@@ -639,9 +639,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const newWordTokens = text.trim().split(/\s+/).filter(Boolean);
         let newWords: Word[] = [];
 
-        if (state.subtitleMode === 'translated') {
-          newWords = [];
-        } else if (newWordTokens.length === seg.words.length) {
+        if (newWordTokens.length === seg.words.length) {
           // Fallback Strategy 1: Exact length match.
           // Safely map new text directly to existing words, preserving perfect timing.
           newWords = newWordTokens.map((token, i) => ({
@@ -829,14 +827,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       const newSegments = splitHelper(state.segments);
       const newOriginal = splitHelper(state.originalSegments);
-      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
-      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+      const newTranslit = splitHelper(state.transliteratedSegments);
+      const newTranslated = splitHelper(state.translatedSegments);
+      
+      let activeTarget = newOriginal;
+      if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
+      else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
-        segments: newSegments,
+        segments: activeTarget,
         originalSegments: newOriginal,
         transliteratedSegments: newTranslit,
         translatedSegments: newTranslated,
@@ -954,14 +956,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       const newSegments = mergeHelper(state.segments);
       const newOriginal = mergeHelper(state.originalSegments);
-      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
-      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+      const newTranslit = mergeHelper(state.transliteratedSegments);
+      const newTranslated = mergeHelper(state.translatedSegments);
+      
+      let activeTarget = newOriginal;
+      if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
+      else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
-        segments: newSegments,
+        segments: activeTarget,
         originalSegments: newOriginal,
         transliteratedSegments: newTranslit,
         translatedSegments: newTranslated,
@@ -1241,14 +1247,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       const newSegments = removeGapsHelper(state.segments);
       const newOriginal = removeGapsHelper(state.originalSegments);
-      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
-      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+      const newTranslit = removeGapsHelper(state.transliteratedSegments);
+      const newTranslated = removeGapsHelper(state.translatedSegments);
+      
+      let activeTarget = newOriginal;
+      if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
+      else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
-        segments: newSegments,
+        segments: activeTarget,
         originalSegments: newOriginal,
         transliteratedSegments: newTranslit,
         translatedSegments: newTranslated,
