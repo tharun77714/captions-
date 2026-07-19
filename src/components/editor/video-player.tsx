@@ -643,12 +643,21 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                   className="absolute -bottom-2 -right-2 w-5 h-5 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110"
                   onPointerDown={(e) => {
                     e.stopPropagation();
-                    const startY = e.clientY;
+                    if (!subtitleBoxRef.current) return;
+                    
+                    const boxRect = subtitleBoxRef.current.getBoundingClientRect();
+                    const centerX = boxRect.left + boxRect.width / 2;
+                    const centerY = boxRect.top + boxRect.height / 2;
+                    
+                    const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
                     const startFontSize = subtitleStyle.fontSize;
                     
                     const handlePointerMove = (moveEv: PointerEvent) => {
-                      const deltaY = moveEv.clientY - startY;
-                      const newSize = Math.max(12, Math.min(300, startFontSize + (deltaY * 0.75)));
+                      const currentDist = Math.hypot(moveEv.clientX - centerX, moveEv.clientY - centerY);
+                      if (startDist === 0) return;
+                      const scale = currentDist / startDist;
+                      
+                      const newSize = Math.max(12, Math.min(300, startFontSize * scale));
                       setSubtitleStyleV2(prev => ({ ...prev, fontSize: Math.round(newSize) }));
                     };
                     
