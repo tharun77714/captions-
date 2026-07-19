@@ -290,6 +290,11 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
                 print("All retries failed, falling back to empty response.")
                 return None
 
+@app.function(
+    image=image,
+    timeout=1800,
+    secrets=[modal.Secret.from_name("vidyut-secrets")]
+)
 def process_video(project_id: str, s3_key: str, source_language: str = "auto", request_id: str = None):
     import boto3
     from supabase import create_client, Client
