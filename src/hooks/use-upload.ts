@@ -11,10 +11,18 @@ export function useUpload() {
       setError(null);
 
       // 1. Get Presigned URL
+      let fileType = file.type;
+      if (!fileType) {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (ext === 'mov') fileType = 'video/quicktime';
+        else if (ext === 'webm') fileType = 'video/webm';
+        else fileType = 'video/mp4';
+      }
+
       const initRes = await fetch('/api/upload/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        body: JSON.stringify({ filename: file.name, contentType: fileType }),
       });
 
       if (!initRes.ok) throw new Error('Failed to initialize upload');
@@ -24,7 +32,7 @@ export function useUpload() {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', url, true);
-        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('Content-Type', fileType);
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {

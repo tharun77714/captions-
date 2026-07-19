@@ -67,6 +67,12 @@ export function DragAndDrop() {
 
       {(status === 'idle' || status === 'error') && (
         <>
+          {error && (
+            <div className="flex items-center gap-2 p-3 mb-6 text-sm text-red-500 rounded-lg bg-red-500/10 border border-red-500/20 max-w-md text-center" onClick={(e) => e.stopPropagation()}>
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
           <div className="p-4 mb-4 rounded-full bg-zinc-800">
             <UploadCloud className="w-8 h-8 text-zinc-400" />
           </div>
@@ -117,13 +123,6 @@ export function DragAndDrop() {
             </span>
             <span className="text-zinc-500">{progress}%</span>
           </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="absolute flex items-center gap-2 p-3 text-sm text-red-500 rounded-lg -bottom-16 bg-red-500/10">
-          <AlertCircle className="w-4 h-4" />
-          {error}
         </div>
       )}
     </div>
