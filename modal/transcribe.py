@@ -182,7 +182,7 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         except Exception as we:
             log_structured("WARNING", "waveform", "Failed to extract waveform", project_id, request_id, error=str(we))
 
-        # 1. Transcribe with Deepgram Nova-3
+        # 1. Transcribe with Deepgram
         t_start = time.time()
         log_structured("INFO", "asr_transcribe", "Sending to Deepgram API", project_id, request_id)
         
@@ -201,7 +201,8 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         }
         
         if source_language == "auto":
-            options_dict["model"] = "nova-3"
+            # Set to nova-2 for auto-detect so it supports and detects Telugu/multilingual correctly!
+            options_dict["model"] = "nova-2"
             options_dict["detect_language"] = True
         else:
             options_dict["detect_language"] = False
@@ -234,8 +235,8 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         # 2. Format Native Output & Prep LLM Payload
         all_segments = []
         all_words = []
-        
         llm_payload = []
+        
         global_word_index = 0
         deepgram_word_map = {}
         
@@ -275,7 +276,7 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
 
         # 3. Enhance with LLM Transliteration
         t_start = time.time()
-        log_structured("INFO", "llm_enhance", "Translating and transliterating with OpenAI", project_id, request_id)
+        log_structured("INFO", "llm_enhance", "Translating and transliterating with Gemini", project_id, request_id)
         
         llm_result = process_with_llm(llm_payload, language)
         
@@ -284,7 +285,6 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         all_translated_segments = []
         
         if llm_result and "romanized" in llm_result and "translated" in llm_result:
-            # We match by ID or simply zip if lengths match. Zipping is safer.
             rom_dict = {s["id"]: s for s in llm_result["romanized"]}
             trans_dict = {s["id"]: s for s in llm_result["translated"]}
             
@@ -307,10 +307,8 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                     "text": trans_text
                 })
             
-            # Since word mapping is removed in this version, fallback to original words
             all_translit_words = all_words
         else:
-            # Fallback if LLM fails
             all_translit_segments = all_segments
             all_translated_segments = all_segments
             all_translit_words = all_words
