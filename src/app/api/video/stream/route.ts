@@ -35,6 +35,14 @@ export async function GET(request: Request) {
     const fetchHeaders: Record<string, string> = {};
     if (rangeHeader) fetchHeaders['range'] = rangeHeader;
 
+    // The SDK may sign extra headers (e.g. x-amz-checksum-mode) into the presigned URL
+    // depending on the runtime. Read X-Amz-SignedHeaders and include them in the fetch
+    // so R2's signature verification passes.
+    const signedHeaderNames = new URL(presignedUrl).searchParams.get('X-Amz-SignedHeaders')?.split(';') ?? [];
+    if (signedHeaderNames.includes('x-amz-checksum-mode')) {
+      fetchHeaders['x-amz-checksum-mode'] = 'ENABLED';
+    }
+
     // Fetch from R2 using the presigned URL (plain fetch — no SDK overhead)
     const r2Response = await fetch(presignedUrl, { headers: fetchHeaders });
 
