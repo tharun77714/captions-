@@ -375,8 +375,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
 
     const originalSegments = mapHierarchical(rawSegments, rawWords);
-    const transliteratedSegments = mapHierarchical(rawTranslitSegments || [], []);
-    const translatedSegments = mapHierarchical(rawTransSegments || [], []);
+    const transliteratedSegments = mapHierarchical(rawTranslitSegments || [], rawTranslitWords || []);
+    const translatedSegments = mapHierarchical(rawTransSegments || [], rawTransWords || []);
 
     set({
       originalSegments,

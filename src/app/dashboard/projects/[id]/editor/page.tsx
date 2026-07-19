@@ -50,7 +50,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
         transliteratedSegments: transcription.transliterated_segments || null,
         transliteratedWords: transcription.transliterated_words || null,
         translatedSegments: transcription.translated_segments || null,
-        translatedWords: null,
+        translatedWords: transcription.translated_words || null,
         waveform: transcription.waveform || [],
       }}
     />

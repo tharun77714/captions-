@@ -40,35 +40,51 @@ def log_structured(level: str, stage: str, message: str, project_id: str, reques
     print(json.dumps(log_data))
 
 def process_with_llm(segments_data, language):
+    import json
+    import os
+    import time
     from google import genai
     from pydantic import BaseModel
     from typing import List
+    from google.genai import types
 
     client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+    class TranslatedWord(BaseModel):
+        word: str
+        source_word_ids: List[int]
+        confidence: float
 
     class TranslatedSegment(BaseModel):
         id: int
         text: str
+        words: List[TranslatedWord]
 
     class TranslationResponse(BaseModel):
         romanized: List[TranslatedSegment]
         translated: List[TranslatedSegment]
 
     if language == "en":
-        # Video is in English. Translate to Telugu (Native script) and Tenglish (Romanized)
         system_prompt = """You are a professional subtitle translator and creator.
 Your job is to translate the English transcript segments into two formats:
-1. 'translated': Native Telugu script (తెలుగు లిపి). Translate the meaning naturally and accurately.
-2. 'romanized': Tenglish (Romanized Telugu) exactly how real Telugu people type on WhatsApp and Instagram (e.g., "Recent ga chala mandi", "ela unnavu").
+1. 'translated': Native Telugu script (à°¤à±†à°²à± à°—à±  à°²à°¿à°ªà°¿). Translate the meaning naturally and accurately.
+2. 'romanized': Tenglish (Romanized Telugu) exactly how real Telugu people type on WhatsApp and Instagram.
 
-CRITICAL RULES:
+CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
 - For 'translated', output natural Telugu text in Telugu script.
-- For 'romanized', output clean Tenglish text. Keep English technical/brand words (like Nike, Apple, glycolic acid, followers, brand) in English letters.
-- Never use diacritics or forbidden characters (ā, ī, ū, ē, ō, ṛ, ṅ, ñ, ṭ, ḍ, ṣ).
+- For 'romanized', output clean Tenglish text. Keep English technical/brand words in English letters.
 - Maintain the exact same segment IDs. Do not combine or split segments.
+- Break the translated/romanized text into individual words in the `words` array.
+- For each translated word, provide a `source_word_ids` array containing the integer IDs of the original words from the input that correspond to this translated word.
+- NEVER invent timestamps or source IDs. Only use IDs that exist in the input segment.
+- Translation mapping supports 1-to-1, 1-to-many, many-to-1, and many-to-many.
+- If grammatical differences require inserting words, attach the inserted words to the nearest semantic source word ID.
+- Preserve translated word order exactly.
+- Strip all punctuation from the `word` field.
+- Never skip words or duplicate mappings.
+- Provide a `confidence` score (0.0 to 1.0) for each word's alignment accuracy.
 """
     else:
-        # Video is in an Indian language (te, hi, ta, kn, ml). Translate to English and romanize to slang.
         lang_map = {
             "te": ("Telugu", "TGLISH/TENGLISH"),
             "ta": ("Tamil", "TANGLISH"),
@@ -81,30 +97,78 @@ CRITICAL RULES:
         system_prompt = f"""You are a professional subtitle editor and translator.
 Your job is to convert the {lang_name} transcript segments into two formats:
 1. 'translated': Natural English translation of the segments.
-2. 'romanized': {lang_style} (Romanized {lang_name}) exactly how real {lang_name} people naturally type on social media (WhatsApp, Instagram, comments).
+2. 'romanized': {lang_style} (Romanized {lang_name}) exactly how real {lang_name} people naturally type on social media.
 
-CRITICAL RULES:
-- For 'translated', output natural, high-quality English translation of the spoken content.
-- For 'romanized', do NOT do literal letter-by-letter transliteration. Write the natural spoken words in Roman letters (e.g. చాలా మంది -> chala mandi, ఏమైంది -> em ayindi).
+CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
+- For 'translated', output natural, high-quality English translation.
+- For 'romanized', do NOT do literal letter-by-letter transliteration. Write the natural spoken words in Roman letters.
 - Keep brand names and English terms exactly in English letters.
-- Never use diacritics (ā, ī, ū, ē, ō, ṛ, ṅ, ñ, ṭ, ḍ, ṣ).
 - Maintain the exact same segment IDs. Do not combine or split segments.
+- Break the translated/romanized text into individual words in the `words` array.
+- For each translated word, provide a `source_word_ids` array containing the integer IDs of the original words from the input that correspond to this translated word.
+- NEVER invent timestamps or source IDs. Only use IDs that exist in the input segment.
+- Translation mapping supports 1-to-1, 1-to-many, many-to-1, and many-to-many.
+- If grammatical differences require inserting words, attach the inserted words to the nearest semantic source word ID.
+- Preserve translated word order exactly.
+- Strip all punctuation from the `word` field.
+- Never skip words or duplicate mappings.
+- Provide a `confidence` score (0.0 to 1.0) for each word's alignment accuracy.
 """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=f"{system_prompt}\n\nSegments:\n{json.dumps(segments_data)}",
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": TranslationResponse
-            }
-        )
-        parsed = json.loads(response.text)
-        return parsed
-    except Exception as e:
-        print(f"LLM translation error: {e}")
-        return None
+    def validate_response(parsed_data, input_segments):
+        valid_ids_per_segment = {}
+        for seg in input_segments:
+            valid_ids_per_segment[seg["id"]] = set(w["id"] for w in seg["words"])
+        
+        for format_key in ["romanized", "translated"]:
+            segments = parsed_data.get(format_key, [])
+            for seg in segments:
+                seg_id = seg.get("id")
+                if seg_id not in valid_ids_per_segment:
+                    raise ValueError(f"Invalid segment ID {seg_id}")
+                
+                valid_ids = valid_ids_per_segment[seg_id]
+                words = seg.get("words", [])
+                
+                for w in words:
+                    if not w.get("word"):
+                        raise ValueError("Empty word found")
+                    if not 0 <= w.get("confidence", 1) <= 1:
+                        raise ValueError("Confidence out of bounds")
+                    
+                    source_ids = w.get("source_word_ids", [])
+                    if len(source_ids) != len(set(source_ids)):
+                        raise ValueError("Duplicate source_word_ids in a single word mapping")
+                    if not source_ids:
+                        raise ValueError("Empty source_word_ids")
+                    for sid in source_ids:
+                        if sid not in valid_ids:
+                            raise ValueError(f"Invalid source_word_id {sid} for segment {seg_id}")
+        return True
+
+    contents = f"{system_prompt}\n\nSegments:\n{json.dumps(segments_data)}"
+    
+    max_retries = 1
+    for attempt in range(max_retries + 1):
+        try:
+            temperature = 0.0 if attempt > 0 else 0.7
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=TranslationResponse,
+                    temperature=temperature
+                )
+            )
+            parsed = json.loads(response.text)
+            validate_response(parsed, segments_data)
+            return parsed
+        except Exception as e:
+            print(f"LLM translation attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries:
+                print("All retries failed, falling back to empty response.")
+                return None
 
 @app.function(
     image=image,
@@ -308,20 +372,25 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         log_structured("INFO", "llm_enhance", "Translating and transliterating with Gemini", project_id, request_id)
         
         llm_result = process_with_llm(llm_payload, language)
-        
         all_translit_segments = []
         all_translit_words = []
         all_translated_segments = []
+        all_translated_words = []
         
         if llm_result and "romanized" in llm_result and "translated" in llm_result:
             rom_dict = {s["id"]: s for s in llm_result["romanized"]}
             trans_dict = {s["id"]: s for s in llm_result["translated"]}
             
+            import uuid
+            
             for orig_seg in all_segments:
                 seg_id = orig_seg["id"]
                 
-                rom_text = rom_dict.get(seg_id, {}).get("text", orig_seg["text"])
-                trans_text = trans_dict.get(seg_id, {}).get("text", orig_seg["text"])
+                rom_data = rom_dict.get(seg_id, {})
+                trans_data = trans_dict.get(seg_id, {})
+                
+                rom_text = rom_data.get("text", orig_seg["text"])
+                trans_text = trans_data.get("text", orig_seg["text"])
                 
                 all_translit_segments.append({
                     "id": seg_id,
@@ -335,12 +404,33 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                     "end": orig_seg["end"],
                     "text": trans_text
                 })
-            
-            all_translit_words = all_words
+                
+                def extract_words(word_list, output_list):
+                    for w in word_list:
+                        source_ids = w.get("source_word_ids", [])
+                        if not source_ids:
+                            continue
+                        
+                        # Find the corresponding original words to get start/end
+                        start_time = min((deepgram_word_map[sid]["start"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["start"])
+                        end_time = max((deepgram_word_map[sid]["end"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["end"])
+                        
+                        output_list.append({
+                            "id": f"w-{uuid.uuid4().hex[:8]}",
+                            "word": w.get("word", ""),
+                            "start": start_time,
+                            "end": end_time,
+                            "probability": w.get("confidence", 1.0)
+                        })
+
+                extract_words(rom_data.get("words", []), all_translit_words)
+                extract_words(trans_data.get("words", []), all_translated_words)
+                
         else:
             all_translit_segments = all_segments
             all_translated_segments = all_segments
             all_translit_words = all_words
+            all_translated_words = all_words # fallback to keeping original words structure
 
         log_structured("INFO", "llm_enhance", "LLM processing complete", project_id, request_id, (time.time() - t_start) * 1000)
 
@@ -355,8 +445,10 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
             "words": all_words,
             "transliterated_segments": all_translit_segments,
             "transliterated_words": all_translit_words,
-            "translated_segments": all_translated_segments
+            "translated_segments": all_translated_segments,
+            "translated_words": all_translated_words
         }).execute()
+
 
         # Update project status
         project_res = supabase.table("projects").select("title, subtitle_style").eq("id", project_id).single().execute()
