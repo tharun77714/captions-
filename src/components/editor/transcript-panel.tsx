@@ -180,9 +180,9 @@ function SegmentList({
   currentTime,
   onSegmentClick,
   updateSegmentText,
-  splitSegment: (id: number, time: number) => void;
-  mergeSegments: (id: number) => void;
-  isLastSegment: (id: number) => boolean;
+  splitSegment,
+  mergeSegments,
+  isLastSegment,
 }: {
   segments: { id: number; start: number; end: number; text: string; words: { word: string; start: number; end: number }[] }[];
   currentTime: number;
