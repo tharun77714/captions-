@@ -249,43 +249,28 @@ const getGlobalSnapshot = (
 });
 
 
-const resegmentWithoutWords = (oldSegs: Segment[] | undefined, newOriginalSegs: Segment[]): Segment[] => {
+const resegmentSync = (oldSegs: Segment[] | undefined, newOriginalSegs: Segment[]): Segment[] => {
   if (!oldSegs || oldSegs.length === 0) return [];
   if (!newOriginalSegs || newOriginalSegs.length === 0) return [];
 
-  const fullText = oldSegs.map(s => s.text).join(' ').trim();
-  const words = fullText.split(/\s+/).filter(Boolean);
-  
-  const newSegTexts: string[][] = newOriginalSegs.map(() => []);
-  const totalDuration = newOriginalSegs.reduce((acc, s) => acc + (s.end - s.start), 0);
-  
-  if (totalDuration === 0) return oldSegs;
-
-  let currentWordIdx = 0;
-  
-  newOriginalSegs.forEach((seg, idx) => {
-    const duration = seg.end - seg.start;
-    const ratio = duration / totalDuration;
-    const wordsCount = Math.max(1, Math.floor(ratio * words.length));
-    
-    for (let i = 0; i < wordsCount && currentWordIdx < words.length; i++) {
-      newSegTexts[idx].push(words[currentWordIdx++]);
-    }
-  });
-
-  // Distribute remaining words
-  while (currentWordIdx < words.length) {
-    newSegTexts[newSegTexts.length - 1].push(words[currentWordIdx++]);
-  }
+  const allWords = oldSegs.flatMap(s => s.words).sort((a, b) => a.start - b.start);
   
   return newOriginalSegs.map((newSeg, idx) => {
-    const finalStr = newSegTexts[idx].join(' ');
+    const prevEnd = idx === 0 ? 0 : newOriginalSegs[idx - 1].end;
+    const nextStart = idx === newOriginalSegs.length - 1 ? Infinity : newOriginalSegs[idx + 1].start;
+    
+    const boundaryStart = idx === 0 ? 0 : prevEnd + (newSeg.start - prevEnd) / 2;
+    const boundaryEnd = idx === newOriginalSegs.length - 1 ? Infinity : newSeg.end + (nextStart - newSeg.end) / 2;
+    
+    const assignedWords = allWords.filter(w => w.start >= boundaryStart && w.start < boundaryEnd);
+    const text = assignedWords.map(w => w.word.trim()).join(' ');
+    
     return {
       id: newSeg.id,
       start: newSeg.start,
       end: newSeg.end,
-      text: finalStr || '...',
-      words: []
+      text: text || '...',
+      words: assignedWords
     };
   });
 };
@@ -1074,8 +1059,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       const newSegments = buildSegmentsFromGroups(activeWords);
       const newOriginal = buildSegmentsFromGroups(originalWords);
-      const newTranslit = resegmentWithoutWords(state.transliteratedSegments, newOriginal);
-      const newTranslated = resegmentWithoutWords(state.translatedSegments, newOriginal);
+      const newTranslit = resegmentSync(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentSync(state.translatedSegments, newOriginal);
 
       const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
       const newPast = [...state.past, snapshot].slice(-50);
