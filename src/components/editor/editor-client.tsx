@@ -63,6 +63,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   } = useEditorStore();
 
   const [loading, setLoading] = useState(true);
+  const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
@@ -347,6 +348,12 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   // Fetch video presigned URL
   useEffect(() => {
     async function fetchVideoUrl() {
+      // If media_url is already a full URL (e.g. from a public CDN), use it directly
+      if (project.media_url?.startsWith('http')) {
+        setVideoUrl(project.media_url);
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch('/api/video/url', {
           method: 'POST',
@@ -356,9 +363,15 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
         if (res.ok) {
           const { url } = await res.json();
           setVideoUrl(url);
+        } else {
+          const body = await res.json().catch(() => ({}));
+          const msg = body?.error || `Server error ${res.status}`;
+          console.error('Video URL fetch failed:', msg);
+          setVideoLoadError(`Could not load video: ${msg}`);
         }
       } catch (err) {
         console.error('Failed to load video:', err);
+        setVideoLoadError('Could not load video — check your network or storage configuration.');
       } finally {
         setLoading(false);
       }
@@ -508,6 +521,16 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           <div className="flex-1 flex min-h-0">
             {/* Video Player */}
             <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-900/30 overflow-hidden relative">
+              {videoLoadError && (
+                <div className="absolute top-3 left-3 right-3 z-50 flex items-start gap-2 bg-rose-950/80 border border-rose-500/30 text-rose-300 text-xs rounded-lg p-3">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
+                  <div>
+                    <p className="font-semibold text-rose-200">Video failed to load</p>
+                    <p className="mt-0.5 text-rose-400">{videoLoadError}</p>
+                    <p className="mt-1 text-rose-500">Check that <code className="bg-rose-900/50 px-1 rounded">R2_ACCOUNT_ID</code>, <code className="bg-rose-900/50 px-1 rounded">R2_ACCESS_KEY_ID</code>, and <code className="bg-rose-900/50 px-1 rounded">R2_SECRET_ACCESS_KEY</code> are set in Vercel environment variables.</p>
+                  </div>
+                </div>
+              )}
               <div className="w-full h-full flex items-center justify-center">
                 <VideoPlayer ref={videoPlayerRef} />
               </div>

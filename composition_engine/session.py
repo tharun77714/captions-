@@ -522,7 +522,8 @@ class ExportSession:
             await self.page.add_init_script(f"window.__INITIAL_PAYLOAD__ = {json.dumps(payload_dict)}; window.__EXPORT_MODE__ = true;")
             
             port = int(self.renderer.base_url.split(":")[-1]) if hasattr(self.renderer, "base_url") else 3001
-            await self.page.goto(f"http://localhost:{port}/test-parity?id=1&export=true", wait_until="domcontentloaded")
+            app_url = os.getenv("NEXT_PUBLIC_APP_URL") or f"http://localhost:{port}"
+            await self.page.goto(f"{app_url}/test-parity?id=1&export=true", wait_until="domcontentloaded")
             
             # Wait for ready contract
             await self.page.wait_for_function("window.__IS_READY_TO_RENDER__ === true", timeout=20000)

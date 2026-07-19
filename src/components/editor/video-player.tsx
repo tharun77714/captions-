@@ -388,7 +388,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       ) : (
         !isExportMode && (
           <div className="flex items-center justify-center h-full">
-            <p className="text-zinc-600 text-sm">Loading video...</p>
+            <p className="text-zinc-500 text-sm">No video source available</p>
           </div>
         )
       )}
