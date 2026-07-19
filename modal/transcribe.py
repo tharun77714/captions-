@@ -119,8 +119,9 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
 - Provide a `confidence` score (0.0 to 1.0) for each word's alignment accuracy.
 """
 
-    def run_validation_pipeline(parsed_data, input_segments):
-        VALIDATOR_VERSION = "2026.07.v1"
+
+    def run_validation_pipeline(parsed_data, input_segments, language):
+        VALIDATOR_VERSION = "2026.07.v2"
         
         # 1. Structural Validation
         valid_ids_in_order = [seg["id"] for seg in input_segments]
@@ -157,7 +158,8 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
                         if w["word"] != original_word:
                             repairs["whitespace"] += 1
                         
-                        if not (0 <= w.get("confidence", 1.0) <= 1.0):
+                        conf = w.get("confidence")
+                        if not isinstance(conf, (int, float)) or not (0 <= conf <= 1.0):
                             w["confidence"] = 0.8
                             repairs["confidence"] += 1
                         
@@ -180,8 +182,9 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
         # 3. Budget Check
         total_words_generated = sum(len(seg.get("words", [])) for f in ["romanized", "translated"] for seg in parsed_data.get(f, []))
         total_repairs = sum(repairs.values())
-        if total_words_generated > 0 and (total_repairs / total_words_generated) > 0.15:
-            raise ValueError(f"Budget: Too many repairs needed ({total_repairs} for {total_words_generated} words)")
+        denominator = max(total_words_generated, total_source_words, 1)
+        if (total_repairs / denominator) > 0.15:
+            raise ValueError(f"Budget: Too many repairs needed ({total_repairs}/{denominator})")
             
         # 4. Idempotency Check
         repairs_before = dict(repairs)
@@ -191,30 +194,62 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
 
         # 5. Semantic Validation
         for format_key in ["romanized", "translated"]:
-            covered_ids = set()
-            for seg in parsed_data.get(format_key, []):
+            for i, seg in enumerate(parsed_data.get(format_key, [])):
+                input_seg = input_segments[i]
+                input_word_count = len(input_seg.get("words", []))
+                
+                # Per-segment coverage
+                covered_ids = set()
+                source_id_usage_counts = {}
                 for w in seg.get("words", []):
-                    covered_ids.update(w.get("source_word_ids", []))
-                
-                # Reconstruction Check
-                reconstructed = "".join(re.sub(r'\W+', '', w.get("word", "")).lower() for w in seg.get("words", []))
-                original = re.sub(r'\W+', '', seg.get("text", "")).lower()
-                
-                # Detect massive hallucinations by checking ratio of normalized text length
-                if len(reconstructed) > 0 and len(original) > 0:
-                    ratio = len(reconstructed) / len(original)
-                    if ratio < 0.25 or ratio > 4.0:
-                        raise ValueError(f"Semantic: Bad text reconstruction ratio {ratio:.2f} for segment {seg['id']}")
+                    for sid in w.get("source_word_ids", []):
+                        covered_ids.add(sid)
+                        source_id_usage_counts[sid] = source_id_usage_counts.get(sid, 0) + 1
                         
-            coverage = len(covered_ids) / total_source_words
-            if coverage < 0.90:
-                raise ValueError(f"Semantic: Coverage too low ({coverage:.2f} < 0.90) for {format_key}")
+                if input_word_count > 0:
+                    coverage = len(covered_ids) / input_word_count
+                    if coverage < 0.90:
+                        raise ValueError(f"Semantic: Coverage too low ({coverage:.2f} < 0.90) for segment {seg['id']} in {format_key}")
+                        
+                # Duplicate ID reuse detection
+                if any(count > 4 for count in source_id_usage_counts.values()):
+                    raise ValueError(f"Semantic: Excessive source_word_id reuse detected in segment {seg['id']}")
+                
+                # Reconstruction Check (Token based)
+                reconstructed_tokens = [re.sub(r'\W+', '', w.get("word", "")).lower() for w in seg.get("words", [])]
+                reconstructed_tokens = [t for t in reconstructed_tokens if t]
+                original_tokens = [re.sub(r'\W+', '', t).lower() for t in seg.get("text", "").split()]
+                original_tokens = [t for t in original_tokens if t]
+                
+                if len(reconstructed_tokens) > 0 and len(original_tokens) > 0:
+                    ratio = len(reconstructed_tokens) / len(original_tokens)
+                    if ratio < 0.5 or ratio > 2.0:
+                        raise ValueError(f"Semantic: Bad token reconstruction ratio {ratio:.2f} for segment {seg['id']}")
+                        
+                # Hallucination loops check
+                if len(reconstructed_tokens) > 5:
+                    unique_ratio = len(set(reconstructed_tokens)) / len(reconstructed_tokens)
+                    if unique_ratio < 0.2:
+                        raise ValueError(f"Semantic: Repetitive hallucination loop detected in segment {seg['id']}")
+                        
+                # Language verification
+                text_str = "".join(reconstructed_tokens)
+                if format_key == "romanized" and text_str:
+                    # Expect mostly latin/ascii
+                    ascii_count = sum(1 for c in text_str if ord(c) < 128)
+                    if (ascii_count / len(text_str)) < 0.8:
+                        raise ValueError(f"Semantic: Romanized output contains too many non-Latin characters in segment {seg['id']}")
+                if format_key == "translated" and language == "en" and text_str:
+                    # Expect Telugu characters
+                    telugu_count = sum(1 for c in text_str if 0x0C00 <= ord(c) <= 0x0C7F)
+                    if (telugu_count / len(text_str)) < 0.5:
+                        raise ValueError(f"Semantic: Translated output missing expected Telugu script in segment {seg['id']}")
 
         return {
             "passed": True,
             "validator_version": VALIDATOR_VERSION,
-            "coverage": coverage,
-            "repairs": total_repairs
+            "repairs": total_repairs,
+            "repair_breakdown": repairs
         }
 
     contents = f"{system_prompt}\n\nSegments:\n{json.dumps(segments_data)}"
@@ -222,9 +257,13 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
+            current_contents = contents
+            if attempt > 0:
+                current_contents += f"\n\nWARNING: Previous output failed validation. Please ensure strict compliance with the rules (e.g., covering all source words, matching segment IDs exactly). Do NOT repeat the previous error."
+                
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=contents,
+                contents=current_contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=TranslationResponse,
@@ -232,8 +271,8 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
                 )
             )
             parsed = json.loads(response.text)
-            validation_report = run_validation_pipeline(parsed, segments_data)
-            print(f"Validation passed: {validation_report}")
+            validation_report = run_validation_pipeline(parsed, segments_data, language)
+            print(f"Validation passed: {json.dumps(validation_report)}")
             return parsed
         except Exception as e:
             print(f"LLM translation attempt {attempt + 1} failed: {e}")
