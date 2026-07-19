@@ -342,28 +342,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     waveform
   ) => {
     const mapHierarchical = (segs: RawSegment[] = [], wrds: RawWord[] = []) => {
+      const sortedWrds = [...wrds].sort((a, b) => a.start - b.start);
       return segs.map(seg => {
-        let ownedWords = wrds
-          .filter(w => w.start >= seg.start && w.end <= seg.end)
+        const s = seg.start;
+        const e = Math.max(s + 0.1, seg.end);
+        let ownedWords = sortedWrds
+          .filter(w => w.start >= s && w.end <= e)
           .map(w => ({ ...w, id: `w-${generateId()}` }));
         
         // Generate synthetic words if missing (e.g., for translated/transliterated segments)
         if (ownedWords.length === 0 && seg.text.trim().length > 0) {
           const tokens = seg.text.trim().split(/\s+/).filter(Boolean);
-          const duration = seg.end - seg.start;
+          const duration = e - s;
           const wordDuration = duration / Math.max(1, tokens.length);
           
           ownedWords = tokens.map((token, i) => ({
             id: `w-${generateId()}`,
             word: token,
-            start: seg.start + (i * wordDuration),
-            end: seg.start + ((i + 1) * wordDuration),
+            start: s + (i * wordDuration),
+            end: s + ((i + 1) * wordDuration),
             probability: 0.9
           }));
         }
         
         return {
           ...seg,
+          start: s,
+          end: e,
           words: ownedWords
         };
       });
@@ -973,8 +978,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const limit = maxChars ?? state.captionConfig.maxCharsPerLine ?? 24;
       const maxWords = state.captionConfig.maxWordsPerLine ?? 0;
 
-      const activeWords = state.segments.flatMap(s => s.words);
-      const originalWords = state.originalSegments.flatMap(s => s.words);
+      // Sort flat word lists chronologically to prevent out-of-order words from corrupting segment bounds
+      const activeWords = [...state.segments.flatMap(s => s.words)].sort((a, b) => a.start - b.start);
+      const originalWords = [...state.originalSegments.flatMap(s => s.words)].sort((a, b) => a.start - b.start);
 
       const groups: number[][] = [];
       let currentGroup: number[] = [];
@@ -1023,10 +1029,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return groups.map(group => {
           const groupWords = group.map(idx => wordsList[idx]).filter(Boolean);
           const text = groupWords.map(w => w.word.trim()).join(' ');
+          const s = groupWords[0]?.start || 0;
+          const e = Math.max(s + 0.1, groupWords[groupWords.length - 1]?.end || 0.1);
           return {
             id: segId++,
-            start: groupWords[0]?.start || 0,
-            end: groupWords[groupWords.length - 1]?.end || 0.1,
+            start: s,
+            end: e,
             text,
             words: groupWords
           };
