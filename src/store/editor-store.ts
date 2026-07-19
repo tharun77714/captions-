@@ -335,9 +335,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           .filter(w => w.start >= s && w.end <= e)
           .map(w => ({ ...w, id: `w-${generateId()}` }));
         
-        // Generate synthetic words if missing (e.g., for translated/transliterated segments)
-        if (ownedWords.length === 0 && seg.text.trim().length > 0) {
-          const tokens = seg.text.trim().split(/\s+/).filter(Boolean);
+        const tokens = seg.text.trim().split(/\s+/).filter(Boolean);
+        // Generate synthetic words if missing or if count mismatches (fixes incomplete LLM mappings dropping words)
+        if ((ownedWords.length === 0 || ownedWords.length !== tokens.length) && tokens.length > 0) {
           const duration = e - s;
           const wordDuration = duration / Math.max(1, tokens.length);
           
