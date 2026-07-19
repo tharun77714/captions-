@@ -573,16 +573,32 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         t_start = time.time()
         log_structured("INFO", "database_write", "Saving to Supabase", project_id, request_id)
         
-        supabase.table("transcriptions").insert({
-            "project_id": project_id,
-            "language": language,
-            "segments": all_segments,
-            "words": all_words,
-            "transliterated_segments": all_translit_segments,
-            "transliterated_words": all_translit_words,
-            "translated_segments": all_translated_segments,
-            "translated_words": all_translated_words
-        }).execute()
+        try:
+            supabase.table("transcriptions").insert({
+                "project_id": project_id,
+                "language": language,
+                "segments": all_segments,
+                "words": all_words,
+                "transliterated_segments": all_translit_segments,
+                "transliterated_words": all_translit_words,
+                "translated_segments": all_translated_segments,
+                "translated_words": all_translated_words
+            }).execute()
+        except Exception as e:
+            err_str = str(e)
+            if 'PGRST204' in err_str or 'translated_words' in err_str:
+                print("WARNING: 'translated_words' column missing in Supabase. Falling back to insert without it.")
+                supabase.table("transcriptions").insert({
+                    "project_id": project_id,
+                    "language": language,
+                    "segments": all_segments,
+                    "words": all_words,
+                    "transliterated_segments": all_translit_segments,
+                    "transliterated_words": all_translit_words,
+                    "translated_segments": all_translated_segments
+                }).execute()
+            else:
+                raise e
 
 
         # Update project status
