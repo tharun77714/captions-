@@ -12,20 +12,25 @@ export function DragAndDrop() {
   const { uploadFile } = useUpload();
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    (acceptedFiles: File[], fileRejections: any[]) => {
+      setError(null);
+      if (fileRejections.length > 0) {
+        setError('Unsupported file format. Please upload a valid MP4, MOV, or WEBM video.');
+        return;
+      }
       if (acceptedFiles.length > 0) {
         uploadFile(acceptedFiles[0]);
       }
     },
-    [uploadFile]
+    [uploadFile, setError]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'video/mp4': ['.mp4'],
-      'video/quicktime': ['.mov'],
-      'video/webm': ['.webm'],
+      'video/mp4': ['.mp4', '.MP4'],
+      'video/quicktime': ['.mov', '.MOV'],
+      'video/webm': ['.webm', '.WEBM'],
     },
     maxFiles: 1,
     disabled: status === 'uploading' || status === 'processing',
@@ -60,7 +65,7 @@ export function DragAndDrop() {
     >
       <input {...getInputProps()} />
 
-      {status === 'idle' && (
+      {(status === 'idle' || status === 'error') && (
         <>
           <div className="p-4 mb-4 rounded-full bg-zinc-800">
             <UploadCloud className="w-8 h-8 text-zinc-400" />
