@@ -16,7 +16,14 @@ export async function POST(request: Request) {
       Key: key,
     });
 
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    // Cloudflare R2 returns 403 when the presigned URL includes
+    // x-amz-checksum-mode=ENABLED (added by AWS SDK v3 by default) because
+    // objects uploaded without checksums fail validation on R2's side.
+    // unhoistableHeaders tells the signer NOT to include that header in the URL.
+    const url = await getSignedUrl(r2Client, command, {
+      expiresIn: 3600,
+      unhoistableHeaders: new Set(['x-amz-checksum-mode']),
+    });
 
     return NextResponse.json({ url });
   } catch (error: unknown) {
@@ -24,3 +31,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to generate video URL' }, { status: 500 });
   }
 }
+

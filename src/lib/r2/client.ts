@@ -15,6 +15,12 @@ export const r2Client = new S3Client({
     accessKeyId,
     secretAccessKey,
   },
+  // Disable automatic checksum injection — Cloudflare R2 returns 403 on
+  // GetObject presigned URLs when x-amz-checksum-mode is included but the
+  // object was stored without a checksum (which is the default for uploads).
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 export const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'vidyut-media-production';
+
