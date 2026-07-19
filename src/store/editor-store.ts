@@ -732,10 +732,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const newSegments = state.segments.map(seg => {
         if (seg.id !== segId) return seg;
         
-        // Update the owned word
-        const newWords = seg.words.map(w => 
-          w.id === wordId ? { ...w, word: newWordText } : w
-        );
+        // Update the owned word, potentially splitting it if spaces were inserted
+        const newWords = seg.words.flatMap(w => {
+          if (w.id !== wordId) return [w];
+          
+          const trimmed = newWordText.trim();
+          if (!trimmed) return []; // Allow deletion
+          
+          const tokens = trimmed.split(/\s+/);
+          if (tokens.length === 1) {
+            return [{ ...w, word: newWordText }];
+          }
+
+          // Distribute time evenly across new word tokens
+          const duration = w.end - w.start;
+          const step = duration / tokens.length;
+          
+          return tokens.map((token, idx) => {
+            const isFirst = idx === 0;
+            // Preserve leading space only on the first token (since transcript panel might pass ' ' + word)
+            const leadingSpace = isFirst ? (newWordText.match(/^\s*/) || [''])[0] : '';
+            return {
+              ...w,
+              id: isFirst ? w.id : `w-${generateId()}`,
+              word: leadingSpace + token,
+              start: w.start + (idx * step),
+              end: w.start + ((idx + 1) * step)
+            };
+          });
+        });
         
         // Rebuild parent segment text strictly from owned words
         const newText = newWords.map(w => w.word.trim()).join(' ');

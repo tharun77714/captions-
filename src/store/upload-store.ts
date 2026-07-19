@@ -26,7 +26,7 @@ export const useUploadStore = create<UploadState>((set) => ({
   
   setStatus: (status) => set({ status }),
   setProgress: (progress) => set({ progress }),
-  setError: (error) => set({ error, status: error ? 'error' : 'idle' }),
+  setError: (error) => set(error ? { error, status: 'error' } : { error: null }),
   setProjectId: (projectId) => set({ projectId }),
   setSourceLanguage: (sourceLanguage) => set({ sourceLanguage }),
   reset: () => set({ status: 'idle', progress: 0, error: null, projectId: null, sourceLanguage: 'auto' }),

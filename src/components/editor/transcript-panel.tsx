@@ -180,11 +180,11 @@ function SegmentList({
   currentTime,
   onSegmentClick,
   updateSegmentText,
-  splitSegment,
-  mergeSegments,
-  isLastSegment,
+  splitSegment: (id: number, time: number) => void;
+  mergeSegments: (id: number) => void;
+  isLastSegment: (id: number) => boolean;
 }: {
-  segments: { id: number; start: number; end: number; text: string }[];
+  segments: { id: number; start: number; end: number; text: string; words: { word: string; start: number; end: number }[] }[];
   currentTime: number;
   onSegmentClick: (start: number) => void;
   updateSegmentText: (id: number, text: string) => void;
@@ -266,6 +266,39 @@ function SegmentList({
               <textarea
                 value={segment.text}
                 onChange={(e) => updateSegmentText(segment.id, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const target = e.target as HTMLTextAreaElement;
+                    const cursorPosition = target.selectionStart;
+                    
+                    let charCount = 0;
+                    let splitTime = -1;
+                    
+                    if (segment.words && segment.words.length > 0) {
+                      for (let i = 0; i < segment.words.length; i++) {
+                        const w = segment.words[i].word.trim();
+                        if (cursorPosition <= charCount) {
+                          splitTime = segment.words[i].start;
+                          break;
+                        }
+                        if (cursorPosition < charCount + w.length) {
+                          if (cursorPosition - charCount < w.length / 2) {
+                            splitTime = segment.words[i].start;
+                          } else {
+                            splitTime = i + 1 < segment.words.length ? segment.words[i+1].start : -1;
+                          }
+                          break;
+                        }
+                        charCount += w.length + 1; // +1 for space
+                      }
+                      
+                      if (splitTime !== -1 && splitTime > segment.start && splitTime < segment.end) {
+                        splitSegment(segment.id, splitTime);
+                      }
+                    }
+                  }
+                }}
                 className="w-full bg-transparent border-0 outline-none resize-none text-sm leading-relaxed text-zinc-300 focus:text-white focus:ring-0 p-0 focus:outline-none scrollbar-none"
                 rows={Math.max(1, Math.ceil(segment.text.length / 32))}
                 style={{ overflow: 'hidden' }}

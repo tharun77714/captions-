@@ -464,7 +464,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
           <div style={{ transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <span
               ref={subtitleBoxRef}
-              className="px-3 py-1.5 rounded-md max-w-full whitespace-pre-wrap pointer-events-auto cursor-move hover:ring-2 hover:ring-violet-500/50 transition-shadow"
+              className="group relative px-3 py-1.5 rounded-md max-w-full whitespace-pre-wrap pointer-events-auto cursor-move hover:ring-2 hover:ring-violet-500/50 transition-shadow"
             style={{
               fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", "Noto Sans Arabic", "Noto Sans JP", sans-serif`,
               fontSize: `${subtitleStyle.fontSize}px`,
@@ -636,6 +636,33 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
               })
               ) : (
                 activeSegment.text
+              )}
+
+              {!isExportMode && (
+                <div 
+                  className="absolute -bottom-2 -right-2 w-5 h-5 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    const startY = e.clientY;
+                    const startFontSize = subtitleStyle.fontSize;
+                    
+                    const handlePointerMove = (moveEv: PointerEvent) => {
+                      const deltaY = moveEv.clientY - startY;
+                      const newSize = Math.max(12, Math.min(300, startFontSize + (deltaY * 0.75)));
+                      setSubtitleStyleV2(prev => ({ ...prev, fontSize: Math.round(newSize) }));
+                    };
+                    
+                    const handlePointerUp = () => {
+                      window.removeEventListener('pointermove', handlePointerMove);
+                      window.removeEventListener('pointerup', handlePointerUp);
+                    };
+                    
+                    window.addEventListener('pointermove', handlePointerMove);
+                    window.addEventListener('pointerup', handlePointerUp);
+                  }}
+                >
+                  <div className="w-2 h-2 bg-white rounded-full pointer-events-none" />
+                </div>
               )}
             </span>
           </div>

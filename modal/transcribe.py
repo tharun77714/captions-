@@ -14,7 +14,7 @@ image = (
         "requests",
         "fastapi[standard]",
         "deepgram-sdk==3.7.1",
-        "google-genai",
+        "google-genai==1.5.0",  # pinned to fix httpx conflict with supabase
         "pydantic",
         "numpy"
     )
@@ -192,26 +192,46 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         
         payload: FileSource = {"buffer": buffer_data}
         brand_keywords = []
-        
+
+        # --- Language detection ---
+        # nova-3 detect_language is unreliable for Indian languages (misdetects Telugu as English).
+        # So: if auto, first do a cheap nova-2 pass on just the first 30s to detect the language,
+        # then do the full nova-3 transcription with the confirmed language code.
+        if source_language == "auto":
+            try:
+                log_structured("INFO", "lang_detect", "Running nova-2 language detection pass", project_id, request_id)
+                detect_options = PrerecordedOptions(
+                    model="nova-2",
+                    detect_language=True,
+                    punctuate=False,
+                    utterances=False,
+                )
+                # Use only first 30s of audio for detection — fast and cheap
+                import io
+                detect_payload: FileSource = {"buffer": buffer_data[:16000 * 2 * 30]}  # 30s at 16kHz 16-bit mono
+                detect_response = deepgram.listen.rest.v("1").transcribe_file(detect_payload, detect_options)
+                detect_result = json.loads(detect_response.to_json())
+                detected_language = detect_result["results"]["channels"][0]["alternatives"][0].get("detected_language") or "en"
+                log_structured("INFO", "lang_detect", f"Detected language: {detected_language}", project_id, request_id)
+            except Exception as ld_err:
+                log_structured("WARNING", "lang_detect", "Language detection failed, defaulting to en", project_id, request_id, error=str(ld_err))
+                detected_language = "en"
+            language = detected_language
+        else:
+            detected_language = source_language
+            language = source_language
+
+        # --- Full transcription with nova-3 + confirmed language ---
         options_dict = {
+            "model": "nova-3",
+            "language": language,
+            "detect_language": False,
             "smart_format": True,
             "punctuate": True,
             "utterances": True,
-            "paragraphs": True
+            "paragraphs": True,
         }
-        
-        if source_language == "auto":
-            # Set to nova-2 for auto-detect so it supports and detects Telugu/multilingual correctly!
-            options_dict["model"] = "nova-2"
-            options_dict["detect_language"] = True
-        else:
-            options_dict["detect_language"] = False
-            options_dict["language"] = source_language
-            if source_language == "en":
-                options_dict["model"] = "nova-3"
-            else:
-                options_dict["model"] = "nova-2"
-        
+
         if brand_keywords:
             options_dict["keywords"] = brand_keywords
             
@@ -221,21 +241,25 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         result = json.loads(response.to_json())
         
         channel = result["results"]["channels"][0]
-        detected_language = channel["alternatives"][0].get("detected_language")
-        
-        if source_language != "auto":
-            language = source_language
-        else:
-            language = detected_language or "en"
-            
         utterances = result["results"].get("utterances", [])
         
-        log_structured("INFO", "asr_transcribe", f"Deepgram complete. Used language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language})
+        log_structured("INFO", "asr_transcribe", f"Deepgram nova-3 complete. Language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language})
 
         # 2. Format Native Output & Prep LLM Payload
         all_segments = []
         all_words = []
         llm_payload = []
+        
+        # Use the channel-level flat word list — always populated by Deepgram.
+        # Utterance-level words are often missing for non-English languages (e.g. Telugu/nova-3).
+        channel_words = channel.get("alternatives", [{}])[0].get("words", [])
+        for w in channel_words:
+            all_words.append({
+                "start": w["start"],
+                "end": w["end"],
+                "word": w.get("punctuated_word") or w["word"],
+                "probability": w.get("confidence", 1.0)
+            })
         
         global_word_index = 0
         deepgram_word_map = {}
@@ -252,19 +276,24 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                 "text": seg_text
             })
             
+            # Get words that fall within this utterance's time range
+            seg_words_in_range = [
+                w for w in channel_words
+                if w["start"] >= seg_start and w["end"] <= seg_end + 0.05
+            ]
+            
             seg_words_payload = []
-            for w in u["words"]:
+            for w in seg_words_in_range:
                 word_obj = {
                     "start": w["start"],
                     "end": w["end"],
-                    "word": w["word"],
-                    "probability": w["confidence"]
+                    "word": w.get("punctuated_word") or w["word"],
+                    "probability": w.get("confidence", 1.0)
                 }
-                all_words.append(word_obj)
                 deepgram_word_map[global_word_index] = word_obj
                 seg_words_payload.append({
                     "id": global_word_index,
-                    "word": w["word"]
+                    "word": w.get("punctuated_word") or w["word"]
                 })
                 global_word_index += 1
             
