@@ -519,7 +519,6 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                 })
                 
                 def extract_words(word_list, output_list, lang_format):
-                    temp_words = []
                     for i, w in enumerate(word_list):
                         source_ids = w.get("source_word_ids", [])
                         if not source_ids:
@@ -532,34 +531,28 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                         if start_time > end_time:
                             start_time, end_time = end_time, start_time
                             
-                        temp_words.append({
+                        # Ensure within segment
+                        start_time = max(orig_seg["start"], start_time)
+                        end_time = min(orig_seg["end"], end_time)
+                            
+                        # Ensure no zero-length words, clamped to segment end
+                        if end_time <= start_time:
+                            end_time = min(orig_seg["end"], start_time + 0.05)
+                            
+                        if len(output_list) > 0:
+                            prev = output_list[-1]
+                            if start_time < prev["start"]:
+                                print(f"WARNING: Timeline moved backwards in segment {seg_id}: '{prev['word']}'({prev['start']}) -> '{w.get('word')}'({start_time})")
+                            elif start_time < prev["end"] - 0.2:
+                                print(f"WARNING: Excessive overlap in segment {seg_id}: '{prev['word']}' ends at {prev['end']}, but '{w.get('word')}' starts at {start_time}")
+                            
+                        output_list.append({
                             "id": f"tw_{lang_format}_{seg_id}_{i}",
                             "word": w.get("word", ""),
                             "start": start_time,
                             "end": end_time,
                             "probability": w.get("confidence", 1.0)
                         })
-                    
-                    if not temp_words:
-                        return
-                        
-                    # Timeline smoothing (Monotonicity Enforcement)
-                    # Translation often reorders words (e.g. grammar structure changes).
-                    # If we use strict source timestamps, karaoke jumps backwards.
-                    # By sorting the derived starts and ends, we maintain the exact speech cadence (pauses, speed)
-                    # but guarantee reading order rendering!
-                    starts = sorted(w["start"] for w in temp_words)
-                    ends = sorted(w["end"] for w in temp_words)
-                    
-                    for i, w in enumerate(temp_words):
-                        w["start"] = max(starts[i], orig_seg["start"])
-                        w["end"] = min(ends[i], orig_seg["end"])
-                        
-                        # Ensure no zero-length words
-                        if w["end"] <= w["start"]:
-                            w["end"] = w["start"] + 0.05
-                            
-                        output_list.append(w)
 
                 extract_words(rom_data.get("words", []), all_translit_words, "rom")
                 extract_words(trans_data.get("words", []), all_translated_words, "trans")
