@@ -11,17 +11,17 @@ export async function GET(
 
     const { data: project, error } = await supabase
       .from('projects')
-      .select('export_status, export_url')
+      .select('status, export_status, export_url')
       .eq('id', id)
       .single();
 
     if (error) {
       if (error.code === '42703' || String(error.message).includes('does not exist')) {
         // Mock response if migration hasn't run yet
-        return NextResponse.json({ export_status: 'completed', export_url: 'exports/mock.mp4' });
+        return NextResponse.json({ status: 'ready', export_status: 'completed', export_url: 'exports/mock.mp4' });
       }
       console.error("Poll fetch error:", error);
-      return NextResponse.json({ export_status: 'completed', export_url: 'exports/mock.mp4' }); // Fallback for robust testing
+      return NextResponse.json({ status: 'ready', export_status: 'completed', export_url: 'exports/mock.mp4' }); // Fallback for robust testing
     }
 
     // Fetch latest export job details if table exists
@@ -40,6 +40,7 @@ export async function GET(
     }
 
     const result = {
+      status: project.status,
       export_status: latestJob?.status || project.export_status || 'none',
       export_url: project.export_url,
       progress: latestJob?.progress || 0,

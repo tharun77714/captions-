@@ -5,6 +5,10 @@ import { Clock, Loader2, CheckCircle2, AlertCircle, ArrowLeft, Pencil } from 'lu
 import Link from 'next/link';
 import { ExportStatusTracker } from '@/components/dashboard/export-status-tracker';
 
+import { LocalDate } from '@/components/dashboard/local-date';
+
+import { ProcessingTracker } from '@/components/dashboard/processing-tracker';
+
 // Helper for formatting time (e.g., 65.4s -> 01:05)
 function formatTimestamp(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -49,7 +53,7 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight">{project.title || 'Untitled Project'}</h1>
             <div className="flex items-center mt-2 space-x-4 text-sm text-zinc-500">
-              <span>{new Date(project.created_at).toLocaleString()}</span>
+              <LocalDate timestamp={project.created_at} />
               <span>•</span>
               <StatusBadge status={project.status} />
               {transcription?.language && (
@@ -77,6 +81,9 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
         {project.status === 'ready' && (
           <ExportStatusTracker projectId={id} initialStatus={project.export_status || 'none'} />
         )}
+        
+        {/* Background Processing Polling Tracker */}
+        <ProcessingTracker projectId={id} initialStatus={project.status} />
 
         {/* Content based on status */}
         {project.status === 'queued' && <ProcessingState message="Waiting in queue..." icon={<Clock className="w-10 h-10 text-zinc-500" />} />}
