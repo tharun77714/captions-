@@ -43,6 +43,7 @@ def process_with_llm(segments_data, language):
     import json
     import os
     import time
+    import re
     from google import genai
     from pydantic import BaseModel
     from typing import List
@@ -61,6 +62,7 @@ def process_with_llm(segments_data, language):
         words: List[TranslatedWord]
 
     class TranslationResponse(BaseModel):
+        schema_version: int
         romanized: List[TranslatedSegment]
         translated: List[TranslatedSegment]
 
@@ -71,17 +73,18 @@ Your job is to translate the English transcript segments into two formats:
 2. 'romanized': Tenglish (Romanized Telugu) exactly how real Telugu people type on WhatsApp and Instagram.
 
 CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
+- OUTPUT SCHEMA: Must include "schema_version": 1.
 - For 'translated', output natural Telugu text in Telugu script.
 - For 'romanized', output clean Tenglish text. Keep English technical/brand words in English letters.
-- Maintain the exact same segment IDs. Do not combine or split segments.
+- Maintain the exact same segment IDs in the exact original order. Do not combine or split segments.
 - Break the translated/romanized text into individual words in the `words` array.
 - For each translated word, provide a `source_word_ids` array containing the integer IDs of the original words from the input that correspond to this translated word.
 - NEVER invent timestamps or source IDs. Only use IDs that exist in the input segment.
+- Every semantic unit should be represented.
 - Translation mapping supports 1-to-1, 1-to-many, many-to-1, and many-to-many.
 - If grammatical differences require inserting words, attach the inserted words to the nearest semantic source word ID.
 - Preserve translated word order exactly.
 - Strip all punctuation from the `word` field.
-- Never skip words or duplicate mappings.
 - Provide a `confidence` score (0.0 to 1.0) for each word's alignment accuracy.
 """
     else:
@@ -100,69 +103,137 @@ Your job is to convert the {lang_name} transcript segments into two formats:
 2. 'romanized': {lang_style} (Romanized {lang_name}) exactly how real {lang_name} people naturally type on social media.
 
 CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
+- OUTPUT SCHEMA: Must include "schema_version": 1.
 - For 'translated', output natural, high-quality English translation.
 - For 'romanized', do NOT do literal letter-by-letter transliteration. Write the natural spoken words in Roman letters.
 - Keep brand names and English terms exactly in English letters.
-- Maintain the exact same segment IDs. Do not combine or split segments.
+- Maintain the exact same segment IDs in the exact original order. Do not combine or split segments.
 - Break the translated/romanized text into individual words in the `words` array.
 - For each translated word, provide a `source_word_ids` array containing the integer IDs of the original words from the input that correspond to this translated word.
 - NEVER invent timestamps or source IDs. Only use IDs that exist in the input segment.
+- Every semantic unit should be represented.
 - Translation mapping supports 1-to-1, 1-to-many, many-to-1, and many-to-many.
 - If grammatical differences require inserting words, attach the inserted words to the nearest semantic source word ID.
 - Preserve translated word order exactly.
 - Strip all punctuation from the `word` field.
-- Never skip words or duplicate mappings.
 - Provide a `confidence` score (0.0 to 1.0) for each word's alignment accuracy.
 """
 
-    def validate_response(parsed_data, input_segments):
-        valid_ids_per_segment = {}
-        for seg in input_segments:
-            valid_ids_per_segment[seg["id"]] = set(w["id"] for w in seg["words"])
+    def run_validation_pipeline(parsed_data, input_segments):
+        VALIDATOR_VERSION = "2026.07.v1"
         
+        # 1. Structural Validation
+        valid_ids_in_order = [seg["id"] for seg in input_segments]
+        
+        total_source_words = sum(len(seg.get("words", [])) for seg in input_segments)
+        if total_source_words == 0:
+            return {"passed": True, "repairs": 0}
+            
         for format_key in ["romanized", "translated"]:
             segments = parsed_data.get(format_key, [])
-            for seg in segments:
-                seg_id = seg.get("id")
-                if seg_id not in valid_ids_per_segment:
-                    raise ValueError(f"Invalid segment ID {seg_id}")
-                
-                valid_ids = valid_ids_per_segment[seg_id]
-                words = seg.get("words", [])
-                
-                for w in words:
-                    if not w.get("word"):
-                        raise ValueError("Empty word found")
-                    if not 0 <= w.get("confidence", 1) <= 1:
-                        raise ValueError("Confidence out of bounds")
+            if len(segments) != len(input_segments):
+                raise ValueError(f"Structural: Segment count mismatch for {format_key}")
+            
+            for i, seg in enumerate(segments):
+                if seg.get("id") != valid_ids_in_order[i]:
+                    raise ValueError(f"Structural: Segment ID mismatch or out of order at index {i} for {format_key}")
+
+        # 2. Auto-Repair Pass
+        repairs = {"ids": 0, "confidence": 0, "empty": 0, "whitespace": 0}
+        
+        def repair_pass(data):
+            for format_key in ["romanized", "translated"]:
+                for seg in data.get(format_key, []):
+                    valid_source_ids = set(w["id"] for input_seg in input_segments if input_seg["id"] == seg["id"] for w in input_seg.get("words", []))
                     
-                    source_ids = w.get("source_word_ids", [])
-                    if len(source_ids) != len(set(source_ids)):
-                        raise ValueError("Duplicate source_word_ids in a single word mapping")
-                    if not source_ids:
-                        raise ValueError("Empty source_word_ids")
-                    for sid in source_ids:
-                        if sid not in valid_ids:
-                            raise ValueError(f"Invalid source_word_id {sid} for segment {seg_id}")
-        return True
+                    new_words = []
+                    for w in seg.get("words", []):
+                        if not w.get("word") or not w.get("word").strip():
+                            repairs["empty"] += 1
+                            continue
+                        
+                        original_word = w.get("word")
+                        w["word"] = w["word"].strip()
+                        if w["word"] != original_word:
+                            repairs["whitespace"] += 1
+                        
+                        if not (0 <= w.get("confidence", 1.0) <= 1.0):
+                            w["confidence"] = 0.8
+                            repairs["confidence"] += 1
+                        
+                        sids = w.get("source_word_ids", [])
+                        sids_clean = []
+                        for sid in sids:
+                            if sid in valid_source_ids and sid not in sids_clean:
+                                sids_clean.append(sid)
+                        
+                        if len(sids) != len(sids_clean):
+                            repairs["ids"] += 1
+                            
+                        w["source_word_ids"] = sids_clean
+                        new_words.append(w)
+                    
+                    seg["words"] = new_words
+
+        repair_pass(parsed_data)
+        
+        # 3. Budget Check
+        total_words_generated = sum(len(seg.get("words", [])) for f in ["romanized", "translated"] for seg in parsed_data.get(f, []))
+        total_repairs = sum(repairs.values())
+        if total_words_generated > 0 and (total_repairs / total_words_generated) > 0.15:
+            raise ValueError(f"Budget: Too many repairs needed ({total_repairs} for {total_words_generated} words)")
+            
+        # 4. Idempotency Check
+        repairs_before = dict(repairs)
+        repair_pass(parsed_data)
+        if repairs != repairs_before:
+            raise ValueError("Idempotency: Auto-repair is not stable")
+
+        # 5. Semantic Validation
+        for format_key in ["romanized", "translated"]:
+            covered_ids = set()
+            for seg in parsed_data.get(format_key, []):
+                for w in seg.get("words", []):
+                    covered_ids.update(w.get("source_word_ids", []))
+                
+                # Reconstruction Check
+                reconstructed = "".join(re.sub(r'\W+', '', w.get("word", "")).lower() for w in seg.get("words", []))
+                original = re.sub(r'\W+', '', seg.get("text", "")).lower()
+                
+                # Detect massive hallucinations by checking ratio of normalized text length
+                if len(reconstructed) > 0 and len(original) > 0:
+                    ratio = len(reconstructed) / len(original)
+                    if ratio < 0.25 or ratio > 4.0:
+                        raise ValueError(f"Semantic: Bad text reconstruction ratio {ratio:.2f} for segment {seg['id']}")
+                        
+            coverage = len(covered_ids) / total_source_words
+            if coverage < 0.90:
+                raise ValueError(f"Semantic: Coverage too low ({coverage:.2f} < 0.90) for {format_key}")
+
+        return {
+            "passed": True,
+            "validator_version": VALIDATOR_VERSION,
+            "coverage": coverage,
+            "repairs": total_repairs
+        }
 
     contents = f"{system_prompt}\n\nSegments:\n{json.dumps(segments_data)}"
     
-    max_retries = 1
+    max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            temperature = 0.0 if attempt > 0 else 0.7
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=TranslationResponse,
-                    temperature=temperature
+                    temperature=0.0
                 )
             )
             parsed = json.loads(response.text)
-            validate_response(parsed, segments_data)
+            validation_report = run_validation_pipeline(parsed, segments_data)
+            print(f"Validation passed: {validation_report}")
             return parsed
         except Exception as e:
             print(f"LLM translation attempt {attempt + 1} failed: {e}")
@@ -381,8 +452,6 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
             rom_dict = {s["id"]: s for s in llm_result["romanized"]}
             trans_dict = {s["id"]: s for s in llm_result["translated"]}
             
-            import uuid
-            
             for orig_seg in all_segments:
                 seg_id = orig_seg["id"]
                 
@@ -405,27 +474,25 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                     "text": trans_text
                 })
                 
-                def extract_words(word_list, output_list):
-                    for w in word_list:
+                def extract_words(word_list, output_list, lang_format):
+                    for i, w in enumerate(word_list):
                         source_ids = w.get("source_word_ids", [])
                         if not source_ids:
                             continue
                         
-                        # Find the corresponding original words to get start/end
                         start_time = min((deepgram_word_map[sid]["start"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["start"])
                         end_time = max((deepgram_word_map[sid]["end"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["end"])
                         
                         output_list.append({
-                            "id": f"w-{uuid.uuid4().hex[:8]}",
+                            "id": f"tw_{lang_format}_{seg_id}_{i}",
                             "word": w.get("word", ""),
                             "start": start_time,
                             "end": end_time,
                             "probability": w.get("confidence", 1.0)
                         })
 
-                extract_words(rom_data.get("words", []), all_translit_words)
-                extract_words(trans_data.get("words", []), all_translated_words)
-                
+                extract_words(rom_data.get("words", []), all_translit_words, "rom")
+                extract_words(trans_data.get("words", []), all_translated_words, "trans")
         else:
             all_translit_segments = all_segments
             all_translated_segments = all_segments
