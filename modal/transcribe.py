@@ -239,11 +239,17 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
                     ascii_count = sum(1 for c in text_str if ord(c) < 128)
                     if (ascii_count / len(text_str)) < 0.8:
                         raise ValueError(f"Semantic: Romanized output contains too many non-Latin characters in segment {seg['id']}")
-                if format_key == "translated" and language == "en" and text_str:
-                    # Expect Telugu characters
-                    telugu_count = sum(1 for c in text_str if 0x0C00 <= ord(c) <= 0x0C7F)
-                    if (telugu_count / len(text_str)) < 0.5:
-                        raise ValueError(f"Semantic: Translated output missing expected Telugu script in segment {seg['id']}")
+                if format_key == "translated" and text_str:
+                    if language == "en":
+                        # English -> translates to Telugu script
+                        telugu_count = sum(1 for c in text_str if 0x0C00 <= ord(c) <= 0x0C7F)
+                        if (telugu_count / len(text_str)) < 0.5:
+                            raise ValueError(f"Semantic: Translated output missing expected Telugu script in segment {seg['id']}")
+                    else:
+                        # Other languages -> translate to English (Latin script)
+                        ascii_count = sum(1 for c in text_str if ord(c) < 128)
+                        if (ascii_count / len(text_str)) < 0.8:
+                            raise ValueError(f"Semantic: Translated output contains too many non-Latin characters in segment {seg['id']}")
 
         return {
             "passed": True,
@@ -252,14 +258,17 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
             "repair_breakdown": repairs
         }
 
+
     contents = f"{system_prompt}\n\nSegments:\n{json.dumps(segments_data)}"
     
     max_retries = 2
+    validation_error_message = None
+    
     for attempt in range(max_retries + 1):
         try:
             current_contents = contents
-            if attempt > 0:
-                current_contents += f"\n\nWARNING: Previous output failed validation. Please ensure strict compliance with the rules (e.g., covering all source words, matching segment IDs exactly). Do NOT repeat the previous error."
+            if attempt > 0 and validation_error_message:
+                current_contents += f"\n\nWARNING: Previous validation failed with error:\n{validation_error_message}\nDo NOT repeat the previous error. Regenerate the entire JSON with correct mapping and coverage."
                 
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -275,16 +284,12 @@ CRITICAL RULES FOR ALIGNMENT AND TRANSLATION:
             print(f"Validation passed: {json.dumps(validation_report)}")
             return parsed
         except Exception as e:
-            print(f"LLM translation attempt {attempt + 1} failed: {e}")
+            validation_error_message = str(e)
+            print(f"LLM translation attempt {attempt + 1} failed: {validation_error_message}")
             if attempt == max_retries:
                 print("All retries failed, falling back to empty response.")
                 return None
 
-@app.function(
-    image=image,
-    timeout=1800,
-    secrets=[modal.Secret.from_name("vidyut-secrets")]
-)
 def process_video(project_id: str, s3_key: str, source_language: str = "auto", request_id: str = None):
     import boto3
     from supabase import create_client, Client
@@ -514,6 +519,7 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                 })
                 
                 def extract_words(word_list, output_list, lang_format):
+                    temp_words = []
                     for i, w in enumerate(word_list):
                         source_ids = w.get("source_word_ids", [])
                         if not source_ids:
@@ -522,13 +528,38 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                         start_time = min((deepgram_word_map[sid]["start"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["start"])
                         end_time = max((deepgram_word_map[sid]["end"] for sid in source_ids if sid in deepgram_word_map), default=orig_seg["end"])
                         
-                        output_list.append({
+                        # Ensure start <= end
+                        if start_time > end_time:
+                            start_time, end_time = end_time, start_time
+                            
+                        temp_words.append({
                             "id": f"tw_{lang_format}_{seg_id}_{i}",
                             "word": w.get("word", ""),
                             "start": start_time,
                             "end": end_time,
                             "probability": w.get("confidence", 1.0)
                         })
+                    
+                    if not temp_words:
+                        return
+                        
+                    # Timeline smoothing (Monotonicity Enforcement)
+                    # Translation often reorders words (e.g. grammar structure changes).
+                    # If we use strict source timestamps, karaoke jumps backwards.
+                    # By sorting the derived starts and ends, we maintain the exact speech cadence (pauses, speed)
+                    # but guarantee reading order rendering!
+                    starts = sorted(w["start"] for w in temp_words)
+                    ends = sorted(w["end"] for w in temp_words)
+                    
+                    for i, w in enumerate(temp_words):
+                        w["start"] = max(starts[i], orig_seg["start"])
+                        w["end"] = min(ends[i], orig_seg["end"])
+                        
+                        # Ensure no zero-length words
+                        if w["end"] <= w["start"]:
+                            w["end"] = w["start"] + 0.05
+                            
+                        output_list.append(w)
 
                 extract_words(rom_data.get("words", []), all_translit_words, "rom")
                 extract_words(trans_data.get("words", []), all_translated_words, "trans")
