@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { ensureV3, getAllUsedFonts } from '@/lib/subtitle-schema-v3';
 import { preloadFonts } from '@/lib/font-registry';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRemotionExport } from '@/hooks/use-remotion-export';
 
 interface EditorClientProps {
   project: {
@@ -67,14 +68,15 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
-  // Milestone 5 Export States
-  const [exportJobId, setExportJobId] = useState<string | null>(null);
-  const [exportStatus, setExportStatus] = useState<string>('none');
-  const [exportProgress, setExportProgress] = useState<number>(0);
-  const [exportStage, setExportStage] = useState<string>('');
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const sseRef = useRef<EventSource | null>(null);
+  // Remotion Browser Export integration
+  const {
+    phase: exportStatus,
+    progress: exportProgress,
+    error: exportError,
+    downloadUrl,
+    startExport,
+    cancel: handleCancel,
+  } = useRemotionExport();
 
   // Initialize store with server data
   useEffect(() => {
@@ -113,15 +115,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       preloadFonts(fonts).catch(err => console.error('Failed to preload fonts:', err));
     }
   }, [subtitleStyle]);
-
-  // Clean up SSE on unmount
-  useEffect(() => {
-    return () => {
-      if (sseRef.current) {
-        sseRef.current.close();
-      }
-    };
-  }, []);
 
   const handleSave = React.useCallback(async (): Promise<boolean> => {
     setSaveStatus('saving');
@@ -183,92 +176,37 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     }
   }, [project.id, subtitleStyle, validateTimingModel]);
 
-  const startSSEStream = React.useCallback((jobId: string) => {
-    if (sseRef.current) {
-      sseRef.current.close();
-    }
-
-    const sse = new EventSource(`/api/export/${jobId}/progress`);
-    sseRef.current = sse;
-
-    sse.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setExportStatus(data.status);
-        setExportProgress(data.progress);
-        setExportStage(data.stage);
-        setExportError(data.error || null);
-
-        if (data.status === 'completed') {
-          sse.close();
-          try {
-            const dlRes = await fetch(`/api/projects/${project.id}/download`);
-            if (dlRes.ok) {
-              const dlData = await dlRes.json();
-              setDownloadUrl(dlData.url);
-            }
-          } catch (dlErr) {
-            console.error('Failed to get signed download link:', dlErr);
-          }
-        } else if (['failed', 'cancelled'].includes(data.status)) {
-          sse.close();
-        }
-      } catch (err) {
-        console.error('Error parsing SSE data:', err);
-      }
-    };
-
-    sse.onerror = () => {
-      sse.close();
-    };
-  }, [project.id]);
-
   const handleExport = React.useCallback(async () => {
     const saved = await handleSave();
     if (!saved) return;
 
-    setExportStatus('queued');
-    setExportProgress(0);
-    setExportStage('Submitting export job...');
-    setExportError(null);
-    setDownloadUrl(null);
-
-    try {
-      const res = await fetch('/api/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id }),
-      });
-
-      if (res.ok) {
-        const { jobId } = await res.json();
-        setExportJobId(jobId);
-        startSSEStream(jobId);
-      } else {
-        const errData = await res.json();
-        setExportStatus('failed');
-        setExportError(errData.error || 'Failed to submit export job.');
-      }
-    } catch (err) {
-      console.error('Export failed:', err);
-      setExportStatus('failed');
-      setExportError('Network error starting export.');
+    if (!videoUrl) {
+      alert('Error: Video source is not loaded yet.');
+      return;
     }
-  }, [project.id, handleSave, startSSEStream]);
 
-  const handleCancel = React.useCallback(async () => {
-    if (!exportJobId) return;
-    try {
-      await fetch(`/api/export/${exportJobId}/cancel`, { method: 'POST' });
-      setExportStatus('cancelled');
-      setExportStage('Export cancelled by user.');
-      if (sseRef.current) {
-        sseRef.current.close();
-      }
-    } catch (err) {
-      console.error('Failed to cancel export:', err);
-    }
-  }, [exportJobId]);
+    const state = useEditorStore.getState();
+    const durationSeconds = state.duration || 15;
+    const currentSegments = state.segments;
+
+    console.log('[EditorClient] Starting browser Remotion export...', {
+      projectId: project.id,
+      videoUrl,
+      durationSeconds,
+      subtitleStyle,
+      subtitleMode,
+    });
+
+    startExport({
+      projectId: project.id,
+      videoUrl,
+      durationSeconds,
+      segments: currentSegments,
+      subtitleStyle,
+      subtitleMode,
+    });
+  }, [project.id, handleSave, videoUrl, subtitleStyle, subtitleMode, startExport]);
+
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -380,7 +318,20 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     );
   }
 
-  const isExporting = ['queued', 'starting', 'planning', 'rendering', 'encoding', 'mixing', 'muxing', 'uploading'].includes(exportStatus);
+  const isExporting = ['preparing', 'rendering', 'uploading'].includes(exportStatus);
+  const [showExportOverlay, setShowExportOverlay] = useState(false);
+
+  useEffect(() => {
+    if (exportStatus !== 'idle') {
+      setShowExportOverlay(true);
+    }
+  }, [exportStatus]);
+
+  const exportStage =
+    exportStatus === 'preparing' ? 'Preparing video composition...' :
+    exportStatus === 'rendering' ? 'Rendering video frames...' :
+    exportStatus === 'uploading' ? 'Uploading MP4 to storage...' :
+    exportStatus === 'done' ? 'Completed' : '';
 
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -473,7 +424,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border flex items-center gap-1.5 ${
               isExporting
                 ? 'bg-violet-600/20 border-violet-500/30 text-violet-400 cursor-not-allowed'
-                : exportStatus === 'completed'
+                : exportStatus === 'done'
                 ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white'
                 : 'bg-violet-600 hover:bg-violet-500 border-violet-500 text-white'
             }`}
@@ -483,7 +434,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Exporting...
               </>
-            ) : exportStatus === 'completed' ? (
+            ) : exportStatus === 'done' ? (
               <>
                 <Download className="w-3.5 h-3.5" />
                 Re-export
@@ -538,7 +489,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
 
         {/* Milestone 5 Premium Export Progress Overlay */}
         <AnimatePresence>
-          {exportStatus !== 'none' && (
+          {showExportOverlay && exportStatus !== 'idle' && (
             <motion.div
               initial={{ opacity: 0, y: 50, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -553,7 +504,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                   <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Video Export</span>
                 </div>
                 <button
-                  onClick={() => setExportStatus('none')}
+                  onClick={() => setShowExportOverlay(false)}
                   className="p-1 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-zinc-200 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -589,7 +540,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                       </button>
                     </div>
                   </div>
-                ) : exportStatus === 'completed' ? (
+                ) : exportStatus === 'done' ? (
                   <div className="space-y-4 text-center py-2">
                     <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-400">
                       <Download className="w-5 h-5" />
@@ -627,7 +578,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                     <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
                     <div>
                       <h4 className="text-xs font-semibold text-rose-400">Export Failed</h4>
-                      <p className="text-[10px] text-zinc-500 mt-1 max-w-[280px] mx-auto truncate">{exportError || 'An unknown error occurred.'}</p>
+                      <p className="text-[10px] text-rose-400 mt-1 max-w-[280px] mx-auto whitespace-pre-wrap">{exportError || 'An unknown error occurred.'}</p>
                     </div>
                     <button
                       onClick={handleExport}
@@ -645,3 +596,4 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     </div>
   );
 }
+

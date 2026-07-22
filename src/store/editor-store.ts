@@ -18,6 +18,8 @@ import type {
 import { EMPTY_OVERRIDES, ensureV3 } from '@/lib/subtitle-schema-v3';
 import { getTemplateById } from '@/lib/templates-data';
 import { enrichTranscript, SemanticTag } from '@/lib/semantic-engine';
+import { LayoutContext, CaptionBlock, CompositionDiagnostics, compositionEngine } from '@/lib/caption-composition';
+import { measurementService } from '@/lib/measurement-service';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -133,6 +135,20 @@ interface EditorState {
   future: HistorySnapshot[];
   canUndo: boolean;
   canRedo: boolean;
+
+  // Composition Engine
+  computedBlocks: CaptionBlock[];
+  layoutContext: LayoutContext;
+  activePreset: string;
+  compositionDiagnostics: CompositionDiagnostics | null;
+  useCompositionRenderer: boolean;
+  manualOverrides: import('@/lib/caption-composition').ManualOverride[];
+  setLayoutContext: (context: Partial<LayoutContext>) => void;
+  setActivePreset: (presetId: string) => void;
+  setUseCompositionRenderer: (use: boolean) => void;
+  addManualOverride: (override: import('@/lib/caption-composition').ManualOverride) => void;
+  removeManualOverride: (beforeWordId: string, type: import('@/lib/caption-composition').ManualConstraint) => void;
+  recomputeBlocks: (segmentIds?: number[]) => void;
 
   // Actions
   setProjectData: (data: {
@@ -282,6 +298,118 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   projectTitle: '',
   videoUrl: null,
   language: '',
+
+  computedBlocks: [],
+  layoutContext: {
+    containerWidth: 0,
+    containerHeight: 0,
+    safeArea: 0,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+    scaleFactor: 1,
+    aspectRatio: 16/9,
+    exportMode: false
+  },
+  activePreset: 'social_reels',
+  compositionDiagnostics: null,
+  useCompositionRenderer: false,
+  manualOverrides: [],
+
+  setLayoutContext: (context) => {
+    set((state) => ({ layoutContext: { ...state.layoutContext, ...context } }));
+    get().recomputeBlocks();
+  },
+
+  setActivePreset: (presetId) => {
+    set({ activePreset: presetId });
+    get().recomputeBlocks();
+  },
+
+  setUseCompositionRenderer: (use) => {
+    set({ useCompositionRenderer: use });
+  },
+  
+  addManualOverride: (override) => {
+    set((state) => {
+      // Remove any existing override of same type for the same word in this profile
+      const filtered = state.manualOverrides.filter(o => 
+        !(o.layoutProfileId === override.layoutProfileId && o.beforeWordId === override.beforeWordId && o.type === override.type)
+      );
+      return { manualOverrides: [...filtered, override] };
+    });
+    get().recomputeBlocks();
+  },
+  
+  removeManualOverride: (beforeWordId, type) => {
+    set((state) => {
+      const filtered = state.manualOverrides.filter(o => 
+        !(o.beforeWordId === beforeWordId && o.type === type)
+      );
+      return { manualOverrides: filtered };
+    });
+    get().recomputeBlocks();
+  },
+
+  recomputeBlocks: (segmentIds?: number[]) => {
+    const state = get();
+    // Font loading logic
+    const fontStr = `${state.subtitleStyle.font.weight} ${state.subtitleStyle.fontSize}px "${state.subtitleStyle.font.family}"`;
+    
+    const composeAndSet = () => {
+      const t0 = performance.now();
+      const segmentsToUse = state.segments;
+      const enrichedContext = {
+        ...state.layoutContext,
+        measureWord: (word: string) => {
+          return measurementService.measureWidth({
+            text: word,
+            fontFamily: state.subtitleStyle.font.family,
+            fontSize: state.subtitleStyle.fontSize,
+            fontWeight: state.subtitleStyle.font.weight as number,
+            letterSpacing: state.subtitleStyle.letterSpacing,
+          });
+        }
+      };
+      // Compute the layout profile ID (e.g. 'social_reels-1.7777777777777777')
+      const layoutProfileId = `${state.activePreset}-${state.layoutContext.aspectRatio}`;
+      const activeOverrides = state.manualOverrides.filter(o => o.layoutProfileId === layoutProfileId);
+      
+      const blocks = compositionEngine.compose(
+        segmentsToUse, 
+        state.subtitleStyle, 
+        enrichedContext, 
+        state.activePreset,
+        activeOverrides
+      );
+      const t1 = performance.now();
+      set({ 
+        computedBlocks: blocks, 
+        compositionDiagnostics: {
+          composeTimeMs: t1 - t0,
+          measureTimeMs: compositionEngine.diagnostics.measureTimeMs,
+          phraseDetectionMs: compositionEngine.diagnostics.phraseDetectionMs,
+          timingSegmentationMs: compositionEngine.diagnostics.timingSegmentationMs,
+          geometryMs: compositionEngine.diagnostics.geometryMs,
+          visualBalanceMs: compositionEngine.diagnostics.visualBalanceMs,
+          readingSpeedMs: compositionEngine.diagnostics.readingSpeedMs,
+          validationMs: compositionEngine.diagnostics.validationMs,
+          cacheHits: compositionEngine.diagnostics.cacheHits,
+          cacheMisses: compositionEngine.diagnostics.cacheMisses,
+          totalWords: segmentsToUse.reduce((acc, s) => acc + s.words.length, 0),
+          measuredWords: 0,
+          layoutVersion: blocks[0]?.layoutVersion || 1,
+          preset: state.activePreset
+        } 
+      });
+    };
+
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.load(fontStr).then(() => {
+        composeAndSet();
+      });
+    } else {
+      composeAndSet();
+    }
+  },
 
   segments: [],
   originalSegments: [],
@@ -1355,3 +1483,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     }),
 }));
+
+// ─── Reactive Composition Engine Trigger ──────────────────────────────
+// Automatically trigger the composition engine whenever dependencies change.
+// This ensures that all state mutators (undo, redo, edits, style changes)
+// are automatically caught without manually hooking each function.
+useEditorStore.subscribe((state, prevState) => {
+  if (
+    state.segments !== prevState.segments ||
+    state.subtitleStyle !== prevState.subtitleStyle ||
+    state.layoutContext !== prevState.layoutContext ||
+    state.activePreset !== prevState.activePreset
+  ) {
+    // We must avoid infinite loops. recomputeBlocks only updates computedBlocks and compositionDiagnostics.
+    // Those are NOT in the dependency check above.
+    state.recomputeBlocks();
+  }
+});
