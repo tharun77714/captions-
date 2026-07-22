@@ -12,6 +12,7 @@ interface CaptionLayerProps {
   activeSegment: Segment | undefined;
   useCompositionRenderer: boolean;
   isExportMode: boolean; // Disable CSS transition and use frame-based time interpolation
+  isLineMounted: boolean; // Driven by preview mounted state or export frame timing
 }
 
 export const CaptionLayer: React.FC<CaptionLayerProps> = ({
@@ -21,17 +22,13 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
   activeSegment,
   useCompositionRenderer,
   isExportMode,
+  isLineMounted,
 }) => {
   const activeSegmentWords = activeSegment ? activeSegment.words : [];
 
   const renderWordHelper = (wordObj: Word, parentId: string | number) => {
     const isWordActive = currentTime >= wordObj.start && currentTime <= wordObj.end;
     
-    // In preview mode, line is considered mounted if the block/segment is currently active.
-    const isLineMounted = useCompositionRenderer
-      ? (activeBlock ? (currentTime >= activeBlock.start && currentTime <= activeBlock.end) : false)
-      : (activeSegment ? (currentTime >= activeSegment.start && currentTime <= activeSegment.end) : false);
-
     const hasStarted = subtitleStyle.transition.target === 'line'
       ? isLineMounted
       : (isLineMounted && currentTime >= wordObj.start);

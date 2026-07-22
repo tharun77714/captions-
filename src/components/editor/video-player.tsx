@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useEditorStore } from '@/store/editor-store';
 import { CaptionBlock, Line } from '@/lib/caption-composition';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
-import { CaptionLayer } from './CaptionLayer';
+import { CaptionOverlay } from './CaptionOverlay';
 
 /**
  * Measured subtitle rendering data captured directly from the browser DOM.
@@ -512,70 +512,56 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
             zIndex: 50,
           }}
         >
-          <div style={{ transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span
-              ref={subtitleBoxRef}
-              className="group relative px-3 py-1.5 rounded-md max-w-full whitespace-pre-wrap pointer-events-auto cursor-move hover:ring-2 hover:ring-violet-500/50 transition-shadow"
-            style={{
-              fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", "Noto Sans Arabic", "Noto Sans JP", sans-serif`,
-              fontSize: `${subtitleStyle.fontSize}px`,
-              fontWeight: subtitleStyle.font.weight,
-              letterSpacing: `${subtitleStyle.letterSpacing}px`,
-              wordSpacing: `${subtitleStyle.wordSpacing}px`,
-              lineHeight: subtitleStyle.lineSpacing,
-              textAlign: subtitleStyle.alignment,
-              color: subtitleStyle.textColor.solid,
-              backgroundColor: subtitleStyle.background.enabled ? subtitleStyle.background.color : 'transparent',
-              textShadow: subtitleStyle.shadow.blur > 0 ? `0 0 ${subtitleStyle.shadow.blur}px ${subtitleStyle.shadow.color}` : undefined,
-              WebkitTextStroke: subtitleStyle.stroke.enabled && subtitleStyle.stroke.width > 0 ? `${subtitleStyle.stroke.width}px ${subtitleStyle.stroke.color}` : undefined,
-            }}
+          <CaptionOverlay
+            ref={subtitleBoxRef}
+            currentTime={currentTime}
+            subtitleStyle={subtitleStyle}
+            activeBlock={activeBlock}
+            activeSegment={activeSegment}
+            useCompositionRenderer={useCompositionRenderer}
+            isExportMode={isExportMode}
+            isLineMounted={
+              useCompositionRenderer
+                ? (activeBlock ? mountedSegments[activeBlock.id] === true : false)
+                : (activeSegment ? mountedSegments[activeSegment.id] === true : false)
+            }
           >
-            <CaptionLayer
-              currentTime={currentTime}
-              subtitleStyle={subtitleStyle}
-              activeBlock={activeBlock}
-              activeSegment={activeSegment}
-              useCompositionRenderer={useCompositionRenderer}
-              isExportMode={isExportMode}
-            />
-
-              {!isExportMode && (
-                <div 
-                  className="absolute -bottom-2 -right-2 w-5 h-5 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110"
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    if (!subtitleBoxRef.current) return;
+            {!isExportMode && (
+              <div 
+                className="absolute -bottom-2 -right-2 w-5 h-5 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  if (!subtitleBoxRef.current) return;
+                  
+                  const boxRect = subtitleBoxRef.current.getBoundingClientRect();
+                  const centerX = boxRect.left + boxRect.width / 2;
+                  const centerY = boxRect.top + boxRect.height / 2;
+                  
+                  const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+                  const startFontSize = subtitleStyle.fontSize;
+                  
+                  const handlePointerMove = (moveEv: PointerEvent) => {
+                    const currentDist = Math.hypot(moveEv.clientX - centerX, moveEv.clientY - centerY);
+                    if (startDist === 0) return;
+                    const scale = currentDist / startDist;
                     
-                    const boxRect = subtitleBoxRef.current.getBoundingClientRect();
-                    const centerX = boxRect.left + boxRect.width / 2;
-                    const centerY = boxRect.top + boxRect.height / 2;
-                    
-                    const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-                    const startFontSize = subtitleStyle.fontSize;
-                    
-                    const handlePointerMove = (moveEv: PointerEvent) => {
-                      const currentDist = Math.hypot(moveEv.clientX - centerX, moveEv.clientY - centerY);
-                      if (startDist === 0) return;
-                      const scale = currentDist / startDist;
-                      
-                      const newSize = Math.max(12, Math.min(300, startFontSize * scale));
-                      setSubtitleStyleV2(prev => ({ ...prev, fontSize: Math.round(newSize) }));
-                    };
-                    
-                    const handlePointerUp = () => {
-                      window.removeEventListener('pointermove', handlePointerMove);
-                      window.removeEventListener('pointerup', handlePointerUp);
-                    };
-                    
-                    window.addEventListener('pointermove', handlePointerMove);
-                    window.addEventListener('pointerup', handlePointerUp);
-                  }}
-                >
-                  <div className="w-2 h-2 bg-white rounded-full pointer-events-none" />
-                </div>
-              )}
-            </span>
-          </div>
+                    const newSize = Math.max(12, Math.min(300, startFontSize * scale));
+                    setSubtitleStyleV2(prev => ({ ...prev, fontSize: Math.round(newSize) }));
+                  };
+                  
+                  const handlePointerUp = () => {
+                    window.removeEventListener('pointermove', handlePointerMove);
+                    window.removeEventListener('pointerup', handlePointerUp);
+                  };
+                  
+                  window.addEventListener('pointermove', handlePointerMove);
+                  window.addEventListener('pointerup', handlePointerUp);
+                }}
+              >
+                <div className="w-2 h-2 bg-white rounded-full pointer-events-none" />
+              </div>
+            )}
+          </CaptionOverlay>
         </motion.div>
       )}
 

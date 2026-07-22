@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, delayRender, continueRender } from 'remotion';
 import type { ExportInputProps } from './types';
-import { CaptionLayer } from '@/components/editor/CaptionLayer';
+import { CaptionOverlay } from '@/components/editor/CaptionOverlay';
 
 // Use a module level map to cache loaded fonts so we don't reload them on every frame re-render
 const loadedFonts = new Set<string>();
@@ -111,43 +111,18 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
             position: 'absolute',
             top: `${50 + subtitleStyle.positionY}%`,
             left: `${50 + subtitleStyle.positionX}%`,
-            transform: 'translate(-50%, -50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
             zIndex: 50,
-            width: '85%',
           }}
         >
-          <span
-            style={{
-              fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", sans-serif`,
-              fontSize: `${subtitleStyle.fontSize}px`,
-              fontWeight: subtitleStyle.font.weight,
-              letterSpacing: `${subtitleStyle.letterSpacing}px`,
-              wordSpacing: `${subtitleStyle.wordSpacing}px`,
-              lineHeight: subtitleStyle.lineSpacing,
-              textAlign: subtitleStyle.alignment,
-              color: subtitleStyle.textColor.solid,
-              backgroundColor: subtitleStyle.background.enabled ? subtitleStyle.background.color : 'transparent',
-              textShadow: subtitleStyle.shadow.blur > 0 ? `0 0 ${subtitleStyle.shadow.blur}px ${subtitleStyle.shadow.color}` : undefined,
-              WebkitTextStroke: subtitleStyle.stroke.enabled && subtitleStyle.stroke.width > 0 ? `${subtitleStyle.stroke.width}px ${subtitleStyle.stroke.color}` : undefined,
-              padding: '6px 12px',
-              borderRadius: '6px',
-              display: 'inline-block',
-              maxWidth: '100%',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            <CaptionLayer
-              currentTime={currentTime}
-              subtitleStyle={subtitleStyle}
-              activeBlock={activeBlock}
-              activeSegment={activeSegment}
-              useCompositionRenderer={useCompositionRenderer}
-              isExportMode={true}
-            />
-          </span>
+          <CaptionOverlay
+            currentTime={currentTime}
+            subtitleStyle={subtitleStyle}
+            activeBlock={activeBlock}
+            activeSegment={activeSegment}
+            useCompositionRenderer={useCompositionRenderer}
+            isExportMode={true}
+            isLineMounted={true}
+          />
         </div>
       )}
     </AbsoluteFill>
