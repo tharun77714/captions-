@@ -1,198 +1,100 @@
-import React from 'react';
-import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig } from 'remotion';
+import React, { useEffect, useState } from 'react';
+import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, delayRender, continueRender } from 'remotion';
 import type { ExportInputProps } from './types';
-import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
-import { computeDurationMs, getCSSTransitionParams } from '@/lib/transition-engine';
+import { CaptionLayer } from '@/components/editor/CaptionLayer';
+
+// Use a module level map to cache loaded fonts so we don't reload them on every frame re-render
+const loadedFonts = new Set<string>();
 
 export const CaptionComposition: React.FC<ExportInputProps> = ({
   videoUrl,
   segments,
   subtitleStyle,
   subtitleMode,
+  useCompositionRenderer,
+  computedBlocks,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTime = frame / fps;
 
-  // 1. Load fonts dynamically inside the frame to ensure Chromium renders them
-  const font = subtitleStyle.font?.family || 'Inter';
-  const fontUrl = `https://fonts.googleapis.com/css2?family=${font.replace(/\s+/g, '+')}:wght@400;700;900&display=swap`;
-  const teluguFontUrl = `https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;700;900&display=swap`;
+  const fontName = subtitleStyle.font?.family || 'Inter';
+  const cacheKey = `${fontName}_Noto-Sans-Telugu`;
+
+  const [fontsLoaded, setFontsLoaded] = useState(() => loadedFonts.has(cacheKey));
+  const [handle, setHandle] = useState<number | null>(null);
+
+  // Synchronously request Remotion to delay render on mount if fonts are not loaded
+  if (!fontsLoaded && !handle) {
+    const renderHandle = delayRender('Fonts loading: ' + cacheKey);
+    setHandle(renderHandle);
+  }
+
+  useEffect(() => {
+    if (fontsLoaded) return;
+
+    console.log(`[CaptionComposition] Starting font loading for: ${fontName} and Noto Sans Telugu`);
+
+    // Helper to dynamically inject FontFace to document
+    const loadFont = async (name: string, url: string) => {
+      try {
+        const fontFace = new FontFace(name, `url(${url})`);
+        const loadedFace = await fontFace.load();
+        document.fonts.add(loadedFace);
+        console.log(`[CaptionComposition] Successfully registered font: ${name}`);
+      } catch (e) {
+        console.error(`[CaptionComposition] Failed to load font face ${name}:`, e);
+        throw new Error(`Font loading failed: ${name}`);
+      }
+    };
+
+    // Load actual woff2 links (no swap, direct binary download, fail fast)
+    Promise.all([
+      // Canonical Inter Font
+      loadFont(
+        'Inter',
+        'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGkyMZhrib2D1A.woff2'
+      ),
+      // Canonical Noto Sans Telugu
+      loadFont(
+        'Noto Sans Telugu',
+        'https://fonts.gstatic.com/s/notosanstelugu/v25/1PX2W8S4nC22Kq2xVWe1Z1U_K2Y.woff2'
+      ),
+      // Active editor chosen font (if different from Inter)
+      fontName !== 'Inter'
+        ? loadFont(
+            fontName,
+            `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@700&display=block`
+          )
+        : Promise.resolve(),
+    ])
+      .then(() => {
+        loadedFonts.add(cacheKey);
+        setFontsLoaded(true);
+        if (handle !== null) {
+          continueRender(handle);
+        }
+      })
+      .catch((err) => {
+        // Halt render visibly so the video export fails instantly rather than outputting generic text
+        const errorMsg = `CRITICAL FONT ERROR: ${err.message || err}`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      });
+  }, [fontName, handle, fontsLoaded, cacheKey]);
 
   // Find active segment
   const activeSegment = segments.find(
     (seg) => currentTime >= seg.start && currentTime <= seg.end
   );
 
-  const activeSegmentWords = activeSegment ? activeSegment.words : [];
-
-  const renderWord = (wordObj: any, parentId: number) => {
-    const isWordActive = currentTime >= wordObj.start && currentTime <= wordObj.end;
-    // For Remotion, we treat it exactly like export mode.
-    // Line is considered "mounted" (visible) when the current time is within the segment's start/end.
-    const isLineMounted = activeSegment ? (currentTime >= activeSegment.start && currentTime <= activeSegment.end) : false;
-    const hasStarted = subtitleStyle.transition.target === 'line'
-      ? isLineMounted
-      : (isLineMounted && currentTime >= wordObj.start);
-
-    const mode = subtitleStyle.highlightMode || 'none';
-    const computedStyle = resolveWordStyle(subtitleStyle, parentId, wordObj.id);
-
-    // Transition Engine computation
-    const durationMs = computeDurationMs(subtitleStyle.transition, wordObj.start, wordObj.end);
-    const transitionParams = getCSSTransitionParams(subtitleStyle.transition.type, durationMs);
-
-    let exportOverrideStyle: React.CSSProperties = {};
-
-    if (subtitleStyle.transition.type !== 'none') {
-      const animStart = subtitleStyle.transition.target === 'line' ? (activeSegment?.start ?? wordObj.start) : wordObj.start;
-      const animEnd = animStart + (durationMs / 1000.0);
-      let progress = 0;
-      if (currentTime >= animEnd) {
-        progress = 1;
-      } else if (currentTime > animStart) {
-        progress = (currentTime - animStart) / (animEnd - animStart);
-      }
-
-      const transType = subtitleStyle.transition.type;
-      let tStyle: React.CSSProperties = {};
-
-      if (transType === 'fade') {
-        tStyle.opacity = progress;
-      } else if (transType === 'pop') {
-        tStyle.transform = `scale(${progress})`;
-        tStyle.opacity = progress > 0 ? 1 : 0;
-      } else if (transType === 'scale') {
-        tStyle.transform = isWordActive ? 'scale(1.15)' : 'scale(1)';
-      } else if (transType === 'slide-left') {
-        tStyle.transform = `translateX(${-20 * (1 - progress)}px)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'slide-right') {
-        tStyle.transform = `translateX(${20 * (1 - progress)}px)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'slide-up') {
-        tStyle.transform = `translateY(${-20 * (1 - progress)}px)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'slide-down') {
-        tStyle.transform = `translateY(${20 * (1 - progress)}px)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'zoom') {
-        tStyle.transform = `scale(${0.5 + 0.5 * progress})`;
-        tStyle.opacity = progress;
-      } else if (transType === 'flip-x') {
-        tStyle.transform = `perspective(400px) rotateX(${90 * (1 - progress)}deg)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'flip-y') {
-        tStyle.transform = `perspective(400px) rotateY(${90 * (1 - progress)}deg)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'spin') {
-        tStyle.transform = `rotate(${180 * (1 - progress)}deg) scale(${progress})`;
-        tStyle.opacity = progress;
-      } else if (transType === 'blur') {
-        tStyle.filter = `blur(${10 * (1 - progress)}px)`;
-        tStyle.opacity = progress;
-      } else if (transType === 'bounce') {
-        tStyle.transform = `translateY(${30 * (1 - progress)}px) scale(${0.8 + 0.2 * progress})`;
-        tStyle.opacity = progress;
-      } else if (transType === 'elastic') {
-        tStyle.transform = `scaleX(${1.5 - 0.5 * progress}) scaleY(${0.5 + 0.5 * progress})`;
-        tStyle.opacity = progress;
-      }
-
-      exportOverrideStyle = {
-        ...tStyle,
-        transition: 'none',
-      };
-    }
-
-    // Base Style
-    const dynamicStyle: React.CSSProperties = {
-      color: computedStyle.gradient ? 'transparent' : computedStyle.textColor,
-      backgroundImage: computedStyle.gradient ? `linear-gradient(${computedStyle.gradient.angle}deg, ${computedStyle.gradient.stops.map(s => `${s.color} ${s.position}%`).join(', ')})` : undefined,
-      WebkitBackgroundClip: computedStyle.gradient ? 'text' : undefined,
-      WebkitTextFillColor: computedStyle.gradient ? 'transparent' : undefined,
-      fontFamily: `"${computedStyle.fontFamily}", "Noto Sans Telugu", sans-serif`,
-      fontSize: `${computedStyle.fontSize}px`,
-      fontWeight: computedStyle.fontWeight,
-      fontStyle: computedStyle.italic ? 'italic' : 'normal',
-      textDecoration: computedStyle.underline ? 'underline' : 'none',
-      textTransform: computedStyle.textTransform !== 'none' ? computedStyle.textTransform : undefined,
-      letterSpacing: `${computedStyle.letterSpacing}px`,
-      opacity: hasStarted ? computedStyle.opacity : subtitleStyle.inactiveOpacity ?? 0.5,
-      filter: !hasStarted && subtitleStyle.blur > 0 ? `blur(${subtitleStyle.blur}px)` : undefined,
-      transform: `scale(${computedStyle.scaleX}, ${computedStyle.scaleY}) translate(${computedStyle.x}px, ${computedStyle.y}px) rotate(${computedStyle.rotation}deg)`,
-      backgroundColor: computedStyle.backgroundEnabled ? computedStyle.backgroundColor : 'transparent',
-      marginRight: '6px',
-      display: 'inline-block',
-      transition: 'none', // deterministic rendering: no CSS transitions
-      padding: `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 2}px`,
-      borderRadius: `${computedStyle.borderRadius}px`,
-      ...exportOverrideStyle,
-    };
-
-    if (computedStyle.shadowBlur > 0) {
-      dynamicStyle.textShadow = `${computedStyle.shadowOffsetX}px ${computedStyle.shadowOffsetY}px ${computedStyle.shadowBlur}px ${computedStyle.shadowColor}`;
-    }
-    if (computedStyle.strokeEnabled && computedStyle.strokeWidth > 0) {
-      dynamicStyle.WebkitTextStroke = `${computedStyle.strokeWidth}px ${computedStyle.strokeColor}`;
-    }
-
-    // Highlight Mode
-    if (isWordActive && mode !== 'none') {
-      switch (mode) {
-        case 'color':
-          dynamicStyle.color = subtitleStyle.activeWordColor || '#facc15';
-          if (computedStyle.gradient) {
-            dynamicStyle.backgroundImage = 'none';
-            dynamicStyle.WebkitTextFillColor = subtitleStyle.activeWordColor || '#facc15';
-          }
-          dynamicStyle.opacity = 1.0;
-          break;
-        case 'scale':
-          dynamicStyle.transform = 'scale(1.15)';
-          dynamicStyle.opacity = 1.0;
-          break;
-        case 'underline':
-          dynamicStyle.textDecoration = 'underline';
-          dynamicStyle.textUnderlineOffset = '4px';
-          dynamicStyle.opacity = 1.0;
-          break;
-        case 'background':
-          dynamicStyle.backgroundColor = subtitleStyle.activeWordColor || '#facc15';
-          dynamicStyle.color = '#000000';
-          if (computedStyle.gradient) {
-            dynamicStyle.backgroundImage = 'none';
-            dynamicStyle.WebkitTextFillColor = '#000000';
-          }
-          dynamicStyle.opacity = 1.0;
-          break;
-        case 'karaoke':
-          dynamicStyle.color = subtitleStyle.activeWordColor || '#facc15';
-          if (computedStyle.gradient) {
-            dynamicStyle.backgroundImage = 'none';
-            dynamicStyle.WebkitTextFillColor = subtitleStyle.activeWordColor || '#facc15';
-          }
-          dynamicStyle.transform = 'scale(1.1)';
-          dynamicStyle.textShadow = `0 0 12px ${subtitleStyle.activeWordColor || '#facc15'}CC`;
-          dynamicStyle.opacity = 1.0;
-          break;
-      }
-    }
-
-    return (
-      <span key={wordObj.id} style={dynamicStyle}>
-        {wordObj.word.trim()}
-      </span>
-    );
-  };
+  const activeBlock = computedBlocks?.find(
+    (b) => currentTime >= b.start && currentTime <= b.end
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
-      {/* Load Fonts */}
-      <link rel="stylesheet" href={fontUrl} />
-      <link rel="stylesheet" href={teluguFontUrl} />
-
-      {/* Video element */}
+      {/* Video layer */}
       <Video
         src={videoUrl}
         style={{
@@ -203,7 +105,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
       />
 
       {/* Caption Overlay */}
-      {activeSegment && (
+      {(useCompositionRenderer ? activeBlock : activeSegment) && (
         <div
           style={{
             position: 'absolute',
@@ -237,11 +139,14 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
               whiteSpace: 'pre-wrap',
             }}
           >
-            {activeSegmentWords.length > 0 ? (
-              activeSegmentWords.map((wordObj) => renderWord(wordObj, activeSegment.id))
-            ) : (
-              activeSegment.text
-            )}
+            <CaptionLayer
+              currentTime={currentTime}
+              subtitleStyle={subtitleStyle}
+              activeBlock={activeBlock}
+              activeSegment={activeSegment}
+              useCompositionRenderer={useCompositionRenderer}
+              isExportMode={true}
+            />
           </span>
         </div>
       )}

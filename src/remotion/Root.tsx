@@ -41,7 +41,9 @@ export const RemotionRoot: React.FC = () => {
             transition: { type: 'none', target: 'word', speedMode: 'dynamic', speed: 25 },
             overrides: { wordStyles: {}, segmentStyles: {} }
           },
-          subtitleMode: 'original'
+          subtitleMode: 'original',
+          useCompositionRenderer: false,
+          computedBlocks: []
         } as ExportInputProps}
       />
     </>

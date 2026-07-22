@@ -186,7 +186,16 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     }
 
     const state = useEditorStore.getState();
-    const durationSeconds = state.duration || 15;
+    const meta = videoPlayerRef.current?.getVideoMetadata();
+    const durationSeconds = meta?.duration || state.duration || 0;
+    const width = meta?.width || 1080;
+    const height = meta?.height || 1920;
+
+    if (!durationSeconds || durationSeconds <= 0) {
+      alert('Error: Video duration is unavailable. Please wait for the video to load metadata.');
+      return;
+    }
+
     const currentSegments = state.segments;
 
     console.log('[EditorClient] Starting browser Remotion export...', {
@@ -195,6 +204,9 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       durationSeconds,
       subtitleStyle,
       subtitleMode,
+      useCompositionRenderer: state.useCompositionRenderer,
+      width,
+      height,
     });
 
     startExport({
@@ -204,6 +216,11 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       segments: currentSegments,
       subtitleStyle,
       subtitleMode,
+      useCompositionRenderer: state.useCompositionRenderer,
+      computedBlocks: state.computedBlocks || [],
+      width,
+      height,
+      fps: 30,
     });
   }, [project.id, handleSave, videoUrl, subtitleStyle, subtitleMode, startExport]);
 

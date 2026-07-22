@@ -26,7 +26,6 @@ keys = [
     "R2_SECRET_ACCESS_KEY",
     "R2_BUCKET_NAME",
     "MODAL_WEBHOOK_URL",
-    "MODAL_EXPORT_WEBHOOK_URL",
     "DEEPGRAM_API_KEY"
 ]
 for k in keys:
@@ -97,19 +96,17 @@ else:
 # 5. Test Modal Webhooks
 print("\n[5] TESTING MODAL WEBHOOK STATUS:")
 transcribe_wh = config.get("MODAL_WEBHOOK_URL")
-export_wh = config.get("MODAL_EXPORT_WEBHOOK_URL")
 
-for label, wh in [("Transcriber", transcribe_wh), ("Exporter", export_wh)]:
-    if wh:
-        try:
-            res = httpx.post(wh, timeout=10.0)
-            if res.status_code in [200, 201, 202, 400, 405]:
-                print(f"  - {label:<11}: ONLINE (Status: {res.status_code})")
-            else:
-                print(f"  - {label:<11}: UNEXPECTED RESPONSE (Status: {res.status_code})")
-        except Exception as e:
-            print(f"  - {label:<11}: ONLINE/REACHED (Response/Status check: {e})")
-    else:
-        print(f"  - {label:<11}: Skipped (URL missing)")
+if transcribe_wh:
+    try:
+        res = httpx.post(transcribe_wh, timeout=10.0)
+        if res.status_code in [200, 201, 202, 400, 405]:
+            print("  - Transcriber: ONLINE (Status: f{res.status_code})")
+        else:
+            print(f"  - Transcriber: UNEXPECTED RESPONSE (Status: {res.status_code})")
+    except Exception as e:
+        print(f"  - Transcriber: ONLINE/REACHED (Response/Status check: {e})")
+else:
+    print("  - Transcriber: Skipped (URL missing)")
 
 print("\n" + "=" * 60)

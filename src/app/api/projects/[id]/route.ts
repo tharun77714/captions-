@@ -16,13 +16,10 @@ export async function GET(
       .single();
 
     if (error) {
-      if (error.code === '42703' || String(error.message).includes('does not exist')) {
-        // Mock response if migration hasn't run yet
-        return NextResponse.json({ status: 'ready', export_status: 'completed', export_url: 'exports/mock.mp4' });
-      }
-      console.error("Poll fetch error:", error);
-      return NextResponse.json({ status: 'ready', export_status: 'completed', export_url: 'exports/mock.mp4' }); // Fallback for robust testing
+      console.error("Project fetch error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
 
     const result = {
       status: project.status,

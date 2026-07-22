@@ -5,6 +5,7 @@ import { renderMediaOnWeb, canRenderMediaOnWeb } from '@remotion/web-renderer';
 import { CaptionComposition } from '@/remotion/CaptionComposition';
 import type { Segment } from '@/store/editor-store';
 import type { SubtitleStyleV3 } from '@/lib/subtitle-schema-v3';
+import type { CaptionBlock } from '@/lib/caption-composition';
 
 export type ExportPhase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'failed' | 'cancelled';
 
@@ -15,6 +16,11 @@ interface StartExportOptions {
   segments: Segment[];
   subtitleStyle: SubtitleStyleV3;
   subtitleMode: 'original' | 'transliterated' | 'translated';
+  useCompositionRenderer: boolean;
+  computedBlocks: CaptionBlock[];
+  width: number;
+  height: number;
+  fps: number;
 }
 
 export function useRemotionExport() {
@@ -27,7 +33,7 @@ export function useRemotionExport() {
 
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
-      console.log('[useRemotionExport] Aborting render job...');
+      console.log('[useRemotionExport] Aborting render/upload sequence...');
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setPhase('cancelled');
@@ -36,78 +42,114 @@ export function useRemotionExport() {
   }, []);
 
   const startExport = useCallback(async (options: StartExportOptions) => {
-    const { projectId, videoUrl, durationSeconds, segments, subtitleStyle, subtitleMode } = options;
+    const {
+      projectId,
+      videoUrl,
+      durationSeconds,
+      segments,
+      subtitleStyle,
+      subtitleMode,
+      useCompositionRenderer,
+      computedBlocks,
+      width,
+      height,
+      fps,
+    } = options;
 
     setPhase('preparing');
     setProgress(0);
     setError(null);
     setDownloadUrl(null);
 
-    // Create a new AbortController
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      // 1. Browser capability checks using canRenderMediaOnWeb
-      console.log('[useRemotionExport] Checking browser WebCodecs capabilities...');
-      const check = await canRenderMediaOnWeb({
-        width: 1080,
-        height: 1920,
+      // 1. Validate duration. If missing or invalid, halt rendering
+      if (!durationSeconds || durationSeconds <= 0) {
+        throw new Error('Export aborted: Duration is invalid or unavailable. Wait for video to load metadata.');
+      }
+
+      // 2. Perform browser codec encoding checks using canRenderMediaOnWeb
+      console.log('[useRemotionExport] Performing pre-flight encoding validation...');
+      const capabilityCheck = await canRenderMediaOnWeb({
+        width,
+        height,
         videoCodec: 'h264',
         audioCodec: 'aac',
         container: 'mp4',
       });
 
-      if (!check.canRender) {
-        const issueMsgs = check.issues.map((i) => `${i.message} (${i.type})`).join(', ');
-        throw new Error(`Browser codec encoding check failed: ${issueMsgs || 'WebCodecs unavailable'}`);
+      if (!capabilityCheck.canRender) {
+        const issuesText = capabilityCheck.issues
+          .map((issue) => `${issue.message} (${issue.type})`)
+          .join(', ');
+        throw new Error(`Browser environment does not support MP4 encoding: ${issuesText || 'WebCodecs unavailable'}`);
       }
 
-      // 2. Validate input variables
-      if (!videoUrl) {
-        throw new Error('Video source URL is missing');
+      // 3. Request presigned R2 PUT URL from Next.js server
+      const initResponse = await fetch('/api/export/upload/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          contentType: 'video/mp4',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!initResponse.ok) {
+        const initErr = await initResponse.json().catch(() => ({}));
+        throw new Error(initErr.error || `Initialization failed with status ${initResponse.status}`);
       }
 
-      const fps = 30;
+      const { url: presignedPutUrl } = await initResponse.json();
+      if (!presignedPutUrl) {
+        throw new Error('Server did not return a valid upload signature URL');
+      }
+
       const durationInFrames = Math.max(30, Math.ceil(durationSeconds * fps));
-
-      console.log('[useRemotionExport] Initializing renderMediaOnWeb...', {
-        durationSeconds,
+      console.log('[useRemotionExport] Rendering media in-browser...', {
+        dimensions: `${width}x${height}`,
+        fps,
         durationInFrames,
-        videoUrl,
       });
 
       setPhase('rendering');
 
-      // 3. Render composition in-browser
+      // 4. Render composition inside the browser
       const renderResult = await renderMediaOnWeb({
         composition: {
           id: 'CaptionComposition',
           component: CaptionComposition as any,
           fps,
-          width: 1080,
-          height: 1920,
+          width,
+          height,
           durationInFrames,
           defaultProps: {
             projectId,
             videoUrl,
             fps,
             durationInFrames,
-            dimensions: { width: 1080, height: 1920 },
+            dimensions: { width, height },
             segments,
             subtitleStyle,
             subtitleMode,
-          }
+            useCompositionRenderer,
+            computedBlocks,
+          },
         } as any,
         inputProps: {
           projectId,
           videoUrl,
           fps,
           durationInFrames,
-          dimensions: { width: 1080, height: 1920 },
+          dimensions: { width, height },
           segments,
           subtitleStyle,
           subtitleMode,
+          useCompositionRenderer,
+          computedBlocks,
         },
         videoCodec: 'h264',
         audioCodec: 'aac',
@@ -115,60 +157,100 @@ export function useRemotionExport() {
         licenseKey: 'free-license',
         signal: controller.signal,
         onProgress: (prog) => {
-          // Remotion progress spans 0 to 1
-          // Rendering is scaled to 0-90% of total export progress
-          const percent = Math.round(prog.progress * 90);
+          // Rendering progress mapped to 0-80% of total export
+          const percent = Math.round(prog.progress * 80);
           setProgress(percent);
         },
       });
 
       if (controller.signal.aborted) {
-        throw new Error('Render aborted by user');
+        throw new Error('Export cancelled by user');
       }
 
-      // 4. Retrieve Blob from local Remotion renderer
+      // 5. Fetch resulting Blob from local browser memory
       setPhase('uploading');
-      setProgress(90);
-      console.log('[useRemotionExport] Render complete, compiling video blob...');
+      setProgress(80);
       const videoBlob = await renderResult.getBlob();
 
       if (controller.signal.aborted) {
-        throw new Error('Upload aborted by user');
+        throw new Error('Export cancelled by user');
       }
 
-      console.log('[useRemotionExport] Uploading MP4 blob to server storage...', {
+      console.log('[useRemotionExport] Uploading MP4 blob directly to Cloudflare R2 bucket...', {
         blobSize: videoBlob.size,
       });
 
-      // 5. Send file payload via FormData to the API upload endpoint
-      const formData = new FormData();
-      formData.append('projectId', projectId);
-      formData.append('file', videoBlob, 'export.mp4');
+      // 6. Direct PUT upload from browser to R2 using the presigned URL
+      // Upload is mapped to 80-95% progress
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', presignedPutUrl, true);
+        xhr.setRequestHeader('Content-Type', 'video/mp4');
 
-      const uploadResponse = await fetch('/api/export/upload', {
+        controller.signal.addEventListener('abort', () => {
+          xhr.abort();
+          reject(new Error('Export cancelled by user'));
+        });
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const uploadPercent = event.loaded / event.total;
+            // Scale 80% to 95%
+            const currentProgress = 80 + Math.round(uploadPercent * 15);
+            setProgress(currentProgress);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Storage server rejected the upload with status ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Network failure uploading direct to storage'));
+        };
+
+        xhr.send(videoBlob);
+      });
+
+      await uploadPromise;
+      setProgress(95);
+
+      if (controller.signal.aborted) {
+        throw new Error('Export cancelled by user');
+      }
+
+      console.log('[useRemotionExport] Storage write validated. Finalizing completion on DB...');
+
+      // 7. Complete export lifecycle to save state in projects table and retrieve short-lived download url
+      const completeResponse = await fetch('/api/export/upload/complete', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
         signal: controller.signal,
       });
 
-      if (!uploadResponse.ok) {
-        const errJson = await uploadResponse.json().catch(() => ({}));
-        throw new Error(errJson.error || `Upload request failed with status ${uploadResponse.status}`);
+      if (!completeResponse.ok) {
+        const completeErr = await completeResponse.json().catch(() => ({}));
+        throw new Error(completeErr.error || `Database update failed with status ${completeResponse.status}`);
       }
 
-      const uploadResult = await uploadResponse.json();
+      const completeResult = await completeResponse.json();
       setProgress(100);
-      setDownloadUrl(uploadResult.url);
+      setDownloadUrl(completeResult.url);
       setPhase('done');
-      console.log('[useRemotionExport] Export sequence finished successfully!', uploadResult);
+      console.log('[useRemotionExport] Direct storage export successfully completed!', completeResult);
 
     } catch (err: any) {
-      if (controller.signal.aborted || err.message === 'Render aborted by user' || err.message === 'Upload aborted by user') {
-        console.log('[useRemotionExport] Export job was explicitly cancelled.');
+      if (controller.signal.aborted || err.message === 'Export cancelled by user') {
+        console.log('[useRemotionExport] Active job cancelled.');
         setPhase('cancelled');
       } else {
-        console.error('[useRemotionExport] Render error:', err);
-        setError(err.message || 'An unexpected error occurred during rendering.');
+        console.error('[useRemotionExport] Export run failure:', err);
+        setError(err.message || 'An unexpected failure occurred during rendering.');
         setPhase('failed');
       }
     } finally {
