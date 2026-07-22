@@ -437,6 +437,9 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
         # --- Full transcription with nova-3 + confirmed language ---
         options_dict = {
             "model": "nova-3",
+            # Pin the proven Telugu Nova-3 batch version used by the high-accuracy
+            # July 19 run; leaving this unset silently moves to Deepgram's latest.
+            "version": "2026-01-17.18728",
             "language": language,
             "detect_language": False,
             "smart_format": True,
