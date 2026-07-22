@@ -87,27 +87,6 @@ export function useRemotionExport() {
         throw new Error(`Browser environment does not support MP4 encoding: ${issuesText || 'WebCodecs unavailable'}`);
       }
 
-      // 3. Request presigned R2 PUT URL from Next.js server
-      const initResponse = await fetch('/api/export/upload/init', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          contentType: 'video/mp4',
-        }),
-        signal: controller.signal,
-      });
-
-      if (!initResponse.ok) {
-        const initErr = await initResponse.json().catch(() => ({}));
-        throw new Error(initErr.error || `Initialization failed with status ${initResponse.status}`);
-      }
-
-      const { url: presignedPutUrl } = await initResponse.json();
-      if (!presignedPutUrl) {
-        throw new Error('Server did not return a valid upload signature URL');
-      }
-
       const durationInFrames = Math.max(30, Math.ceil(durationSeconds * fps));
       console.log('[useRemotionExport] Rendering media in-browser...', {
         dimensions: `${width}x${height}`,
@@ -117,7 +96,7 @@ export function useRemotionExport() {
 
       setPhase('rendering');
 
-      // 4. Render composition inside the browser
+      // 3. Render composition inside the browser
       const renderResult = await renderMediaOnWeb({
         composition: {
           id: 'CaptionComposition',
@@ -167,13 +146,35 @@ export function useRemotionExport() {
         throw new Error('Export cancelled by user');
       }
 
-      // 5. Fetch resulting Blob from local browser memory
+      // 4. Fetch resulting Blob from local browser memory
       setPhase('uploading');
       setProgress(80);
       const videoBlob = await renderResult.getBlob();
 
       if (controller.signal.aborted) {
         throw new Error('Export cancelled by user');
+      }
+
+      // 5. Request presigned R2 PUT URL from Next.js server ONLY after rendering is complete
+      console.log('[useRemotionExport] Requesting presigned storage signature...');
+      const initResponse = await fetch('/api/export/upload/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          contentType: 'video/mp4',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!initResponse.ok) {
+        const initErr = await initResponse.json().catch(() => ({}));
+        throw new Error(initErr.error || `Initialization failed with status ${initResponse.status}`);
+      }
+
+      const { url: presignedPutUrl } = await initResponse.json();
+      if (!presignedPutUrl) {
+        throw new Error('Server did not return a valid upload signature URL');
       }
 
       console.log('[useRemotionExport] Uploading MP4 blob directly to Cloudflare R2 bucket...', {

@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, delayRender, continueRender } from 'remotion';
+import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, delayRender, continueRender, cancelRender } from 'remotion';
 import type { ExportInputProps } from './types';
 import { CaptionOverlay } from '@/components/editor/CaptionOverlay';
-
-// Use a module level map to cache loaded fonts so we don't reload them on every frame re-render
-const loadedFonts = new Set<string>();
 
 export const CaptionComposition: React.FC<ExportInputProps> = ({
   videoUrl,
@@ -21,67 +18,61 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
   const fontName = subtitleStyle.font?.family || 'Inter';
   const cacheKey = `${fontName}_Noto-Sans-Telugu`;
 
-  const [fontsLoaded, setFontsLoaded] = useState(() => loadedFonts.has(cacheKey));
-  const [handle, setHandle] = useState<number | null>(null);
-
-  // Synchronously request Remotion to delay render on mount if fonts are not loaded
-  if (!fontsLoaded && !handle) {
-    const renderHandle = delayRender('Fonts loading: ' + cacheKey);
-    setHandle(renderHandle);
-  }
+  // Create one stable delay handle using a state initializer
+  const [handle] = useState(() => delayRender('Fonts loading: ' + cacheKey));
 
   useEffect(() => {
-    if (fontsLoaded) return;
-
-    console.log(`[CaptionComposition] Starting font loading for: ${fontName} and Noto Sans Telugu`);
-
-    // Helper to dynamically inject FontFace to document
-    const loadFont = async (name: string, url: string) => {
-      try {
-        const fontFace = new FontFace(name, `url(${url})`);
-        const loadedFace = await fontFace.load();
-        document.fonts.add(loadedFace);
-        console.log(`[CaptionComposition] Successfully registered font: ${name}`);
-      } catch (e) {
-        console.error(`[CaptionComposition] Failed to load font face ${name}:`, e);
-        throw new Error(`Font loading failed: ${name}`);
-      }
+    // Helper to dynamically inject link elements for CSS stylesheets
+    const injectStylesheet = (href: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) {
+          resolve();
+          return;
+        }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.onload = () => resolve();
+        link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+        document.head.appendChild(link);
+      });
     };
 
-    // Load actual woff2 links (no swap, direct binary download, fail fast)
-    Promise.all([
-      // Canonical Inter Font
-      loadFont(
-        'Inter',
-        'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGkyMZhrib2D1A.woff2'
-      ),
-      // Canonical Noto Sans Telugu
-      loadFont(
-        'Noto Sans Telugu',
-        'https://fonts.gstatic.com/s/notosanstelugu/v25/1PX2W8S4nC22Kq2xVWe1Z1U_K2Y.woff2'
-      ),
-      // Active editor chosen font (if different from Inter)
-      fontName !== 'Inter'
-        ? loadFont(
-            fontName,
-            `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@700&display=block`
-          )
-        : Promise.resolve(),
-    ])
+    const loadAllResources = async () => {
+      console.log(`[CaptionComposition] Injecting Google Fonts stylesheets for Inter, Noto Sans Telugu, and ${fontName}`);
+      
+      // Load Google Fonts CSS stylesheets (displays block for rendering)
+      await Promise.all([
+        injectStylesheet('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=block'),
+        injectStylesheet('https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;700;900&display=block'),
+        fontName !== 'Inter'
+          ? injectStylesheet(`https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}:wght@400;700;900&display=block`)
+          : Promise.resolve(),
+      ]);
+
+      console.log(`[CaptionComposition] Awaiting explicit document.fonts.load calls for deterministic rendering`);
+
+      // Await explicitly using actual Telugu sample text characters
+      await Promise.all([
+        document.fonts.load(`${subtitleStyle.font.weight} 24px "${fontName}"`),
+        document.fonts.load(`400 24px "Noto Sans Telugu"`, 'తెలుగు'),
+        document.fonts.load(`700 24px "Noto Sans Telugu"`, 'తెలుగు'),
+      ]);
+    };
+
+    loadAllResources()
       .then(() => {
-        loadedFonts.add(cacheKey);
-        setFontsLoaded(true);
-        if (handle !== null) {
-          continueRender(handle);
-        }
+        console.log(`[CaptionComposition] Fonts loaded successfully. Starting composition render.`);
+        continueRender(handle);
       })
       .catch((err) => {
-        // Halt render visibly so the video export fails instantly rather than outputting generic text
         const errorMsg = `CRITICAL FONT ERROR: ${err.message || err}`;
         console.error(errorMsg);
-        throw new Error(errorMsg);
+        // Call cancelRender so the renderer terminates visibly instead of hanging
+        cancelRender(err);
       });
-  }, [fontName, handle, fontsLoaded, cacheKey]);
+  }, [fontName, subtitleStyle.font.weight, handle, cacheKey]);
 
   // Find active segment
   const activeSegment = segments.find(
