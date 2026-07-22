@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, delayRender, continueRender, cancelRender } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, delayRender, continueRender, cancelRender } from 'remotion';
+import { Video } from '@remotion/media';
 import type { ExportInputProps } from './types';
 import { CaptionOverlay } from '@/components/editor/CaptionOverlay';
 

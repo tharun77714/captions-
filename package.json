@@ -12,6 +12,7 @@
     "@aws-sdk/client-s3": "^3.1067.0",
     "@aws-sdk/s3-request-presigner": "^3.1067.0",
     "@headlessui/react": "^2.2.10",
+    "@remotion/media": "4.0.496",
     "@remotion/player": "4.0.496",
     "@remotion/web-renderer": "4.0.496",
     "@supabase/ssr": "^0.12.0",
