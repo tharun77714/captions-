@@ -45,11 +45,40 @@ def process_with_llm(segments_data, language):
     import time
     import re
     from google import genai
+    from google.oauth2 import service_account
     from pydantic import BaseModel
     from typing import List
     from google.genai import types
 
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    service_account_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not service_account_json:
+        raise RuntimeError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON is not configured in the Modal secret"
+        )
+
+    try:
+        service_account_info = json.loads(service_account_json)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON"
+        ) from exc
+
+    google_cloud_project = service_account_info.get("project_id")
+    if not google_cloud_project:
+        raise RuntimeError(
+            "The service-account JSON does not contain a project_id"
+        )
+
+    credentials = service_account.Credentials.from_service_account_info(
+        service_account_info,
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    client = genai.Client(
+        vertexai=True,
+        project=google_cloud_project,
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+        credentials=credentials,
+    )
 
     class TranslatedWord(BaseModel):
         word: str
