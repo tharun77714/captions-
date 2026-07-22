@@ -78,6 +78,14 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     cancel: handleCancel,
   } = useRemotionExport();
 
+  const [showExportOverlay, setShowExportOverlay] = useState(false);
+
+  useEffect(() => {
+    if (exportStatus !== 'idle') {
+      setShowExportOverlay(true);
+    }
+  }, [exportStatus]);
+
   // Initialize store with server data
   useEffect(() => {
     setProjectData({
@@ -336,13 +344,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   }
 
   const isExporting = ['preparing', 'rendering', 'uploading'].includes(exportStatus);
-  const [showExportOverlay, setShowExportOverlay] = useState(false);
-
-  useEffect(() => {
-    if (exportStatus !== 'idle') {
-      setShowExportOverlay(true);
-    }
-  }, [exportStatus]);
 
   const exportStage =
     exportStatus === 'preparing' ? 'Preparing video composition...' :
