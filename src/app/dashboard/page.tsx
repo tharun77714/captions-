@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { DragAndDrop } from '@/components/upload/drag-and-drop';
 import { createClient } from '@/lib/supabase/server';
 import { Video } from 'lucide-react';
@@ -21,9 +22,7 @@ export default async function DashboardPage() {
       <main className="container flex flex-col max-w-5xl px-6 py-16 mx-auto md:py-24">
         <div className="mb-10 flex items-center justify-between gap-4 text-sm">
           <span className="truncate text-zinc-500">{user.email}</span>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Sign out</button>
-          </form>
+          <div className="flex items-center gap-2"><Link href="/dashboard/exports" className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">My exports</Link><Link href="/dashboard/billing" className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Plan</Link><form action="/auth/signout" method="post"><button type="submit" className="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Sign out</button></form></div>
         </div>
         <div className="flex flex-col items-center text-center mb-16">
           <h1 className="text-4xl font-bold tracking-tight md:text-6xl text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-500">

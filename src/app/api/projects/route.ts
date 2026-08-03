@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
 import { MAX_UPLOAD_BYTES, getVideoUploadDescriptor } from '@/lib/upload-policy';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -74,9 +75,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const admin = createAdminClient();
+    const reservation = await admin.rpc('reserve_usage', {
+      p_user_id: user.id,
+      p_resource: 'transcription',
+      p_amount: Math.max(1, Math.ceil(durationMs / 1000)),
+      p_reference_id: project.id,
+    });
+
+    if (reservation.error) {
+      await supabase.from('projects').delete().eq('id', project.id).eq('user_id', user.id);
+      await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key })).catch(() => undefined);
+      console.error('Usage reservation failed:', reservation.error);
+      return NextResponse.json({ error: 'Usage limits are not ready. Apply the billing migration first.' }, { status: 503 });
+    }
+
+    const reservationResult = reservation.data as { allowed?: boolean; used?: number; limit?: number } | null;
+    if (!reservationResult?.allowed) {
+      await supabase.from('projects').delete().eq('id', project.id).eq('user_id', user.id);
+      await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key })).catch(() => undefined);
+      return NextResponse.json({ error: `This upload exceeds your plan limit (${reservationResult?.limit ?? 0} seconds remaining limit). Upgrade your plan to continue.` }, { status: 429 });
+    }
+
     // Trigger Modal Worker with a timeout so a dead webhook cannot leave the browser hanging.
     const modalWebhookUrl = process.env.MODAL_WEBHOOK_URL;
     if (!modalWebhookUrl) {
+      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'transcription', p_reference_id: project.id });
       await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
       return NextResponse.json({ error: 'Transcription worker is not configured' }, { status: 503 });
     }
@@ -96,6 +120,7 @@ export async function POST(request: Request) {
         signal: controller.signal,
       });
     } catch (error) {
+      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'transcription', p_reference_id: project.id });
       await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
       return NextResponse.json({ error: `Could not start transcription: ${readErrorMessage(error)}` }, { status: 502 });
     } finally {
@@ -103,6 +128,7 @@ export async function POST(request: Request) {
     }
 
     if (!modalResponse.ok) {
+      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'transcription', p_reference_id: project.id });
       await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
       return NextResponse.json({ error: `Transcription worker rejected the video (${modalResponse.status})` }, { status: 502 });
     }

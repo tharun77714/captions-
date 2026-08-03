@@ -23,7 +23,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
-  const isProtected = pathname.startsWith('/dashboard') || pathname.startsWith('/api/');
+  const isWebhook = pathname === '/api/billing/webhook';
+  const isProtected = pathname.startsWith('/dashboard') || (pathname.startsWith('/api/') && !isWebhook);
 
   if (isProtected && !user) {
     if (pathname.startsWith('/api/')) {

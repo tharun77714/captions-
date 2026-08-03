@@ -13,4 +13,6 @@ export type ExportInputProps = {
   subtitleMode: 'original' | 'transliterated' | 'translated';
   useCompositionRenderer: boolean;
   computedBlocks?: CaptionBlock[];
+  watermark?: boolean;
+  exportId?: string;
 };

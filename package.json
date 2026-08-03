@@ -28,6 +28,7 @@
     "react-dropzone": "^15.0.0",
     "react-window": "^2.2.7",
     "remotion": "4.0.496",
+    "stripe": "22.4.0",
     "tailwind-merge": "^3.6.0",
     "uuid": "^14.0.0",
     "zustand": "^5.0.14"

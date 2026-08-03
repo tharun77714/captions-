@@ -8,9 +8,9 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
   videoUrl,
   segments,
   subtitleStyle,
-  subtitleMode,
   useCompositionRenderer,
   computedBlocks,
+  watermark = false,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -115,6 +115,27 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
             isExportMode={true}
             isLineMounted={true}
           />
+        </div>
+      )}
+
+      {watermark && (
+        <div
+          style={{
+            position: 'absolute',
+            right: 24,
+            bottom: 24,
+            zIndex: 100,
+            padding: '7px 11px',
+            borderRadius: 8,
+            background: 'rgba(0, 0, 0, 0.62)',
+            color: 'rgba(255,255,255,0.88)',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 18,
+            fontWeight: 700,
+            letterSpacing: 0.2,
+          }}
+        >
+          Vidyut Captions
         </div>
       )}
     </AbsoluteFill>

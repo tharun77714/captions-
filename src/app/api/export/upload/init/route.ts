@@ -3,13 +3,14 @@ import { createClient } from '@/lib/supabase/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
-    const { projectId, contentType } = await request.json();
+    const { projectId, exportId, contentType } = await request.json();
 
-    if (!projectId) {
-      return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
+    if (!projectId || !exportId) {
+      return NextResponse.json({ error: 'Missing projectId or exportId' }, { status: 400 });
     }
 
     if (contentType !== 'video/mp4') {
@@ -20,14 +21,8 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    // 1. Validate that the project exists and the user has access.
-    // In our DB model, projects has user_id. Let's make sure it is found.
     const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .select('user_id')
-      .eq('id', projectId)
-      .eq('user_id', user.id)
-      .single();
+      .from('projects').select('user_id').eq('id', projectId).eq('user_id', user.id).single();
 
     if (projectError || !project) {
       console.error('[UploadInitAPI] Project validation failed:', projectError);
@@ -35,12 +30,17 @@ export async function POST(request: Request) {
     }
 
     const userId = project.user_id;
-    if (!userId) {
-      return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
+    if (!userId) return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
+
+    const admin = createAdminClient();
+    const { data: exportRow } = await admin.from('exports').select('storage_key, status')
+      .eq('id', exportId).eq('project_id', projectId).eq('user_id', user.id).maybeSingle();
+    if (!exportRow || !['rendering', 'uploading'].includes(exportRow.status)) {
+      return NextResponse.json({ error: 'Export authorization is missing or expired' }, { status: 409 });
     }
 
     // 2. Generate canonical R2 export key
-    const s3Key = `${userId}/${projectId}/export.mp4`;
+    const s3Key = exportRow.storage_key;
 
     // 3. Generate a short-lived presigned PUT URL (valid for 15 minutes)
     const putCommand = new PutObjectCommand({
@@ -50,6 +50,8 @@ export async function POST(request: Request) {
     });
 
     const presignedUrl = await getSignedUrl(r2Client, putCommand, { expiresIn: 900 });
+
+    await admin.from('exports').update({ status: 'uploading' }).eq('id', exportId).eq('user_id', user.id);
 
     console.log(`[UploadInitAPI] Generated PUT presigned URL for key: ${s3Key}`);
 

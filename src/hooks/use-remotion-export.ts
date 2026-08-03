@@ -30,8 +30,21 @@ export function useRemotionExport() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeExportIdRef = useRef<string | null>(null);
+  const finalizedExportRef = useRef(false);
+
+  const cancelServerExport = useCallback(async (exportId: string | null) => {
+    if (!exportId || finalizedExportRef.current) return;
+    await fetch('/api/export/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exportId }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, []);
 
   const cancel = useCallback(() => {
+    const exportId = activeExportIdRef.current;
     if (abortControllerRef.current) {
       console.log('[useRemotionExport] Aborting render/upload sequence...');
       abortControllerRef.current.abort();
@@ -39,7 +52,9 @@ export function useRemotionExport() {
       setPhase('cancelled');
       setProgress(0);
     }
-  }, []);
+    activeExportIdRef.current = null;
+    void cancelServerExport(exportId);
+  }, [cancelServerExport]);
 
   const startExport = useCallback(async (options: StartExportOptions) => {
     const {
@@ -60,6 +75,8 @@ export function useRemotionExport() {
     setProgress(0);
     setError(null);
     setDownloadUrl(null);
+    activeExportIdRef.current = null;
+    finalizedExportRef.current = false;
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -70,7 +87,22 @@ export function useRemotionExport() {
         throw new Error('Export aborted: Duration is invalid or unavailable. Wait for video to load metadata.');
       }
 
-      // 2. Perform browser codec encoding checks using canRenderMediaOnWeb
+      // 2. Reserve one export and create a durable export-library record before rendering.
+      const authorizeResponse = await fetch('/api/export/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+        signal: controller.signal,
+      });
+      if (!authorizeResponse.ok) {
+        const authorizeErr = await authorizeResponse.json().catch(() => ({}));
+        throw new Error(authorizeErr.error || `Export authorization failed with status ${authorizeResponse.status}`);
+      }
+      const authorization = await authorizeResponse.json() as { exportId: string; watermark: boolean };
+      if (!authorization.exportId) throw new Error('Export authorization did not return an export ID');
+      activeExportIdRef.current = authorization.exportId;
+
+      // 3. Perform browser codec encoding checks using canRenderMediaOnWeb
       console.log('[useRemotionExport] Performing pre-flight encoding validation...');
       const capabilityCheck = await canRenderMediaOnWeb({
         width,
@@ -100,7 +132,7 @@ export function useRemotionExport() {
       const renderResult = await renderMediaOnWeb({
         composition: {
           id: 'CaptionComposition',
-          component: CaptionComposition as any,
+          component: CaptionComposition,
           fps,
           width,
           height,
@@ -116,8 +148,10 @@ export function useRemotionExport() {
             subtitleMode,
             useCompositionRenderer,
             computedBlocks,
+            watermark: authorization.watermark,
+            exportId: authorization.exportId,
           },
-        } as any,
+        },
         inputProps: {
           projectId,
           videoUrl,
@@ -129,6 +163,8 @@ export function useRemotionExport() {
           subtitleMode,
           useCompositionRenderer,
           computedBlocks,
+          watermark: authorization.watermark,
+          exportId: authorization.exportId,
         },
         videoCodec: 'h264',
         audioCodec: 'aac',
@@ -162,6 +198,7 @@ export function useRemotionExport() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId,
+          exportId: authorization.exportId,
           contentType: 'video/mp4',
         }),
         signal: controller.signal,
@@ -230,7 +267,7 @@ export function useRemotionExport() {
       const completeResponse = await fetch('/api/export/upload/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId, exportId: authorization.exportId }),
         signal: controller.signal,
       });
 
@@ -243,21 +280,28 @@ export function useRemotionExport() {
       setProgress(100);
       setDownloadUrl(completeResult.url);
       setPhase('done');
+      finalizedExportRef.current = true;
+      activeExportIdRef.current = null;
       console.log('[useRemotionExport] Direct storage export successfully completed!', completeResult);
 
-    } catch (err: any) {
-      if (controller.signal.aborted || err.message === 'Export cancelled by user') {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected failure occurred during rendering.';
+      if (controller.signal.aborted || message === 'Export cancelled by user') {
         console.log('[useRemotionExport] Active job cancelled.');
+        await cancelServerExport(activeExportIdRef.current);
+        activeExportIdRef.current = null;
         setPhase('cancelled');
       } else {
         console.error('[useRemotionExport] Export run failure:', err);
-        setError(err.message || 'An unexpected failure occurred during rendering.');
+        await cancelServerExport(activeExportIdRef.current);
+        activeExportIdRef.current = null;
+        setError(message);
         setPhase('failed');
       }
     } finally {
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [cancelServerExport]);
 
   return {
     phase,
