@@ -11,11 +11,14 @@ export async function GET(
   try {
     const { id: projectId } = await params;
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('user_id, export_status, export_url')
       .eq('id', projectId)
+      .eq('user_id', user.id)
       .single();
 
     if (projectError || !project) {

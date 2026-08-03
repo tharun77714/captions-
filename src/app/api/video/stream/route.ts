@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { r2PresignedGetUrl } from '@/lib/r2/presign';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Proxy video streaming from R2 through Next.js to avoid browser CORS issues.
@@ -14,6 +15,19 @@ export async function GET(request: Request) {
     if (!key) {
       return NextResponse.json({ error: 'Missing key' }, { status: 400 });
     }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('media_url', key)
+      .maybeSingle();
+
+    if (!project) return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
 
     const presignedUrl = r2PresignedGetUrl(key, 300);
 

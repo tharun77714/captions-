@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,19 @@ export async function POST(request: Request) {
     if (!key) {
       return NextResponse.json({ error: 'Missing key' }, { status: 400 });
     }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('media_url', key)
+      .maybeSingle();
+
+    if (!project) return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
 
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
@@ -31,4 +45,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to generate video URL' }, { status: 500 });
   }
 }
-

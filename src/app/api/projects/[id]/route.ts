@@ -8,16 +8,19 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
     const { data: project, error } = await supabase
       .from('projects')
       .select('status, export_status, export_url')
       .eq('id', id)
+      .eq('user_id', user.id)
       .single();
 
     if (error) {
       console.error("Project fetch error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
     }
 
 

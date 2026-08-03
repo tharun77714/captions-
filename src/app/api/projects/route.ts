@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
 import { MAX_UPLOAD_BYTES, getVideoUploadDescriptor } from '@/lib/upload-policy';
-import { ANONYMOUS_USER_ID } from '@/lib/project-identity';
 
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -16,6 +15,9 @@ function readErrorMessage(error: unknown) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const { projectId, title, s3Key, durationMs, sourceLanguage, fileSize, contentType } = await request.json();
 
     if (!isUuid(projectId) || !title || !s3Key) {
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unsupported video type' }, { status: 415 });
     }
 
-    const expectedKey = `${ANONYMOUS_USER_ID}/${projectId}/raw.${descriptor.extension}`;
+    const expectedKey = `${user.id}/${projectId}/raw.${descriptor.extension}`;
     if (s3Key !== expectedKey) {
       return NextResponse.json({ error: 'Upload key does not match the initialized project' }, { status: 400 });
     }
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
         media_url: s3Key,
         duration_ms: Math.round(durationMs),
         status: 'queued',
-        user_id: ANONYMOUS_USER_ID,
+        user_id: user.id,
         id: projectId,
       })
       .select('id')

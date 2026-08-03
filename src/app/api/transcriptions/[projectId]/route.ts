@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 export async function PUT(
   request: Request,
@@ -8,6 +9,21 @@ export async function PUT(
   const { projectId } = await params;
 
   try {
+    const authClient = await createServerClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
+    const { data: ownedProject } = await authClient
+      .from('projects')
+      .select('id')
+      .eq('id', projectId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!ownedProject) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+    }
+
     const body = await request.json();
     const {
       segments,

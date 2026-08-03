@@ -1,6 +1,6 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Clock, Loader2, CheckCircle2, AlertCircle, ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { ExportStatusTracker } from '@/components/dashboard/export-status-tracker';
@@ -19,12 +19,15 @@ function formatTimestamp(seconds: number) {
 export default async function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/auth/login');
   
   // 1. Fetch project
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single();
 
   if (projectError || !project) {

@@ -13,12 +13,15 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
     // 1. Validate that the project exists and the user has access.
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('user_id')
       .eq('id', projectId)
+      .eq('user_id', user.id)
       .single();
 
     if (projectError || !project) {
