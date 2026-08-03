@@ -1,13 +1,57 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
+import { MAX_UPLOAD_BYTES, getVideoUploadDescriptor } from '@/lib/upload-policy';
+import { ANONYMOUS_USER_ID } from '@/lib/project-identity';
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function readErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Request failed';
+}
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    const { title, s3Key, durationMs, sourceLanguage } = await request.json();
+    const { projectId, title, s3Key, durationMs, sourceLanguage, fileSize, contentType } = await request.json();
 
-    if (!title || !s3Key) {
-      return NextResponse.json({ error: 'Missing title or s3Key' }, { status: 400 });
+    if (!isUuid(projectId) || !title || !s3Key) {
+      return NextResponse.json({ error: 'Missing or invalid project upload details' }, { status: 400 });
+    }
+
+    if (!Number.isInteger(fileSize) || fileSize <= 0 || fileSize > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: 'Invalid video size' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      return NextResponse.json({ error: 'Could not read the video duration. Please try the file again.' }, { status: 400 });
+    }
+
+    const descriptor = getVideoUploadDescriptor(title, contentType);
+    if (!descriptor) {
+      return NextResponse.json({ error: 'Unsupported video type' }, { status: 415 });
+    }
+
+    const expectedKey = `${ANONYMOUS_USER_ID}/${projectId}/raw.${descriptor.extension}`;
+    if (s3Key !== expectedKey) {
+      return NextResponse.json({ error: 'Upload key does not match the initialized project' }, { status: 400 });
+    }
+
+    // Do not create a project until R2 confirms the browser upload completed.
+    let storedSize = 0;
+    try {
+      const metadata = await r2Client.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key }));
+      storedSize = metadata.ContentLength || 0;
+    } catch (error) {
+      console.error('R2 upload verification failed:', error);
+      return NextResponse.json({ error: 'The video did not finish uploading. Please retry.' }, { status: 400 });
+    }
+
+    if (storedSize !== fileSize) {
+      return NextResponse.json({ error: 'Uploaded video size could not be verified. Please retry.' }, { status: 400 });
     }
 
     const { data: project, error } = await supabase
@@ -15,9 +59,10 @@ export async function POST(request: Request) {
       .insert({
         title,
         media_url: s3Key,
-        duration_ms: durationMs || 0,
+        duration_ms: Math.round(durationMs),
         status: 'queued',
-        user_id: '00000000-0000-0000-0000-000000000000'
+        user_id: ANONYMOUS_USER_ID,
+        id: projectId,
       })
       .select('id')
       .single();
@@ -27,18 +72,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Trigger Modal Worker asynchronously if webhook URL is configured
+    // Trigger Modal Worker with a timeout so a dead webhook cannot leave the browser hanging.
     const modalWebhookUrl = process.env.MODAL_WEBHOOK_URL;
-    if (modalWebhookUrl) {
-      await fetch(modalWebhookUrl, {
+    if (!modalWebhookUrl) {
+      await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
+      return NextResponse.json({ error: 'Transcription worker is not configured' }, { status: 503 });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    let modalResponse: Response;
+    try {
+      modalResponse = await fetch(modalWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          project_id: project.id, 
+        body: JSON.stringify({
+          project_id: project.id,
           s3_key: s3Key,
           source_language: sourceLanguage || 'auto'
-        })
-      }).catch(err => console.error('Failed to trigger Modal worker:', err));
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
+      return NextResponse.json({ error: `Could not start transcription: ${readErrorMessage(error)}` }, { status: 502 });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!modalResponse.ok) {
+      await supabase.from('projects').update({ status: 'failed' }).eq('id', project.id);
+      return NextResponse.json({ error: `Transcription worker rejected the video (${modalResponse.status})` }, { status: 502 });
     }
 
     return NextResponse.json({ projectId: project.id });

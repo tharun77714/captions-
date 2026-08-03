@@ -1,24 +1,27 @@
 "use client";
 
-import React, { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useCallback, useState } from 'react';
+import { useDropzone, type FileRejection } from 'react-dropzone';
 import { UploadCloud, FileVideo, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useUploadStore } from '@/store/upload-store';
 import { useUpload } from '@/hooks/use-upload';
 import { cn } from '@/lib/utils';
+import { MAX_UPLOAD_BYTES } from '@/lib/upload-policy';
 
 export function DragAndDrop() {
   const { status, progress, error, setError, projectId, sourceLanguage, setSourceLanguage } = useUploadStore();
-  const { uploadFile } = useUpload();
+  const { uploadFile, cancelUpload } = useUpload();
+  const [lastFile, setLastFile] = useState<File | null>(null);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], fileRejections: any[]) => {
+    (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       setError(null);
       if (fileRejections.length > 0) {
         setError('Unsupported file format. Please upload a valid MP4, MOV, or WEBM video.');
         return;
       }
       if (acceptedFiles.length > 0) {
+        setLastFile(acceptedFiles[0]);
         uploadFile(acceptedFiles[0]);
       }
     },
@@ -33,6 +36,7 @@ export function DragAndDrop() {
       'video/webm': ['.webm', '.WEBM'],
     },
     maxFiles: 1,
+    maxSize: MAX_UPLOAD_BYTES,
     disabled: status === 'uploading' || status === 'processing',
   });
 
@@ -41,13 +45,13 @@ export function DragAndDrop() {
     return (
       <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-green-500/50 bg-green-500/10 rounded-xl">
         <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-        <h3 className="text-xl font-semibold text-white">Upload Complete</h3>
-        <p className="text-zinc-400 mt-2">Project ID: {projectId}</p>
+        <h3 className="text-xl font-semibold text-white">Upload complete</h3>
+        <p className="text-zinc-400 mt-2">Transcription has started in the background.</p>
         <button
           onClick={() => window.location.href = `/dashboard/projects/${projectId}`}
           className="mt-6 px-6 py-2 bg-white text-black font-medium rounded-lg hover:bg-zinc-200 transition-colors"
         >
-          View Transcript
+          Open Project
         </button>
       </div>
     );
@@ -61,7 +65,7 @@ export function DragAndDrop() {
           <FileVideo className="w-10 h-10 text-violet-400" />
         </div>
         <h3 className="text-xl font-semibold text-white mb-1">Uploading video…</h3>
-        <p className="text-sm text-zinc-500 mb-8">Please keep this tab open</p>
+        <p className="text-sm text-zinc-500 mb-8">Please keep this tab open while the file uploads.</p>
 
         {/* Progress bar */}
         <div className="w-full max-w-sm">
@@ -76,6 +80,13 @@ export function DragAndDrop() {
             <span className="text-sm font-semibold text-violet-400">{progress}%</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); cancelUpload(); }}
+          className="mt-6 px-4 py-2 text-sm text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-800"
+        >
+          Cancel upload
+        </button>
       </div>
     );
   }
@@ -117,6 +128,15 @@ export function DragAndDrop() {
         <div className="flex items-center gap-2 p-3 mb-6 text-sm text-red-500 rounded-lg bg-red-500/10 border border-red-500/20 max-w-md text-center" onClick={(e) => e.stopPropagation()}>
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
+          {lastFile && (
+            <button
+              type="button"
+              className="ml-2 underline underline-offset-2 whitespace-nowrap"
+              onClick={() => uploadFile(lastFile)}
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
