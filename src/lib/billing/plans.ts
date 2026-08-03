@@ -3,6 +3,7 @@ export type PlanId = 'free' | 'creator' | 'studio';
 export interface PlanConfig {
   id: PlanId;
   name: string;
+  monthlyPriceInr: number;
   description: string;
   transcriptionSecondsPerMonth: number;
   exportsPerPeriod: number;
@@ -18,6 +19,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   free: {
     id: 'free',
     name: 'Free',
+    monthlyPriceInr: 0,
     description: 'Try the complete caption workflow.',
     transcriptionSecondsPerMonth: 180,
     exportsPerPeriod: 3,
@@ -31,6 +33,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   creator: {
     id: 'creator',
     name: 'Creator',
+    monthlyPriceInr: 400,
     description: 'For creators publishing consistently.',
     transcriptionSecondsPerMonth: 1800,
     exportsPerPeriod: 30,
@@ -44,6 +47,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   studio: {
     id: 'studio',
     name: 'Studio',
+    monthlyPriceInr: 700,
     description: 'For teams and high-output creators.',
     transcriptionSecondsPerMonth: 2700,
     exportsPerPeriod: 30,

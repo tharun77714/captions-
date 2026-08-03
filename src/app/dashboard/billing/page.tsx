@@ -46,7 +46,7 @@ export default async function BillingPage() {
             const plan = PLAN_CONFIG[planId];
             return (
               <article key={plan.id} className={`rounded-2xl border p-6 ${currentPlan === plan.id ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 bg-zinc-950'}`}>
-                <h2 className="text-2xl font-bold">{plan.name}</h2><p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
+                <h2 className="text-2xl font-bold">{plan.name}</h2><p className="mt-2 text-sm text-zinc-400">{plan.description}</p><p className="mt-4 text-xl font-semibold">{plan.monthlyPriceInr === 0 ? 'Free' : `₹${plan.monthlyPriceInr}/month`}</p>
                 <ul className="my-6 space-y-3 text-sm text-zinc-300">{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
                 {plan.id === 'free' ? <div className="rounded-lg border border-zinc-800 px-4 py-3 text-center text-sm text-zinc-400">{currentPlan === 'free' ? 'Current plan' : 'Available after cancellation'}</div> : <CheckoutButton plan={plan.id} currentPlan={currentPlan} />}
               </article>
