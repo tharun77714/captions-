@@ -129,6 +129,7 @@ export interface WordStyleOverride {
   shadowOffsetY?: number;
 
   // Background
+  backgroundEnabled?: boolean;
   backgroundColor?: string;
   backgroundGradient?: GradientConfig;
   borderRadius?: number;
@@ -179,6 +180,7 @@ export interface SegmentStyleOverride {
   shadowOffsetY?: number;
 
   // Background
+  backgroundEnabled?: boolean;
   backgroundColor?: string;
   backgroundGradient?: GradientConfig;
   borderRadius?: number;
@@ -386,10 +388,12 @@ export function resolveWordStyle(
     // Background
     backgroundColor: resolve(wordOverride?.backgroundColor, segOverride?.backgroundColor, presetOverride?.backgroundColor, projectStyle.background.color),
     backgroundGradient: resolve(wordOverride?.backgroundGradient, segOverride?.backgroundGradient, presetOverride?.backgroundGradient, null),
-    backgroundEnabled: projectStyle.background.enabled ||
-      wordOverride?.backgroundColor !== undefined ||
-      segOverride?.backgroundColor !== undefined ||
-      presetOverride?.backgroundColor !== undefined,
+    backgroundEnabled: resolve(
+      wordOverride?.backgroundEnabled,
+      segOverride?.backgroundEnabled,
+      presetOverride?.backgroundEnabled,
+      projectStyle.background.enabled
+    ),
     borderRadius: resolve(wordOverride?.borderRadius, segOverride?.borderRadius, presetOverride?.borderRadius, projectStyle.background.borderRadius),
     borderWidth: resolve(wordOverride?.borderWidth, segOverride?.borderWidth, presetOverride?.borderWidth, 0),
     borderColor: resolve(wordOverride?.borderColor, segOverride?.borderColor, presetOverride?.borderColor, 'transparent'),

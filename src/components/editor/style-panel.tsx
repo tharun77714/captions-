@@ -553,7 +553,7 @@ function TextTab() {
         <ToggleRow
           enabled={activeStyle.background.enabled}
           onChange={(v) =>
-            updateBackground({ enabled: v }, { backgroundColor: v ? activeStyle.background.color : undefined })
+            updateBackground({ enabled: v }, { backgroundEnabled: v, backgroundColor: v ? activeStyle.background.color : 'transparent' })
           }
         />
         {activeStyle.background.enabled && (
