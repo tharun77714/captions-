@@ -434,14 +434,10 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
             detected_language = source_language
             language = source_language
 
-        # --- Full transcription with nova-3 + confirmed language ---
+        # --- Full transcription with nova-3 (with fallbacks to nova-2 / general) ---
         options_dict = {
             "model": "nova-3",
-            # Pin the proven Telugu Nova-3 batch version used by the high-accuracy
-            # July 19 run; leaving this unset silently moves to Deepgram's latest.
-            "version": "2026-01-17.18728",
             "language": language,
-            "detect_language": False,
             "smart_format": True,
             "punctuate": True,
             "utterances": True,
@@ -450,16 +446,28 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
 
         if brand_keywords:
             options_dict["keywords"] = brand_keywords
-            
-        options = PrerecordedOptions(**options_dict)
-        
-        response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+
+        try:
+            options = PrerecordedOptions(**options_dict)
+            response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+        except Exception as dg_err:
+            log_structured("WARNING", "asr_transcribe", f"Nova-3 failed ({dg_err}), retrying with nova-2", project_id, request_id)
+            options_dict["model"] = "nova-2"
+            try:
+                options = PrerecordedOptions(**options_dict)
+                response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+            except Exception as dg_err2:
+                log_structured("WARNING", "asr_transcribe", f"Nova-2 failed ({dg_err2}), retrying with general model", project_id, request_id)
+                options_dict["model"] = "general"
+                options = PrerecordedOptions(**options_dict)
+                response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+
         result = json.loads(response.to_json())
         
         channel = result["results"]["channels"][0]
         utterances = result["results"].get("utterances", [])
         
-        log_structured("INFO", "asr_transcribe", f"Deepgram nova-3 complete. Language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language})
+        log_structured("INFO", "asr_transcribe", f"Deepgram ASR complete using {options_dict.get('model')}. Language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language, "model": options_dict.get("model")})
 
         # 2. Format Native Output & Prep LLM Payload
         all_segments = []
