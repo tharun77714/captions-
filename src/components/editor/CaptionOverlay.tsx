@@ -12,6 +12,8 @@ interface CaptionOverlayProps {
   useCompositionRenderer: boolean;
   isExportMode: boolean;
   isLineMounted: boolean;
+  /** Styles are authored on a 1080px-wide canvas and scaled for the viewport/output. */
+  renderScale?: number;
   spanRef?: React.Ref<HTMLSpanElement>;
   children?: React.ReactNode;
 }
@@ -26,10 +28,13 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
       useCompositionRenderer,
       isExportMode,
       isLineMounted,
+      renderScale = 1,
       children,
     },
     ref
   ) => {
+    const safeScale = Number.isFinite(renderScale) && renderScale > 0 ? renderScale : 1;
+
     return (
       <div
         style={{
@@ -45,6 +50,11 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
           ref={ref}
           className="group relative px-3 py-1.5 rounded-md max-w-full whitespace-pre-wrap pointer-events-auto cursor-move hover:ring-2 hover:ring-violet-500/50 transition-shadow"
           style={{
+            // Keep wrapping/layout in the canonical 1080px coordinate system,
+            // then scale the finished caption box to the preview/output size.
+            maxWidth: `${100 / safeScale}%`,
+            transform: `scale(${safeScale})`,
+            transformOrigin: 'center center',
             fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", sans-serif`,
             fontSize: `${subtitleStyle.fontSize}px`,
             fontWeight: subtitleStyle.font.weight,

@@ -3,9 +3,27 @@
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { useEditorStore } from '@/store/editor-store';
-import { CaptionBlock, Line } from '@/lib/caption-composition';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { CaptionOverlay } from './CaptionOverlay';
+
+declare global {
+  interface Window {
+    __EXPORT_MODE__?: boolean;
+  }
+}
+
+interface MeasuredWordLayout {
+  word: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface MeasuredSegmentLayout {
+  words: MeasuredWordLayout[];
+  box: { x: number; y: number; w: number; h: number };
+}
 
 /**
  * Measured subtitle rendering data captured directly from the browser DOM.
@@ -64,7 +82,7 @@ export interface RenderedMeasurements {
     speedMode: string;
     speed: number;
   };
-  layouts?: any[];        // Exact word positions for every segment
+  layouts?: MeasuredSegmentLayout[]; // Exact word positions for every segment
 }
 
 export interface VideoPlayerRef {
@@ -84,22 +102,42 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
     segments,
     computedBlocks,
     useCompositionRenderer,
-    compositionDiagnostics,
     subtitleStyle,
     setCurrentTime,
     setDuration,
+    setLayoutContext,
     setIsPlaying,
     setActiveSegmentIndex,
     setSubtitleStyleV2,
   } = useEditorStore();
 
-  const isExportMode = typeof window !== 'undefined' && (window as any).__EXPORT_MODE__;
+  const isExportMode = typeof window !== 'undefined' && window.__EXPORT_MODE__ === true;
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [videoDimensions, setVideoDimensions] = useState({ width: 16, height: 9 });
+  const [renderScale, setRenderScale] = useState(1);
   const [mountedSegments, setMountedSegments] = useState<Record<string, boolean>>({});
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Caption styles are authored for a 1080px-wide canvas. The preview can be
+  // any size, so keep its visual scale proportional to the rendered video.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || isExportMode) return;
+
+    const updateScale = () => {
+      const width = container.getBoundingClientRect().width;
+      if (width > 0) setRenderScale(width / 1080);
+    };
+
+    updateScale();
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateScale)
+      : null;
+    observer?.observe(container);
+    return () => observer?.disconnect();
+  }, [isExportMode]);
 
   // Expose measurement function to parent via ref
   useImperativeHandle(ref, () => ({
@@ -164,12 +202,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       }
 
       // Collect precise pixel layout for all segments
-      const layouts: any[] = [];
+      const layouts: MeasuredSegmentLayout[] = [];
       const measureContainer = hiddenMeasureRef.current;
       if (measureContainer) {
         const segSpans = measureContainer.querySelectorAll('[data-measure-segment]');
         segSpans.forEach(segSpan => {
-           const words: any[] = [];
+           const words: MeasuredWordLayout[] = [];
            const wordSpans = segSpan.querySelectorAll('[data-measure-word]');
            wordSpans.forEach(wSpan => {
               const wRect = wSpan.getBoundingClientRect();
@@ -287,12 +325,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
       console.warn('Assertion failed: activeBlock timing mismatch', { currentTime, activeBlock });
     }
   }
-
-
-  const activeSegmentWords = React.useMemo(() => {
-    return activeSegment ? activeSegment.words : [];
-  }, [activeSegment]);
-
   const activeId = useCompositionRenderer ? activeBlock?.id : activeSegment?.id;
   
   // Ensure segment is mounted before applying active styles, to trigger CSS transitions
@@ -328,13 +360,25 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {
+      const width = videoRef.current.videoWidth || 16;
+      const height = videoRef.current.videoHeight || 9;
       setDuration(videoRef.current.duration);
       setVideoDimensions({
-        width: videoRef.current.videoWidth || 16,
-        height: videoRef.current.videoHeight || 9,
+        width,
+        height,
+      });
+      // The composition engine uses a stable 1080px authoring canvas. This
+      // prevents an unmeasured 0px layout from forcing one word per line and
+      // keeps the same block geometry for preview and browser export.
+      setLayoutContext({
+        containerWidth: 1080,
+        containerHeight: Math.round(1080 * (height / width)),
+        aspectRatio: width / height,
+        scaleFactor: 1,
+        exportMode: false,
       });
     }
-  }, [setDuration]);
+  }, [setDuration, setLayoutContext]);
 
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
@@ -483,7 +527,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
         <motion.div
           drag
           dragMomentum={false}
-          onDragEnd={(e, info) => {
+          onDragEnd={() => {
             if (!containerRef.current || !subtitleBoxRef.current) return;
             const containerRect = containerRef.current.getBoundingClientRect();
             const boxRect = subtitleBoxRef.current.getBoundingClientRect();
@@ -505,6 +549,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
           }}
           className="absolute pointer-events-none"
           style={{
+            width: '100%',
             top: `${50 + subtitleStyle.positionY}%`,
             left: `${50 + subtitleStyle.positionX}%`,
             x: 0,
@@ -525,6 +570,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                 ? (activeBlock ? mountedSegments[activeBlock.id] === true : false)
                 : (activeSegment ? mountedSegments[activeSegment.id] === true : false)
             }
+            renderScale={isExportMode ? 1 : renderScale}
           >
             {!isExportMode && (
               <div 
@@ -563,46 +609,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
             )}
           </CaptionOverlay>
         </motion.div>
-      )}
-
-      
-      {/* Diagnostics Overlay */}
-      {!isExportMode && (
-        <div className="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2">
-          <button
-            onClick={() => useEditorStore.getState().setUseCompositionRenderer(!useCompositionRenderer)}
-            className="bg-black/80 hover:bg-black text-white text-xs font-mono px-3 py-1.5 rounded border border-white/20 transition-colors shadow-lg"
-          >
-            Renderer: {useCompositionRenderer ? 'Composition (v2)' : 'Legacy (v1)'}
-          </button>
-          
-          {useCompositionRenderer && (
-            <div className="bg-black/80 text-white text-xs font-mono p-4 rounded text-left border border-white/10 shadow-lg pointer-events-none">
-               <div className="text-violet-400 font-bold mb-2">COMPOSITION DIAGNOSTICS</div>
-               <div>Active Block: {activeBlock?.id || 'None'}</div>
-               <div>Active Segment: {activeSegment?.id || 'None'}</div>
-               <div className="mt-1 text-white/70">Performance</div>
-               <div>Compose: {compositionDiagnostics?.composeTimeMs.toFixed(2) || 0}ms</div>
-               <div>Layout v{compositionDiagnostics?.layoutVersion || 1}</div>
-               <div>Preset: {compositionDiagnostics?.preset || 'None'}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-
-      
-      {/* Diagnostics Overlay */}
-      {useCompositionRenderer && !isExportMode && (
-        <div className="absolute top-4 left-4 bg-black/80 text-white text-xs font-mono p-4 rounded z-50 pointer-events-none text-left">
-           <div className="text-violet-400 font-bold mb-2">COMPOSITION DIAGNOSTICS</div>
-           <div>Renderer: Composition</div>
-           <div>Active Block: {activeBlock?.id || 'None'}</div>
-           <div>Active Segment: {activeSegment?.id || 'None'}</div>
-           <div>Compose Time: {compositionDiagnostics?.composeTimeMs.toFixed(2) || 0}ms</div>
-           <div>Layout Version: {compositionDiagnostics?.layoutVersion || 1}</div>
-           <div>Preset: {compositionDiagnostics?.preset || 'None'}</div>
-        </div>
       )}
 
       {/* Custom Controls */}

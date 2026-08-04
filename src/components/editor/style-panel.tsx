@@ -19,6 +19,7 @@ import {
   ArrowDownFromLine,
   Move,
   Crosshair,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveWordStyle, type SubtitleStyleV3, type WordStyleOverride } from '@/lib/subtitle-schema-v3';
@@ -26,7 +27,7 @@ import { resolveWordStyle, type SubtitleStyleV3, type WordStyleOverride } from '
 type Tab = 'templates' | 'text' | 'position' | 'transitions';
 
 export function StylePanel() {
-  const [activeTab, setActiveTab] = useState<Tab>('text');
+  const [activeTab, setActiveTab] = useState<Tab>('templates');
 
   return (
     <div className="flex flex-col h-full bg-zinc-950">
@@ -89,17 +90,61 @@ function TabButton({
 function TemplatesTab() {
   const { applyTemplate, activeTemplateId } = useEditorStore();
   const categories = getTemplateCategories();
+  const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleCategories = categories.filter((category) => categoryFilter === 'all' || category === categoryFilter);
+  const visibleGroups = visibleCategories
+    .map((category) => ({
+      category,
+      templates: getTemplatesByCategory(category).filter((template) =>
+        !normalizedQuery || template.name.toLowerCase().includes(normalizedQuery) || template.id.includes(normalizedQuery)
+      ),
+    }))
+    .filter((group) => group.templates.length > 0);
 
   return (
     <div className="p-3 space-y-5">
       <PresetGallery />
       
       <div className="h-px bg-white/5 my-2" />
-      
-      {categories.map((category) => {
-        const templates = getTemplatesByCategory(category);
-        if (templates.length === 0) return null;
 
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search caption styles..."
+            className="w-full rounded-lg border border-white/10 bg-zinc-900 py-2 pl-9 pr-3 text-xs text-zinc-200 placeholder:text-zinc-600 outline-none transition-colors focus:border-violet-500/50"
+          />
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {['all', ...categories].map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setCategoryFilter(category)}
+              className={cn(
+                'shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide transition-colors',
+                categoryFilter === category
+                  ? 'border-violet-500/50 bg-violet-500/15 text-violet-300'
+                  : 'border-white/5 bg-zinc-900 text-zinc-500 hover:border-white/15 hover:text-zinc-300'
+              )}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {visibleGroups.length === 0 && (
+        <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-zinc-500">
+          No caption styles match “{query}”.
+        </div>
+      )}
+
+      {visibleGroups.map(({ category, templates }) => {
         return (
           <div key={category}>
             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, delayRender, continueRender, cancelRender } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, delayRender, continueRender } from 'remotion';
 import { Video } from '@remotion/media';
 import type { ExportInputProps } from './types';
 import { CaptionOverlay } from '@/components/editor/CaptionOverlay';
@@ -8,13 +8,14 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
   videoUrl,
   segments,
   subtitleStyle,
-  useCompositionRenderer,
+  useCompositionRenderer = true,
   computedBlocks,
   watermark = false,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width } = useVideoConfig();
   const currentTime = frame / fps;
+  const renderScale = width / 1080;
 
   const fontName = subtitleStyle.font?.family || 'Inter';
   const cacheKey = `${fontName}_Noto-Sans-Telugu`;
@@ -24,7 +25,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
 
   useEffect(() => {
     // Helper to dynamically inject link elements for CSS stylesheets
-    const injectStylesheet = (href: string): Promise<void> => {
+    const injectStylesheet = (href: string, timeoutMs = 8_000): Promise<void> => {
       return new Promise((resolve, reject) => {
         const existing = document.querySelector(`link[href="${href}"]`);
         if (existing) {
@@ -32,10 +33,20 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
           return;
         }
         const link = document.createElement('link');
+        const timeout = window.setTimeout(() => {
+          link.remove();
+          reject(new Error(`Font stylesheet timed out: ${href}`));
+        }, timeoutMs);
         link.rel = 'stylesheet';
         link.href = href;
-        link.onload = () => resolve();
-        link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+        link.onload = () => {
+          window.clearTimeout(timeout);
+          resolve();
+        };
+        link.onerror = () => {
+          window.clearTimeout(timeout);
+          reject(new Error(`Failed to load stylesheet: ${href}`));
+        };
         document.head.appendChild(link);
       });
     };
@@ -44,7 +55,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
       console.log(`[CaptionComposition] Injecting Google Fonts stylesheets for Inter, Noto Sans Telugu, and ${fontName}`);
       
       // Load Google Fonts CSS stylesheets (displays block for rendering)
-      await Promise.all([
+      const stylesheetResults = await Promise.allSettled([
         injectStylesheet('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=block'),
         injectStylesheet('https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;700;900&display=block'),
         fontName !== 'Inter'
@@ -52,13 +63,21 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
           : Promise.resolve(),
       ]);
 
+      const fontFailures = stylesheetResults.filter((result) => result.status === 'rejected');
+      if (fontFailures.length > 0) {
+        console.warn(`[CaptionComposition] ${fontFailures.length} font stylesheet(s) failed; using loaded/fallback fonts.`);
+      }
+
       console.log(`[CaptionComposition] Awaiting explicit document.fonts.load calls for deterministic rendering`);
 
       // Await explicitly using actual Telugu sample text characters
-      await Promise.all([
-        document.fonts.load(`${subtitleStyle.font.weight} 24px "${fontName}"`),
-        document.fonts.load(`400 24px "Noto Sans Telugu"`, 'తెలుగు'),
-        document.fonts.load(`700 24px "Noto Sans Telugu"`, 'తెలుగు'),
+      await Promise.race([
+        Promise.allSettled([
+          document.fonts.load(`${subtitleStyle.font.weight} 24px "${fontName}"`),
+          document.fonts.load(`400 24px "Noto Sans Telugu"`, 'తెలుగు'),
+          document.fonts.load(`700 24px "Noto Sans Telugu"`, 'తెలుగు'),
+        ]),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 8_000)),
       ]);
     };
 
@@ -68,10 +87,8 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
         continueRender(handle);
       })
       .catch((err) => {
-        const errorMsg = `CRITICAL FONT ERROR: ${err.message || err}`;
-        console.error(errorMsg);
-        // Call cancelRender so the renderer terminates visibly instead of hanging
-        cancelRender(err);
+        console.warn(`[CaptionComposition] Font preparation failed; continuing with browser fallback fonts.`, err);
+        continueRender(handle);
       });
   }, [fontName, subtitleStyle.font.weight, handle, cacheKey]);
 
@@ -103,6 +120,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
             position: 'absolute',
             top: `${50 + subtitleStyle.positionY}%`,
             left: `${50 + subtitleStyle.positionX}%`,
+            width: '100%',
             zIndex: 50,
           }}
         >
@@ -114,6 +132,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
             useCompositionRenderer={useCompositionRenderer}
             isExportMode={true}
             isLineMounted={true}
+            renderScale={renderScale}
           />
         </div>
       )}

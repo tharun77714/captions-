@@ -3,13 +3,16 @@ import { createClient } from '@/lib/supabase/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
-import { createAdminClient } from '@/lib/supabase/admin';
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 export async function POST(request: Request) {
   try {
     const { projectId, exportId, contentType } = await request.json();
 
-    if (!projectId || !exportId) {
+    if (!isUuid(projectId) || !isUuid(exportId)) {
       return NextResponse.json({ error: 'Missing projectId or exportId' }, { status: 400 });
     }
 
@@ -29,18 +32,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
     }
 
-    const userId = project.user_id;
-    if (!userId) return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
+    if (!project.user_id) return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
 
-    const admin = createAdminClient();
-    const { data: exportRow } = await admin.from('exports').select('storage_key, status')
-      .eq('id', exportId).eq('project_id', projectId).eq('user_id', user.id).maybeSingle();
-    if (!exportRow || !['rendering', 'uploading'].includes(exportRow.status)) {
-      return NextResponse.json({ error: 'Export authorization is missing or expired' }, { status: 409 });
-    }
-
-    // 2. Generate canonical R2 export key
-    const s3Key = exportRow.storage_key;
+    // Keep the key deterministic and scoped to the authenticated project owner.
+    const s3Key = `${user.id}/${projectId}/exports/${exportId}.mp4`;
 
     // 3. Generate a short-lived presigned PUT URL (valid for 15 minutes)
     const putCommand = new PutObjectCommand({
@@ -51,12 +46,9 @@ export async function POST(request: Request) {
 
     const presignedUrl = await getSignedUrl(r2Client, putCommand, { expiresIn: 900 });
 
-    await admin.from('exports').update({ status: 'uploading' }).eq('id', exportId).eq('user_id', user.id);
-
     console.log(`[UploadInitAPI] Generated PUT presigned URL for key: ${s3Key}`);
 
-    // Return the URL and the canonical key. 
-    // We also return the key name so complete route can verify it, but complete route will compute it again from projectId to prevent client spoofing.
+    // The completion route recomputes the same key; the client cannot choose an arbitrary R2 path.
     return NextResponse.json({
       url: presignedUrl,
       key: s3Key,

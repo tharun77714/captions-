@@ -18,8 +18,6 @@ export function TranscriptPanel() {
     updateWordText,
     splitSegment,
     mergeSegments,
-    autoLineBreak,
-    removeFillers,
     replaceText,
     selectedWordIds,
     toggleWordSelection,
@@ -330,6 +328,7 @@ function WordList({
 }) {
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
   const [tempValue, setTempValue] = React.useState('');
+  const lastCommittedWordId = React.useRef<string | null>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -346,11 +345,26 @@ function WordList({
     setTempValue(currentWord.trim());
   };
 
-  const saveEditing = (idx: number) => {
-    if (tempValue.trim() !== '') {
-      updateWordText(words[idx].segId, words[idx].id, ' ' + tempValue.trim());
-    }
+  const saveEditing = (idx: number, moveBy = 0) => {
+    const word = words[idx];
+    if (!word || lastCommittedWordId.current === word.id) return;
+
+    lastCommittedWordId.current = word.id;
+    // An empty value is a deliberate deletion; the store preserves all other
+    // word timings and only removes this word.
+    updateWordText(word.segId, word.id, tempValue.trim() ? ' ' + tempValue.trim() : '');
     setEditingIndex(null);
+
+    if (moveBy !== 0) {
+      const nextIndex = Math.max(0, Math.min(words.length - 1, idx + moveBy));
+      const nextWord = words[nextIndex];
+      if (nextWord && nextWord.id !== word.id) {
+        window.setTimeout(() => startEditing(nextIndex, nextWord.word), 0);
+      }
+    }
+    window.setTimeout(() => {
+      if (lastCommittedWordId.current === word.id) lastCommittedWordId.current = null;
+    }, 0);
   };
 
   return (
@@ -372,8 +386,12 @@ function WordList({
                   value={tempValue}
                   onChange={(e) => setTempValue(e.target.value)}
                   onBlur={() => saveEditing(i)}
+                  onFocus={(e) => e.currentTarget.select()}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEditing(i);
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault();
+                      saveEditing(i, e.shiftKey ? -1 : 1);
+                    }
                     if (e.key === 'Escape') setEditingIndex(null);
                   }}
                   className="px-2 py-1 rounded text-sm bg-zinc-800 border border-violet-500 text-white w-20 focus:outline-none focus:ring-0"

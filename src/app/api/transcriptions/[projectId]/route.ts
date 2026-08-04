@@ -31,6 +31,7 @@ export async function PUT(
       transliteratedSegments,
       transliteratedWords,
       translatedSegments,
+      translatedWords,
       subtitleStyle
     } = body;
 
@@ -64,6 +65,7 @@ export async function PUT(
         transliterated_segments: transliteratedSegments || null,
         transliterated_words: transliteratedWords || null,
         translated_segments: translatedSegments || null,
+        translated_words: translatedWords || null,
       })
       .eq('project_id', projectId);
 

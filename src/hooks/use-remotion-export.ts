@@ -31,20 +31,22 @@ export function useRemotionExport() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeExportIdRef = useRef<string | null>(null);
+  const activeProjectIdRef = useRef<string | null>(null);
   const finalizedExportRef = useRef(false);
 
-  const cancelServerExport = useCallback(async (exportId: string | null) => {
-    if (!exportId || finalizedExportRef.current) return;
+  const cancelServerExport = useCallback(async (exportId: string | null, projectId: string | null) => {
+    if (!exportId || !projectId || finalizedExportRef.current) return;
     await fetch('/api/export/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exportId }),
+      body: JSON.stringify({ projectId, exportId }),
       keepalive: true,
     }).catch(() => undefined);
   }, []);
 
   const cancel = useCallback(() => {
     const exportId = activeExportIdRef.current;
+    const projectId = activeProjectIdRef.current;
     if (abortControllerRef.current) {
       console.log('[useRemotionExport] Aborting render/upload sequence...');
       abortControllerRef.current.abort();
@@ -53,7 +55,8 @@ export function useRemotionExport() {
       setProgress(0);
     }
     activeExportIdRef.current = null;
-    void cancelServerExport(exportId);
+    activeProjectIdRef.current = null;
+    void cancelServerExport(exportId, projectId);
   }, [cancelServerExport]);
 
   const startExport = useCallback(async (options: StartExportOptions) => {
@@ -76,10 +79,12 @@ export function useRemotionExport() {
     setError(null);
     setDownloadUrl(null);
     activeExportIdRef.current = null;
+    activeProjectIdRef.current = projectId;
     finalizedExportRef.current = false;
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    let renderTimedOut = false;
 
     try {
       // 1. Validate duration. If missing or invalid, halt rendering
@@ -87,7 +92,7 @@ export function useRemotionExport() {
         throw new Error('Export aborted: Duration is invalid or unavailable. Wait for video to load metadata.');
       }
 
-      // 2. Reserve one export and create a durable export-library record before rendering.
+      // 2. Validate ownership and mint a scoped export ID before rendering.
       const authorizeResponse = await fetch('/api/export/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,6 +134,12 @@ export function useRemotionExport() {
       setPhase('rendering');
 
       // 3. Render composition inside the browser
+      const renderTimeoutMs = Math.min(15 * 60_000, Math.max(3 * 60_000, durationSeconds * 10_000));
+      const renderTimeout = window.setTimeout(() => {
+        renderTimedOut = true;
+        controller.abort();
+      }, renderTimeoutMs);
+
       const renderResult = await renderMediaOnWeb({
         composition: {
           id: 'CaptionComposition',
@@ -176,7 +187,7 @@ export function useRemotionExport() {
           const percent = Math.round(prog.progress * 80);
           setProgress(percent);
         },
-      });
+      }).finally(() => window.clearTimeout(renderTimeout));
 
       if (controller.signal.aborted) {
         throw new Error('Export cancelled by user');
@@ -282,19 +293,28 @@ export function useRemotionExport() {
       setPhase('done');
       finalizedExportRef.current = true;
       activeExportIdRef.current = null;
+      activeProjectIdRef.current = null;
       console.log('[useRemotionExport] Direct storage export successfully completed!', completeResult);
 
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An unexpected failure occurred during rendering.';
-      if (controller.signal.aborted || message === 'Export cancelled by user') {
-        console.log('[useRemotionExport] Active job cancelled.');
-        await cancelServerExport(activeExportIdRef.current);
+      if (renderTimedOut) {
+        await cancelServerExport(activeExportIdRef.current, activeProjectIdRef.current);
         activeExportIdRef.current = null;
+        activeProjectIdRef.current = null;
+        setError('Rendering took too long and was stopped safely. Try closing other heavy tabs, then retry the export.');
+        setPhase('failed');
+      } else if (controller.signal.aborted || message === 'Export cancelled by user') {
+        console.log('[useRemotionExport] Active job cancelled.');
+        await cancelServerExport(activeExportIdRef.current, activeProjectIdRef.current);
+        activeExportIdRef.current = null;
+        activeProjectIdRef.current = null;
         setPhase('cancelled');
       } else {
         console.error('[useRemotionExport] Export run failure:', err);
-        await cancelServerExport(activeExportIdRef.current);
+        await cancelServerExport(activeExportIdRef.current, activeProjectIdRef.current);
         activeExportIdRef.current = null;
+        activeProjectIdRef.current = null;
         setError(message);
         setPhase('failed');
       }

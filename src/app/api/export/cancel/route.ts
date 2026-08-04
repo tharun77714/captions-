@@ -1,31 +1,29 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
 
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function POST(request: Request) {
   try {
-    const { exportId } = await request.json();
-    if (!exportId || typeof exportId !== 'string') return NextResponse.json({ error: 'Missing exportId' }, { status: 400 });
+    const { projectId, exportId } = await request.json();
+    if (!isUuid(projectId) || !isUuid(exportId)) return NextResponse.json({ error: 'Missing or invalid projectId/exportId' }, { status: 400 });
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    const admin = createAdminClient();
-    const { data: item } = await admin.from('exports')
-      .select('id, storage_key, status')
-      .eq('id', exportId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!item) return NextResponse.json({ success: true });
+    const { data: project } = await supabase.from('projects').select('id')
+      .eq('id', projectId).eq('user_id', user.id).maybeSingle();
+    if (!project) return NextResponse.json({ success: true });
 
-    if (item.status !== 'completed') {
-      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'export', p_reference_id: exportId });
-      await admin.from('exports').update({ status: 'cancelled' }).eq('id', exportId).eq('user_id', user.id);
-      await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: item.storage_key })).catch(() => undefined);
-    }
+    const storageKey = `${user.id}/${projectId}/exports/${exportId}.mp4`;
+    await r2Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: storageKey })).catch(() => undefined);
+    await supabase.from('projects').update({ export_status: 'failed', export_error: 'Export cancelled' })
+      .eq('id', projectId).eq('user_id', user.id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[ExportCancel] Failed:', error);

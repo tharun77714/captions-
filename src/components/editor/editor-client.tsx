@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useEditorStore, Segment, Word, SubtitleStyle } from '@/store/editor-store';
-import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
 import { VideoPlayer, VideoPlayerRef } from '@/components/editor/video-player';
 import { TranscriptPanel } from '@/components/editor/transcript-panel';
 import { StylePanel } from '@/components/editor/style-panel';
@@ -34,15 +33,30 @@ interface EditorClientProps {
   };
 }
 
+type EditorStoreSnapshot = Pick<
+  ReturnType<typeof useEditorStore.getState>,
+  'originalSegments' | 'transliteratedSegments' | 'translatedSegments' | 'subtitleStyle'
+>;
+
+/** Only values that are persisted by the transcription save endpoint. */
+function editableSignature(state: EditorStoreSnapshot): string {
+  return JSON.stringify({
+    originalSegments: state.originalSegments,
+    transliteratedSegments: state.transliteratedSegments,
+    translatedSegments: state.translatedSegments,
+    subtitleStyle: state.subtitleStyle,
+  });
+}
+
 export function EditorClient({ project, transcription }: EditorClientProps) {
   const {
     segments,
-    originalSegments,
-    transliteratedSegments,
-    translatedSegments,
     subtitleMode,
     setSubtitleMode,
     subtitleStyle,
+    originalSegments,
+    transliteratedSegments,
+    translatedSegments,
     setProjectData,
     setVideoUrl,
     setTranscriptData,
@@ -58,15 +72,18 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     setTimelineZoom,
     setEditMode,
     validateTimingModel,
-    waveform,
-    setWaveform,
     videoUrl,
   } = useEditorStore();
 
   const [loading, setLoading] = useState(true);
   const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
+  const [editorReady, setEditorReady] = useState(false);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInFlightRef = useRef<Promise<boolean> | null>(null);
+  const pendingSaveRef = useRef(false);
+  const lastSavedSignatureRef = useRef('');
 
   // Remotion Browser Export integration
   const {
@@ -88,6 +105,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
 
   // Initialize store with server data
   useEffect(() => {
+    setEditorReady(false);
     setProjectData({
       projectId: project.id,
       projectTitle: project.title,
@@ -111,9 +129,13 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       transcription.translatedWords || undefined,
       serverWaveform
     );
-    if (project.subtitle_style) {
-      setSubtitleStyle(ensureV3(project.subtitle_style));
-    }
+    // Always reset the style from the active project so a project without a
+    // saved style cannot inherit the previous project's template.
+    setSubtitleStyle(ensureV3(project.subtitle_style || {}));
+
+    // Do not autosave the initial server hydration as a user edit.
+    lastSavedSignatureRef.current = editableSignature(useEditorStore.getState());
+    setEditorReady(true);
   }, [project, transcription, setProjectData, setTranscriptData, setSubtitleStyle]);
 
   // Dynamic Font Loading
@@ -125,9 +147,18 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   }, [subtitleStyle]);
 
   const handleSave = React.useCallback(async (): Promise<boolean> => {
+    if (saveInFlightRef.current) {
+      pendingSaveRef.current = true;
+      return saveInFlightRef.current;
+    }
+
+    const state = useEditorStore.getState();
+    const snapshotSignature = editableSignature(state);
     setSaveStatus('saving');
-    try {
-      const validation = validateTimingModel();
+
+    const savePromise = (async () => {
+      try {
+        const validation = validateTimingModel();
       if (!validation.isValid) {
         console.error('Save aborted due to timing validation failure:', validation.errors);
         alert('Cannot save: Timing model corrupted.\n\n' + validation.errors.join('\n'));
@@ -136,7 +167,6 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
         return false;
       }
 
-      const state = useEditorStore.getState();
       const getBackingUpdates = (mode: string, currentSegs: Segment[]) => {
         const updates: { original?: Segment[], transliterated?: Segment[], translated?: Segment[] } = {};
         if (mode === 'original') updates.original = currentSegs;
@@ -164,12 +194,14 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           transliteratedWords: flatTranslitWords,
           translatedSegments: finalTranslated,
           translatedWords: flatTranslatedWords,
-          subtitleStyle,
+          subtitleStyle: state.subtitleStyle,
         }),
       });
       if (res.ok) {
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
+        lastSavedSignatureRef.current = snapshotSignature;
+        const hasNewerEdits = editableSignature(useEditorStore.getState()) !== snapshotSignature;
+        setSaveStatus(hasNewerEdits ? 'unsaved' : 'saved');
+        if (!hasNewerEdits) setTimeout(() => setSaveStatus('idle'), 2000);
         return true;
       } else {
         setSaveStatus('error');
@@ -181,8 +213,48 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
       return false;
+      }
+    })();
+
+    saveInFlightRef.current = savePromise;
+    try {
+      return await savePromise;
+    } finally {
+      saveInFlightRef.current = null;
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        void handleSave();
+      }
     }
-  }, [project.id, subtitleStyle, validateTimingModel]);
+  }, [project.id, validateTimingModel]);
+
+  const currentEditableSignature = React.useMemo(
+    () => editableSignature({ originalSegments, transliteratedSegments, translatedSegments, subtitleStyle }),
+    [originalSegments, transliteratedSegments, translatedSegments, subtitleStyle]
+  );
+
+  // Save edits shortly after the user stops typing or styling. Playback time
+  // and panel selection are intentionally not part of the signature.
+  useEffect(() => {
+    if (!editorReady || currentEditableSignature === lastSavedSignatureRef.current) return;
+    setSaveStatus((status) => status === 'saving' ? status : 'unsaved');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void handleSave();
+    }, 1200);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [editorReady, currentEditableSignature, handleSave]);
+
+  useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  }, []);
 
   const handleExport = React.useCallback(async () => {
     const saved = await handleSave();
@@ -212,7 +284,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       durationSeconds,
       subtitleStyle,
       subtitleMode,
-      useCompositionRenderer: state.useCompositionRenderer,
+      useCompositionRenderer: true,
       width,
       height,
     });
@@ -224,7 +296,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       segments: currentSegments,
       subtitleStyle,
       subtitleMode,
-      useCompositionRenderer: state.useCompositionRenderer,
+      useCompositionRenderer: true,
       computedBlocks: state.computedBlocks || [],
       width,
       height,
@@ -433,7 +505,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                 : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-600 text-zinc-300'
             }`}
           >
-            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Save Failed!' : 'Save'}
+            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'unsaved' ? 'Unsaved changes' : saveStatus === 'error' ? 'Save Failed!' : 'Save'}
           </button>
 
           <button

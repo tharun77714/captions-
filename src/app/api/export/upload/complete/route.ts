@@ -3,13 +3,16 @@ import { createClient } from '@/lib/supabase/server';
 import { HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { r2Client, BUCKET_NAME } from '@/lib/r2/client';
-import { createAdminClient } from '@/lib/supabase/admin';
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 export async function POST(request: Request) {
   try {
     const { projectId, exportId } = await request.json();
 
-    if (!projectId || !exportId) {
+    if (!isUuid(projectId) || !isUuid(exportId)) {
       return NextResponse.json({ error: 'Missing projectId or exportId' }, { status: 400 });
     }
 
@@ -30,23 +33,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
     }
 
-    const userId = project.user_id;
-    if (!userId) return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
+    if (!project.user_id) return NextResponse.json({ error: 'Inaccessible project owner' }, { status: 403 });
 
-    const admin = createAdminClient();
-    const { data: exportRow } = await admin.from('exports').select('storage_key, status, expires_at')
-      .eq('id', exportId).eq('project_id', projectId).eq('user_id', user.id).maybeSingle();
-    if (!exportRow || !['rendering', 'uploading'].includes(exportRow.status)) {
-      return NextResponse.json({ error: 'Export authorization is missing or expired' }, { status: 409 });
-    }
-    if (exportRow.expires_at && new Date(exportRow.expires_at).getTime() <= Date.now()) {
-      await admin.from('exports').update({ status: 'failed' }).eq('id', exportId).eq('user_id', user.id);
-      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'export', p_reference_id: exportId });
-      return NextResponse.json({ error: 'This export authorization has expired. Please retry.' }, { status: 410 });
-    }
-
-    // 2. Recompute canonical key (Do not let client specify arbitrary key)
-    const s3Key = exportRow.storage_key;
+    // Recompute the canonical key; never trust a key supplied by the browser.
+    const s3Key = `${user.id}/${projectId}/exports/${exportId}.mp4`;
 
     // 3. Query R2 metadata to verify the file was actually uploaded and check size
     let fileSize = 0;
@@ -85,16 +75,6 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error('[UploadCompleteAPI] Failed to update project in Supabase:', updateError);
       return NextResponse.json({ error: 'Failed to save export status to database' }, { status: 500 });
-    }
-
-    const { error: exportUpdateError } = await admin.from('exports').update({
-      status: 'completed',
-      file_size: fileSize,
-      completed_at: new Date().toISOString(),
-    }).eq('id', exportId).eq('user_id', user.id);
-    if (exportUpdateError) {
-      console.error('[UploadCompleteAPI] Failed to save export library row:', exportUpdateError);
-      return NextResponse.json({ error: 'Failed to save export record' }, { status: 500 });
     }
 
     // 5. Generate signed download URL (valid for 1 hour)

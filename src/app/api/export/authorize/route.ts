@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { effectivePlan } from '@/lib/billing/plans';
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 export async function POST(request: Request) {
   try {
@@ -22,45 +24,25 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (!project) return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
 
+    // Core exporting must not depend on the optional billing/usage schema.
+    // Billing limits can be enforced later once that product surface is enabled.
     const exportId = crypto.randomUUID();
-    const admin = createAdminClient();
-    const reservation = await admin.rpc('reserve_usage', {
-      p_user_id: user.id,
-      p_resource: 'export',
-      p_amount: 1,
-      p_reference_id: exportId,
-    });
-    if (reservation.error) {
-      console.error('[ExportAuthorize] Usage reservation failed:', reservation.error);
-      return NextResponse.json({ error: 'Usage limits are not ready. Apply the billing migration first.' }, { status: 503 });
-    }
+    if (!isUuid(exportId)) return NextResponse.json({ error: 'Could not create export ID' }, { status: 500 });
 
-    const result = reservation.data as { allowed?: boolean; plan?: string; limit?: number } | null;
-    if (!result?.allowed) {
-      return NextResponse.json({
-        error: `You have reached your export limit (${result?.limit ?? 0}). Upgrade your plan to export again.`,
-      }, { status: 429 });
-    }
-
-    const plan = effectivePlan(result.plan, 'active');
-    const storageKey = `${user.id}/${projectId}/exports/${exportId}.mp4`;
-    const expiresAt = plan === 'free' ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null;
-    const { error: insertError } = await admin.from('exports').insert({
-      id: exportId,
-      user_id: user.id,
-      project_id: projectId,
-      storage_key: storageKey,
-      status: 'rendering',
-      has_watermark: plan === 'free',
-      expires_at: expiresAt,
-    });
-    if (insertError) {
-      await admin.rpc('release_usage', { p_user_id: user.id, p_resource: 'export', p_reference_id: exportId });
-      console.error('[ExportAuthorize] Export row creation failed:', insertError);
+    const { error: statusError } = await supabase.from('projects').update({
+      export_status: 'rendering',
+      export_error: null,
+    }).eq('id', projectId).eq('user_id', user.id);
+    if (statusError) {
+      console.error('[ExportAuthorize] Could not mark project as rendering:', statusError);
       return NextResponse.json({ error: 'Could not start the export. Please retry.' }, { status: 500 });
     }
 
-    return NextResponse.json({ exportId, watermark: plan === 'free', plan });
+    return NextResponse.json({
+      exportId,
+      watermark: false,
+      plan: 'free',
+    });
   } catch (error) {
     console.error('[ExportAuthorize] Failed:', error);
     return NextResponse.json({ error: 'Could not authorize export' }, { status: 500 });

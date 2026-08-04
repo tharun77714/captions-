@@ -1,14 +1,10 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import type {
-  SubtitleStyleV2,
   CaptionConfig,
-  HighlightMode,
-  TransitionConfig,
 } from '@/lib/subtitle-schema-v2';
 import {
   DEFAULT_STYLE,
   DEFAULT_CAPTION_CONFIG,
-  ensureV2,
 } from '@/lib/subtitle-schema-v2';
 import type {
   SubtitleStyleV3,
@@ -21,7 +17,7 @@ import { enrichTranscript, SemanticTag } from '@/lib/semantic-engine';
 import { LayoutContext, CaptionBlock, CompositionDiagnostics, compositionEngine } from '@/lib/caption-composition';
 import { measurementService } from '@/lib/measurement-service';
 
-// ─── Types ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Raw types from API/Database
 export interface RawWord {
@@ -93,7 +89,7 @@ export interface ValidationReport {
   errors: string[];
 }
 
-// ─── State Interface ──────────────────────────────────────────────────
+// â”€â”€â”€ State Interface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface EditorState {
   // Project data
   projectId: string | null;
@@ -218,11 +214,11 @@ interface EditorState {
   redo: () => void;
 }
 
-// ─── Default Subtitle Style ──────────────────────────────────────────
+// â”€â”€â”€ Default Subtitle Style â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** @deprecated Use DEFAULT_STYLE from subtitle-schema-v2.ts */
 const defaultSubtitleStyle: SubtitleStyleV3 = { ...DEFAULT_STYLE, _version: 3, overrides: EMPTY_OVERRIDES };
 
-// ─── Helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const getBackingUpdates = (state: EditorState, newSegments: Segment[]) => {
@@ -237,13 +233,12 @@ const getBackingUpdates = (state: EditorState, newSegments: Segment[]) => {
   return updates;
 };
 
-const getSnapshot = (state: EditorState, newSegments: Segment[]): HistorySnapshot => {
-  const backing = getBackingUpdates(state, newSegments);
+const getSnapshot = (state: EditorState): HistorySnapshot => {
   return {
-    segments: newSegments,
-    originalSegments: backing.originalSegments || state.originalSegments,
-    transliteratedSegments: backing.transliteratedSegments || state.transliteratedSegments,
-    translatedSegments: backing.translatedSegments || state.translatedSegments,
+    segments: state.segments,
+    originalSegments: state.originalSegments,
+    transliteratedSegments: state.transliteratedSegments,
+    translatedSegments: state.translatedSegments,
     subtitleStyle: state.subtitleStyle,
     captionConfig: state.captionConfig
   };
@@ -251,15 +246,11 @@ const getSnapshot = (state: EditorState, newSegments: Segment[]): HistorySnapsho
 
 const getGlobalSnapshot = (
   state: EditorState,
-  newSegments: Segment[],
-  newOriginal: Segment[],
-  newTranslit: Segment[],
-  newTranslated: Segment[]
 ): HistorySnapshot => ({
-  segments: newSegments,
-  originalSegments: newOriginal,
-  transliteratedSegments: newTranslit,
-  translatedSegments: newTranslated,
+  segments: state.segments,
+  originalSegments: state.originalSegments,
+  transliteratedSegments: state.transliteratedSegments,
+  translatedSegments: state.translatedSegments,
   subtitleStyle: state.subtitleStyle,
   captionConfig: state.captionConfig
 });
@@ -291,7 +282,7 @@ const resegmentSync = (oldSegs: Segment[] | undefined, newOriginalSegs: Segment[
   });
 };
 
-// ─── Store ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   projectId: null,
@@ -311,7 +302,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   activePreset: 'social_reels',
   compositionDiagnostics: null,
-  useCompositionRenderer: false,
+  // One renderer for preview and export keeps layout, timing, and animation identical.
+  useCompositionRenderer: true,
   manualOverrides: [],
 
   setLayoutContext: (context) => {
@@ -349,7 +341,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     get().recomputeBlocks();
   },
 
-  recomputeBlocks: (segmentIds?: number[]) => {
+  recomputeBlocks: () => {
     const state = get();
     // Font loading logic
     const fontStr = `${state.subtitleStyle.font.weight} ${state.subtitleStyle.fontSize}px "${state.subtitleStyle.font.family}"`;
@@ -648,7 +640,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     if (!hasChanges) return {};
 
-    const snapshot: HistorySnapshot = { ...state, subtitleStyle: state.subtitleStyle } as any; // simplified snapshot
+    const snapshot: HistorySnapshot = {
+      segments: state.segments,
+      originalSegments: state.originalSegments,
+      transliteratedSegments: state.transliteratedSegments,
+      translatedSegments: state.translatedSegments,
+      subtitleStyle: state.subtitleStyle,
+      captionConfig: state.captionConfig,
+    };
     return {
       subtitleStyle: { ...state.subtitleStyle, overrides: newOverrides },
       past: [...state.past, snapshot].slice(-50),
@@ -675,7 +674,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     if (!hasChanges) return {};
 
-    const snapshot: HistorySnapshot = { ...state, subtitleStyle: state.subtitleStyle } as any; // simplified snapshot
+    const snapshot: HistorySnapshot = {
+      segments: state.segments,
+      originalSegments: state.originalSegments,
+      transliteratedSegments: state.transliteratedSegments,
+      translatedSegments: state.translatedSegments,
+      subtitleStyle: state.subtitleStyle,
+      captionConfig: state.captionConfig,
+    };
     return {
       subtitleStyle: { ...state.subtitleStyle, overrides: newOverrides },
       past: [...state.past, snapshot].slice(-50),
@@ -780,7 +786,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
 
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -823,7 +829,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const newTranslit = updateTimingForSegments(state.transliteratedSegments);
       const newTranslated = updateTimingForSegments(state.translatedSegments);
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -880,7 +886,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
 
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -938,7 +944,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return res;
       };
 
-      const newSegments = splitHelper(state.segments);
       const newOriginal = splitHelper(state.originalSegments);
       const newTranslit = splitHelper(state.transliteratedSegments);
       const newTranslated = splitHelper(state.translatedSegments);
@@ -947,7 +952,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
       else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1032,7 +1037,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // 1. FIND & REPLACE HISTORY AUDIT
       // All replacements occur above. This pushes EXACTLY one snapshot.
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1067,7 +1072,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return res;
       };
 
-      const newSegments = mergeHelper(state.segments);
       const newOriginal = mergeHelper(state.originalSegments);
       const newTranslit = mergeHelper(state.transliteratedSegments);
       const newTranslated = mergeHelper(state.translatedSegments);
@@ -1076,7 +1080,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
       else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1102,7 +1106,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const newTranslit = deleteHelper(state.transliteratedSegments);
       const newTranslated = deleteHelper(state.translatedSegments);
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1190,7 +1194,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const newTranslit = resegmentSync(state.transliteratedSegments, newOriginal);
       const newTranslated = resegmentSync(state.translatedSegments, newOriginal);
 
-      const snapshot = getGlobalSnapshot(state, newSegments, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1226,7 +1230,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }).filter(seg => seg.words.length > 0 || seg.text.length > 0);
 
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1257,7 +1261,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         };
       });
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
       return {
         segments: newSegments,
@@ -1287,7 +1291,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         };
       }).filter(seg => seg.words.length > 0 || seg.text.length > 0);
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
       return {
         segments: newSegments,
@@ -1316,7 +1320,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         };
       });
       const backingUpdates = getBackingUpdates(state, newSegments);
-      const snapshot = getSnapshot(state, newSegments);
+      const snapshot = getSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
       return {
         segments: newSegments,
@@ -1358,7 +1362,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         return result;
       };
 
-      const newSegments = removeGapsHelper(state.segments);
       const newOriginal = removeGapsHelper(state.originalSegments);
       const newTranslit = removeGapsHelper(state.transliteratedSegments);
       const newTranslated = removeGapsHelper(state.translatedSegments);
@@ -1367,7 +1370,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (state.subtitleMode === 'transliterated') activeTarget = newTranslit;
       else if (state.subtitleMode === 'translated') activeTarget = newTranslated;
 
-      const snapshot = getGlobalSnapshot(state, activeTarget, newOriginal, newTranslit, newTranslated);
+      const snapshot = getGlobalSnapshot(state);
       const newPast = [...state.past, snapshot].slice(-50);
 
       return {
@@ -1484,7 +1487,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 }));
 
-// ─── Reactive Composition Engine Trigger ──────────────────────────────
+// â”€â”€â”€ Reactive Composition Engine Trigger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Automatically trigger the composition engine whenever dependencies change.
 // This ensures that all state mutators (undo, redo, edits, style changes)
 // are automatically caught without manually hooking each function.
