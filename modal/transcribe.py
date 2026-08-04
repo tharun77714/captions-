@@ -424,17 +424,17 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
                 detect_payload: FileSource = {"buffer": buffer_data[:16000 * 2 * 30]}  # 30s at 16kHz 16-bit mono
                 detect_response = deepgram.listen.rest.v("1").transcribe_file(detect_payload, detect_options)
                 detect_result = json.loads(detect_response.to_json())
-                detected_language = detect_result["results"]["channels"][0]["alternatives"][0].get("detected_language") or "en"
+                detected_language = detect_result["results"]["channels"][0]["alternatives"][0].get("detected_language") or "te"
                 log_structured("INFO", "lang_detect", f"Detected language: {detected_language}", project_id, request_id)
             except Exception as ld_err:
-                log_structured("WARNING", "lang_detect", "Language detection failed, defaulting to en", project_id, request_id, error=str(ld_err))
-                detected_language = "en"
+                log_structured("WARNING", "lang_detect", "Language detection failed, defaulting to te", project_id, request_id, error=str(ld_err))
+                detected_language = "te"
             language = detected_language
         else:
             detected_language = source_language
             language = source_language
 
-        # --- Full transcription with nova-3 (with fallbacks to nova-2 / general) ---
+        # --- Full transcription strictly with Deepgram Nova-3 ---
         options_dict = {
             "model": "nova-3",
             "language": language,
@@ -444,30 +444,22 @@ def process_video(project_id: str, s3_key: str, source_language: str = "auto", r
             "paragraphs": True,
         }
 
+        # Pinned high-accuracy Telugu Nova-3 batch version for Telugu language
+        if language == "te":
+            options_dict["version"] = "2026-01-17.18728"
+
         if brand_keywords:
             options_dict["keywords"] = brand_keywords
 
-        try:
-            options = PrerecordedOptions(**options_dict)
-            response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
-        except Exception as dg_err:
-            log_structured("WARNING", "asr_transcribe", f"Nova-3 failed ({dg_err}), retrying with nova-2", project_id, request_id)
-            options_dict["model"] = "nova-2"
-            try:
-                options = PrerecordedOptions(**options_dict)
-                response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
-            except Exception as dg_err2:
-                log_structured("WARNING", "asr_transcribe", f"Nova-2 failed ({dg_err2}), retrying with general model", project_id, request_id)
-                options_dict["model"] = "general"
-                options = PrerecordedOptions(**options_dict)
-                response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+        options = PrerecordedOptions(**options_dict)
+        response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
 
         result = json.loads(response.to_json())
         
         channel = result["results"]["channels"][0]
         utterances = result["results"].get("utterances", [])
         
-        log_structured("INFO", "asr_transcribe", f"Deepgram ASR complete using {options_dict.get('model')}. Language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language, "model": options_dict.get("model")})
+        log_structured("INFO", "asr_transcribe", f"Deepgram nova-3 complete. Language: {language}", project_id, request_id, (time.time() - t_start) * 1000, metadata={"language": language, "detected_language": detected_language, "model": "nova-3"})
 
         # 2. Format Native Output & Prep LLM Payload
         all_segments = []
