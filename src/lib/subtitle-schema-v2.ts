@@ -265,10 +265,12 @@ function extractRgbaOpacity(rgba?: string): number {
 function isBackgroundVisible(bgColor: string): boolean {
   if (!bgColor || bgColor === 'transparent') return false;
   if (bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'rgba(0,0,0,0)') return false;
-  return extractRgbaOpacity(bgColor) > 0;
+  return false; // Prevent unwanted default black block across migrations
 }
 
 export function migrateV1ToV2(v1: SubtitleStyleV1): SubtitleStyleV2 {
+  const v1Any = v1 as any;
+  const explicitlyEnabled = v1Any?.background?.enabled === true || v1Any?.backgroundEnabled === true;
   return {
     _version: 2,
     font: {
@@ -295,8 +297,8 @@ export function migrateV1ToV2(v1: SubtitleStyleV1): SubtitleStyleV2 {
       offsetY: 0,
     },
     background: {
-      enabled: isBackgroundVisible(v1.backgroundColor),
-      color: v1.backgroundColor,
+      enabled: explicitlyEnabled || v1.highlightMode === 'background',
+      color: v1.backgroundColor || 'rgba(0, 0, 0, 0.75)',
       opacity: extractRgbaOpacity(v1.backgroundColor),
       paddingX: 36,
       paddingY: 18,

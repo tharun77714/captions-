@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useEditorStore, Segment, Word, SubtitleStyle } from '@/store/editor-store';
 import { VideoPlayer, VideoPlayerRef } from '@/components/editor/video-player';
 import { TranscriptPanel } from '@/components/editor/transcript-panel';
 import { StylePanel } from '@/components/editor/style-panel';
 import { Timeline } from '@/components/editor/timeline';
-import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video, AlertCircle, X } from 'lucide-react';
+import { AiClipFinder } from '@/components/editor/ai-clip-finder';
+import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video, AlertCircle, X, FileText, ChevronDown, Sparkles, Type } from 'lucide-react';
 import Link from 'next/link';
 import { ensureV3, getAllUsedFonts } from '@/lib/subtitle-schema-v3';
 import { preloadFonts } from '@/lib/font-registry';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRemotionExport } from '@/hooks/use-remotion-export';
+import { exportSrt, exportVtt, exportTranscript } from '@/lib/srt-export';
 
 interface EditorClientProps {
   project: {
@@ -80,6 +82,9 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
   const [editorReady, setEditorReady] = useState(false);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+  const [leftPanel, setLeftPanel] = useState<'transcript' | 'clips'>('transcript');
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveInFlightRef = useRef<Promise<boolean> | null>(null);
   const pendingSaveRef = useRef(false);
@@ -146,7 +151,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     }
   }, [subtitleStyle]);
 
-  const handleSave = React.useCallback(async (): Promise<boolean> => {
+  const handleSave = useCallback(async (): Promise<boolean> => {
     if (saveInFlightRef.current) {
       pendingSaveRef.current = true;
       return saveInFlightRef.current;
@@ -256,7 +261,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
   }, []);
 
-  const handleExport = React.useCallback(async () => {
+  const handleExport = useCallback(async () => {
     const saved = await handleSave();
     if (!saved) return;
 
@@ -508,6 +513,46 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'unsaved' ? 'Unsaved changes' : saveStatus === 'error' ? 'Save Failed!' : 'Save'}
           </button>
 
+          {/* SRT/VTT/TXT Caption Export Dropdown */}
+          <div className="relative" ref={exportDropdownRef}>
+            <button
+              onClick={() => setShowExportDropdown((v) => !v)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all border flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 border-zinc-600 text-zinc-300"
+              title="Export captions as SRT / VTT / TXT"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Captions
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            <AnimatePresence>
+              {showExportDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1 w-44 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                >
+                  {[
+                    { label: 'Export SRT', ext: 'srt', action: () => { exportSrt(segments, project.title); setShowExportDropdown(false); } },
+                    { label: 'Export VTT', ext: 'vtt', action: () => { exportVtt(segments, project.title); setShowExportDropdown(false); } },
+                    { label: 'Export TXT', ext: 'txt', action: () => { exportTranscript(segments, project.title); setShowExportDropdown(false); } },
+                  ].map((item) => (
+                    <button
+                      key={item.ext}
+                      onClick={item.action}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors text-left group"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-zinc-500 group-hover:text-violet-400 transition-colors" />
+                      <span className="text-xs text-zinc-300 group-hover:text-white transition-colors">{item.label}</span>
+                      <span className="ml-auto text-[9px] text-zinc-600 font-mono uppercase">.{item.ext}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             onClick={handleExport}
             disabled={isExporting}
@@ -541,9 +586,32 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
 
       {/* Main Editor Layout */}
       <div className="flex flex-1 min-h-0 relative">
-        {/* Left: Transcript Panel */}
-        <div className="w-[340px] shrink-0">
-          <TranscriptPanel />
+        {/* Left: Transcript / AI Clips Panel */}
+        <div className="w-[340px] shrink-0 flex flex-col">
+          {/* Tab switcher */}
+          <div className="flex border-b border-white/5 bg-zinc-950 shrink-0">
+            <button
+              onClick={() => setLeftPanel('transcript')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                leftPanel === 'transcript' ? 'text-violet-400 border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300'
+              }`}
+            >
+              <Type className="w-3 h-3" />
+              Transcript
+            </button>
+            <button
+              onClick={() => setLeftPanel('clips')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                leftPanel === 'clips' ? 'text-violet-400 border-violet-500' : 'text-zinc-500 border-transparent hover:text-zinc-300'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              AI Clips ✨
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {leftPanel === 'transcript' ? <TranscriptPanel /> : <AiClipFinder />}
+          </div>
         </div>
 
         {/* Center & Right Column */}
@@ -577,7 +645,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
           <Timeline />
         </div>
 
-        {/* Milestone 5 Premium Export Progress Overlay */}
+        {/* Export Progress Overlay */}
         <AnimatePresence>
           {showExportOverlay && exportStatus !== 'idle' && (
             <motion.div
@@ -610,7 +678,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                       <span className="font-mono text-violet-400 font-bold">{exportProgress}%</span>
                     </div>
 
-                    {/* Progress Bar Container */}
+                    {/* Progress Bar */}
                     <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative">
                       <motion.div
                         className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full shadow-[0_0_12px_rgba(139,92,246,0.5)]"
@@ -686,4 +754,3 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     </div>
   );
 }
-

@@ -2,6 +2,7 @@ import React from 'react';
 import type { CaptionBlock } from '@/lib/caption-composition';
 import type { Segment } from '@/store/editor-store';
 import type { SubtitleStyleV3 } from '@/lib/subtitle-schema-v3';
+import type { SemanticTag } from '@/lib/semantic-engine';
 import { CaptionLayer } from './CaptionLayer';
 
 interface CaptionOverlayProps {
@@ -16,6 +17,7 @@ interface CaptionOverlayProps {
   renderScale?: number;
   spanRef?: React.Ref<HTMLSpanElement>;
   children?: React.ReactNode;
+  semanticTags?: Record<string, SemanticTag>;
 }
 
 export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayProps>(
@@ -30,6 +32,7 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
       isLineMounted,
       renderScale = 1,
       children,
+      semanticTags,
     },
     ref
   ) => {
@@ -76,6 +79,7 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
             useCompositionRenderer={useCompositionRenderer}
             isExportMode={isExportMode}
             isLineMounted={isLineMounted}
+            semanticTags={semanticTags}
           />
           {children}
         </span>

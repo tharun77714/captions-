@@ -103,6 +103,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
     computedBlocks,
     useCompositionRenderer,
     subtitleStyle,
+    semanticTags,
     setCurrentTime,
     setDuration,
     setLayoutContext,
@@ -571,6 +572,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                 : (activeSegment ? mountedSegments[activeSegment.id] === true : false)
             }
             renderScale={isExportMode ? 1 : renderScale}
+            semanticTags={semanticTags}
           >
             {!isExportMode && (
               <div 

@@ -4,6 +4,7 @@ import type { CaptionBlock } from '@/lib/caption-composition';
 import type { SubtitleStyleV3 } from '@/lib/subtitle-schema-v3';
 import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
 import { computeDurationMs, getCSSTransitionParams } from '@/lib/transition-engine';
+import type { SemanticTag } from '@/lib/semantic-engine';
 
 interface CaptionLayerProps {
   currentTime: number;
@@ -13,6 +14,7 @@ interface CaptionLayerProps {
   useCompositionRenderer: boolean;
   isExportMode: boolean; // Disable CSS transition and use frame-based time interpolation
   isLineMounted: boolean; // Driven by preview mounted state or export frame timing
+  semanticTags?: Record<string, SemanticTag>;
 }
 
 export const CaptionLayer: React.FC<CaptionLayerProps> = ({
@@ -23,6 +25,7 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
   useCompositionRenderer,
   isExportMode,
   isLineMounted,
+  semanticTags,
 }) => {
   const activeSegmentWords = activeSegment ? activeSegment.words : [];
 
@@ -34,7 +37,8 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
       : (isLineMounted && currentTime >= wordObj.start);
 
     const mode = subtitleStyle.highlightMode || 'none';
-    const computedStyle = resolveWordStyle(subtitleStyle, parentId as number, wordObj.id);
+    const semanticTag = semanticTags ? semanticTags[wordObj.id] : undefined;
+    const computedStyle = resolveWordStyle(subtitleStyle, parentId as number, wordObj.id, semanticTag);
 
     // Transition timing parameters
     const durationMs = computeDurationMs(subtitleStyle.transition, wordObj.start, wordObj.end);
@@ -123,9 +127,13 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
       opacity: hasStarted ? computedStyle.opacity : subtitleStyle.inactiveOpacity ?? 0.5,
       filter: !hasStarted && subtitleStyle.blur > 0 ? `blur(${subtitleStyle.blur}px)` : undefined,
       transform: `scale(${computedStyle.scaleX}, ${computedStyle.scaleY}) translate(${computedStyle.x}px, ${computedStyle.y}px) rotate(${computedStyle.rotation}deg)`,
-      backgroundColor: computedStyle.backgroundEnabled ? computedStyle.backgroundColor : 'transparent',
+      // Only apply background to individual words if there's an explicit word/segment override or highlight mode
+      backgroundColor: (computedStyle.hasWordOverride && computedStyle.backgroundEnabled) ? computedStyle.backgroundColor : 'transparent',
       marginRight: '6px',
-      display: 'inline-block',
+      display: 'inline-flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      verticalAlign: 'bottom',
       transition: isExportMode ? 'none' : `all ${transitionParams.durationMs}ms ${transitionParams.easing}`,
       padding: `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 2}px`,
       borderRadius: `${computedStyle.borderRadius}px`,
@@ -174,16 +182,45 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
             dynamicStyle.backgroundImage = 'none';
             dynamicStyle.WebkitTextFillColor = subtitleStyle.activeWordColor || '#facc15';
           }
-          dynamicStyle.transform = 'scale(1.1)';
-          dynamicStyle.textShadow = `0 0 12px ${subtitleStyle.activeWordColor || '#facc15'}CC`;
+          dynamicStyle.transform = 'scale(1.18) translateY(-2px)';
+          dynamicStyle.textShadow = `0 0 16px ${subtitleStyle.activeWordColor || '#facc15'}, 0 0 32px ${subtitleStyle.activeWordColor || '#facc15'}80`;
           dynamicStyle.opacity = 1.0;
           break;
       }
     }
 
+    const { color, backgroundImage, WebkitBackgroundClip, WebkitTextFillColor, ...containerStyle } = dynamicStyle;
+
     return (
-      <span key={wordObj.id} style={dynamicStyle}>
-        {wordObj.word.trim()}
+      <span key={wordObj.id} style={containerStyle}>
+        {computedStyle.emoji && (
+          <span
+            style={{
+              WebkitTextFillColor: 'initial',
+              WebkitBackgroundClip: 'initial',
+              backgroundImage: 'none',
+              color: 'initial',
+              fontSize: '0.52em',
+              lineHeight: 1.1,
+              marginBottom: '4px',
+              textShadow: 'none',
+              WebkitTextStroke: '0px transparent',
+            }}
+            className="select-none inline-block transition-transform duration-200 hover:scale-125"
+          >
+            {computedStyle.emoji}
+          </span>
+        )}
+        <span
+          style={{
+            color,
+            backgroundImage,
+            WebkitBackgroundClip,
+            WebkitTextFillColor,
+          }}
+        >
+          {wordObj.word.trim()}
+        </span>
       </span>
     );
   };
