@@ -311,6 +311,24 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     });
   }, [project.id, handleSave, videoUrl, subtitleStyle, subtitleMode, startExport]);
 
+  const handleDirectDownload = useCallback(async () => {
+    if (!downloadUrl) return;
+    try {
+      const res = await fetch(downloadUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vidyut_export_${project.id.slice(0, 8)}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      window.location.href = downloadUrl;
+    }
+  }, [downloadUrl, project.id]);
+
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -774,14 +792,13 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                       <p className="text-xs text-zinc-400 mt-1">Your video with subtitles is ready for download.</p>
                     </div>
                     {downloadUrl ? (
-                      <a
-                        href={downloadUrl}
-                        download={`vidyut_export_${project.id}.mp4`}
+                      <button
+                        onClick={handleDirectDownload}
                         className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-600/10"
                       >
                         <Download className="w-4 h-4" />
                         Download MP4
-                      </a>
+                      </button>
                     ) : (
                       <div className="text-xs text-zinc-500 animate-pulse">Generating secure download link...</div>
                     )}

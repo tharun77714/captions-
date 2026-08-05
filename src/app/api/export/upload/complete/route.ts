@@ -77,10 +77,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to save export status to database' }, { status: 500 });
     }
 
-    // 5. Generate signed download URL (valid for 1 hour)
+    // 5. Generate signed download URL with attachment disposition (valid for 1 hour)
     const getCommand = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
+      ResponseContentDisposition: `attachment; filename="vidyut_export_${projectId.slice(0, 8)}.mp4"`,
     });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 3600 });
 

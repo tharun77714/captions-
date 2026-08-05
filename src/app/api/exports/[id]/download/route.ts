@@ -14,6 +14,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!item || item.status !== 'completed') return NextResponse.json({ error: 'Export not found' }, { status: 404 });
   if (item.expires_at && new Date(item.expires_at).getTime() < Date.now()) return NextResponse.json({ error: 'This export has expired' }, { status: 410 });
 
-  const url = await getSignedUrl(r2Client, new GetObjectCommand({ Bucket: BUCKET_NAME, Key: item.storage_key }), { expiresIn: 300 });
+  const url = await getSignedUrl(
+    r2Client,
+    new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: item.storage_key,
+      ResponseContentDisposition: `attachment; filename="vidyut_export_${id.slice(0, 8)}.mp4"`,
+    }),
+    { expiresIn: 300 }
+  );
   return NextResponse.redirect(url, 302);
 }
