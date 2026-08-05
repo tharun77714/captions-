@@ -435,14 +435,14 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   }, [setDuration, setLayoutContext]);
 
   const togglePlay = useCallback(() => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().catch(err => console.error('Video play error:', err));
     } else {
-      videoRef.current.play();
+      video.pause();
     }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying, setIsPlaying]);
+  }, []);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -654,7 +654,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
       {/* Custom Controls */}
       {!isExportMode && (
       <div
-        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 z-40 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -678,7 +678,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
           <div className="flex items-center gap-3">
             <button
               onClick={togglePlay}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
             >
               {isPlaying ? (
                 <Pause className="w-4 h-4 text-white" />
@@ -724,7 +724,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
       {!isPlaying && videoUrl && !isExportMode && (
         <button
           onClick={togglePlay}
-          className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity"
+          className="absolute inset-0 pb-16 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity z-20 cursor-pointer"
         >
           <div className="w-16 h-16 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
             <Play className="w-8 h-8 text-white ml-1" />
