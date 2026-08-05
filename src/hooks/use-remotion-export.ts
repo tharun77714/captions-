@@ -180,6 +180,7 @@ export function useRemotionExport() {
         videoCodec: 'h264',
         audioCodec: 'aac',
         container: 'mp4',
+        videoBitrate: 15_000_000,
         licenseKey: 'free-license',
         signal: controller.signal,
         onProgress: (prog) => {

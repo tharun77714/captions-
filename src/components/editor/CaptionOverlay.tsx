@@ -54,7 +54,7 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
           style={{
             // Keep wrapping/layout in the canonical 1080px coordinate system,
             // then scale the finished caption box to the preview/output size.
-            maxWidth: `${100 / safeScale}%`,
+            maxWidth: '1000px',
             transform: `scale(${safeScale})`,
             transformOrigin: 'center center',
             fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", sans-serif`,
