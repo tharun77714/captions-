@@ -195,24 +195,6 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
 
     return (
       <span key={wordObj.id} style={containerStyle}>
-        {computedStyle.emoji && (
-          <span
-            style={{
-              WebkitTextFillColor: 'initial',
-              WebkitBackgroundClip: 'initial',
-              backgroundImage: 'none',
-              color: 'initial',
-              fontSize: '0.52em',
-              lineHeight: 1.1,
-              marginBottom: '4px',
-              textShadow: 'none',
-              WebkitTextStroke: '0px transparent',
-            }}
-            className="select-none inline-block transition-transform duration-200 hover:scale-125"
-          >
-            {computedStyle.emoji}
-          </span>
-        )}
         <span
           style={{
             color,

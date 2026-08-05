@@ -196,14 +196,14 @@ export function TranscriptPanel() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto pr-1 scrollbar-thin">
             {[
-              { id: 'kalakar-glow', label: '✨ Glow', color: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10' },
-              { id: 'hormozi-style', label: '⚡ Hormozi', color: 'border-amber-500/40 text-amber-300 bg-amber-500/10' },
-              { id: 'tiktok-viral-yellow', label: '🔥 Viral Yellow', color: 'border-yellow-400/40 text-yellow-200 bg-yellow-400/10' },
-              { id: 'neon-cyberpunk', label: '🔮 Cyberpunk', color: 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' },
-              { id: 'cinema-gold', label: '🎬 Gold', color: 'border-orange-500/40 text-orange-300 bg-orange-500/10' },
-              { id: 'sam-sulek-raw', label: '💪 Red Impact', color: 'border-rose-500/40 text-rose-300 bg-rose-500/10' },
-              { id: 'podcast-clean', label: '🎙️ Podcast', color: 'border-purple-500/40 text-purple-300 bg-purple-500/10' },
-              { id: 'ali-abdaal', label: '☕ Minimal', color: 'border-zinc-700 text-zinc-300 bg-zinc-800/50' },
+              { id: 'kalakar-glow', label: 'Glow', color: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10' },
+              { id: 'hormozi-style', label: 'Hormozi', color: 'border-amber-500/40 text-amber-300 bg-amber-500/10' },
+              { id: 'tiktok-viral-yellow', label: 'Viral Yellow', color: 'border-yellow-400/40 text-yellow-200 bg-yellow-400/10' },
+              { id: 'neon-cyberpunk', label: 'Cyberpunk', color: 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' },
+              { id: 'cinema-gold', label: 'Gold', color: 'border-orange-500/40 text-orange-300 bg-orange-500/10' },
+              { id: 'sam-sulek-raw', label: 'Red Impact', color: 'border-rose-500/40 text-rose-300 bg-rose-500/10' },
+              { id: 'podcast-clean', label: 'Podcast', color: 'border-purple-500/40 text-purple-300 bg-purple-500/10' },
+              { id: 'ali-abdaal', label: 'Minimal', color: 'border-zinc-700 text-zinc-300 bg-zinc-800/50' },
             ].map((preset) => (
               <button
                 key={preset.id}

@@ -55,10 +55,6 @@ export function enrichTranscript(words: Word[]): Record<string, SemanticTag> {
     if (matchedCategories.length > 0) {
       // Pick primary category (first match) to assign primary suggestions
       const primary = matchedCategories[0];
-      
-      // Randomly select one emoji from the primary category pool
-      const emojiPool = SEMANTIC_EMOJIS[primary];
-      const suggestedEmoji = emojiPool ? emojiPool[Math.floor(Math.random() * emojiPool.length)] : undefined;
 
       tags[word.id] = {
         wordId: word.id,
@@ -66,7 +62,7 @@ export function enrichTranscript(words: Word[]): Record<string, SemanticTag> {
         confidence: 0.9, // Hardcoded confidence for static dictionaries
         suggestedColor: SEMANTIC_COLORS[primary],
         suggestedAnimation: SEMANTIC_ANIMATIONS[primary],
-        suggestedEmoji
+        suggestedEmoji: undefined,
       };
     }
   }
