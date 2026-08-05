@@ -12,7 +12,7 @@ export function ProjectCard({ project }: { project: any }) {
   return (
     <Link
       href={`/dashboard/projects/${project.id}`}
-      className="group flex flex-col bg-zinc-900/50 border border-white/10 rounded-xl hover:bg-zinc-800/50 transition-all duration-300 hover:border-violet-500/50 overflow-hidden relative"
+      className="group flex flex-col bg-zinc-900/30 border border-zinc-800/80 rounded-xl hover:bg-zinc-900/60 transition-all duration-200 hover:border-zinc-700/80 overflow-hidden relative shadow-sm"
       onMouseEnter={async () => {
         setIsHovered(true);
         if (!videoUrl && project.media_url) {
@@ -44,7 +44,7 @@ export function ProjectCard({ project }: { project: any }) {
     >
       {/* Video Preview Background */}
       {project.media_url && (
-        <div className={`absolute inset-0 z-0 transition-opacity duration-500 ${isHovered ? 'opacity-40' : 'opacity-0'}`}>
+        <div className={`absolute inset-0 z-0 transition-opacity duration-300 ${isHovered ? 'opacity-30' : 'opacity-0'}`}>
           {videoUrl && (
             <video
               ref={videoRef}
@@ -59,14 +59,14 @@ export function ProjectCard({ project }: { project: any }) {
       )}
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col p-5 h-full">
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="font-medium truncate pr-4 group-hover:text-violet-400 transition-colors">
-            {project.title || 'Untitled Project'}
+      <div className="relative z-10 flex flex-col p-5 h-full min-h-[140px]">
+        <div className="flex items-start justify-between mb-4 gap-2">
+          <h3 className="font-medium text-sm truncate group-hover:text-zinc-100 text-zinc-300 transition-colors">
+            {project.title || 'Untitled Studio Project'}
           </h3>
           <ProjectStatusBadge status={project.status} />
         </div>
-        <div className="mt-auto flex items-center justify-between text-xs text-zinc-500">
+        <div className="mt-auto pt-3 border-t border-zinc-800/50 flex items-center justify-between text-[11px] font-mono text-zinc-500">
           <span>
             {new Intl.DateTimeFormat('en-US', {
               month: 'short',
@@ -75,7 +75,7 @@ export function ProjectCard({ project }: { project: any }) {
             }).format(new Date(project.created_at))}
           </span>
           {project.language && (
-            <span className="uppercase px-2 py-1 bg-zinc-800 rounded-md">
+            <span className="uppercase px-2 py-0.5 bg-zinc-800/80 text-zinc-400 rounded text-[10px] font-mono border border-zinc-700/50">
               {project.language}
             </span>
           )}
@@ -89,36 +89,30 @@ function ProjectStatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'ready':
       return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 rounded-full">
+        <span className="flex items-center px-2 py-0.5 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md shrink-0">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Ready
         </span>
       );
     case 'transcribing':
       return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-blue-400 bg-blue-400/10 rounded-full">
+        <span className="flex items-center px-2 py-0.5 text-[11px] font-medium text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md shrink-0">
           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
           Processing
         </span>
       );
-    case 'queued':
+    case 'error':
       return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-zinc-400 bg-zinc-400/10 rounded-full">
-          <Clock className="w-3 h-3 mr-1" />
-          Queued
-        </span>
-      );
-    case 'failed':
-      return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-red-400 bg-red-400/10 rounded-full">
+        <span className="flex items-center px-2 py-0.5 text-[11px] font-medium text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md shrink-0">
           <AlertCircle className="w-3 h-3 mr-1" />
-          Failed
+          Error
         </span>
       );
     default:
       return (
-        <span className="flex items-center px-2 py-1 text-xs font-medium text-zinc-400 bg-zinc-400/10 rounded-full">
-          {status}
+        <span className="flex items-center px-2 py-0.5 text-[11px] font-medium text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 rounded-md shrink-0">
+          <Clock className="w-3 h-3 mr-1" />
+          Queued
         </span>
       );
   }
