@@ -26,77 +26,97 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Project or media file not found' }, { status: 404 });
     }
 
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY || process.env.DOLBY_API_KEY;
-    if (!elevenLabsApiKey) {
+    const dolbyApiKey = process.env.DOLBY_API_KEY;
+    if (!dolbyApiKey) {
       return NextResponse.json({
-        error: 'ElevenLabs API Key is missing. Please add ELEVENLABS_API_KEY to your Vercel environment variables.',
+        error: 'Dolby.io API Key is missing. Please add DOLBY_API_KEY to your Vercel environment variables.',
         requiresKey: true,
       }, { status: 400 });
     }
 
-    // 1. Fetch source media file from Cloudflare R2
-    const getCommand = new GetObjectCommand({
+    // 1. Generate Input Presigned GET URL for Dolby
+    const inputGetCommand = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: project.media_url,
     });
-    const mediaGetUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 900 });
+    const inputUrl = await getSignedUrl(r2Client, inputGetCommand, { expiresIn: 3600 });
 
-    console.log('[AudioEnhanceAPI] Fetching source media from R2...');
-    const mediaRes = await fetch(mediaGetUrl);
-    if (!mediaRes.ok) throw new Error('Failed to download source media from storage');
-    const mediaBlob = await mediaRes.blob();
-
-    // 2. Call ElevenLabs Voice Isolator API
-    console.log('[AudioEnhanceAPI] Sending media to ElevenLabs Voice Isolator API...');
-    const formData = new FormData();
-    formData.append('audio', mediaBlob, 'input_audio.mp4');
-
-    const elevenRes = await fetch('https://api.elevenlabs.io/v1/audio-isolation', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': elevenLabsApiKey,
-      },
-      body: formData,
-    });
-
-    if (!elevenRes.ok) {
-      const elevenErr = await elevenRes.json().catch(() => ({}));
-      console.error('[AudioEnhanceAPI] ElevenLabs API error:', elevenErr);
-      const msg = elevenErr.detail?.message || elevenErr.message || `ElevenLabs API request failed (${elevenRes.status})`;
-      return NextResponse.json({ error: msg }, { status: elevenRes.status });
-    }
-
-    const enhancedAudioBuffer = await elevenRes.arrayBuffer();
-    console.log('[AudioEnhanceAPI] Voice isolated audio received from ElevenLabs:', enhancedAudioBuffer.byteLength, 'bytes');
-
-    // 3. Upload enhanced audio file back to R2 storage
-    const outputKey = `${user.id}/${projectId}/enhanced_${Date.now()}.mp3`;
-    const putCommand = new PutObjectCommand({
+    // 2. Generate Output Presigned PUT URL for enhanced media
+    const outputKey = `${user.id}/${projectId}/enhanced_${Date.now()}.mp4`;
+    const outputPutCommand = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: outputKey,
-      ContentType: 'audio/mp3',
+      ContentType: 'video/mp4',
     });
-    const putUrl = await getSignedUrl(r2Client, putCommand, { expiresIn: 900 });
+    const outputUrl = await getSignedUrl(r2Client, outputPutCommand, { expiresIn: 3600 });
 
-    const uploadRes = await fetch(putUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'audio/mp3' },
-      body: Buffer.from(enhancedAudioBuffer),
+    // 3. Initiate Dolby.io Media Enhance Job
+    console.log('[DolbyEnhanceAPI] Submitting job to Dolby.io Media Enhance API...');
+    const dolbyRes = await fetch('https://api.dolby.com/media/enhance', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${dolbyApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: inputUrl,
+        output: outputUrl,
+        audio: {
+          noise: { reduction: { amount: 'max' } },
+          loudness: { enable: true, target_level: -14 },
+          speech: { isolation: { enable: true } },
+        },
+      }),
     });
 
-    if (!uploadRes.ok) throw new Error('Failed to upload isolated audio back to Cloudflare R2 storage');
+    if (!dolbyRes.ok) {
+      const dolbyErr = await dolbyRes.json().catch(() => ({}));
+      console.error('[DolbyEnhanceAPI] Dolby API returned error:', dolbyErr);
+      return NextResponse.json({ error: dolbyErr.detail || dolbyErr.message || 'Dolby API request failed' }, { status: dolbyRes.status });
+    }
 
-    // 4. Update project in database
+    const dolbyData = await dolbyRes.json();
+    const jobId = dolbyData.job_id;
+    console.log('[DolbyEnhanceAPI] Dolby job started with ID:', jobId);
+
+    // 4. Poll Dolby Job status (up to 60s)
+    let completed = false;
+    let attempts = 0;
+    while (!completed && attempts < 30) {
+      await new Promise(res => setTimeout(res, 2000));
+      attempts++;
+
+      const statusRes = await fetch(`https://api.dolby.com/media/enhance?job_id=${jobId}`, {
+        headers: { 'Authorization': `Bearer ${dolbyApiKey}` },
+      });
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        console.log(`[DolbyEnhanceAPI] Poll attempt ${attempts}: status=${statusData.status}, progress=${statusData.progress}%`);
+
+        if (statusData.status === 'Success') {
+          completed = true;
+        } else if (statusData.status === 'Failed') {
+          throw new Error(statusData.error?.reason || 'Dolby audio enhancement job failed.');
+        }
+      }
+    }
+
+    if (!completed) {
+      return NextResponse.json({ error: 'Dolby audio enhancement timed out. Please retry.' }, { status: 504 });
+    }
+
+    // 5. Update Project media_url in DB to the enhanced file
     await supabase.from('projects').update({ media_url: outputKey }).eq('id', projectId);
 
     return NextResponse.json({
       success: true,
       enhancedMediaKey: outputKey,
-      message: 'Audio successfully isolated & enhanced with ElevenLabs AI Voice Isolator!',
+      message: 'Audio successfully enhanced with Dolby.io AI Voice Isolation!',
     });
 
   } catch (error: unknown) {
-    console.error('[AudioEnhanceAPI] Enhance error:', error);
+    console.error('[DolbyEnhanceAPI] Enhance error:', error);
     const msg = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }

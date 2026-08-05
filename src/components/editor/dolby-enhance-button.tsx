@@ -14,7 +14,7 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleEnhance = async () => {
-    if (!confirm('Run ElevenLabs AI Voice Isolation? This will isolate human speech and remove all background noise.')) {
+    if (!confirm('Run Dolby.io AI Voice Enhancement? This will isolate human speech, remove background noise, and master vocal volume.')) {
       return;
     }
 
@@ -33,9 +33,9 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
 
       if (!res.ok) {
         if (data.requiresKey) {
-          setErrorMsg('Add ELEVENLABS_API_KEY to your environment variables to enable AI Voice Isolation.');
+          setErrorMsg('Add DOLBY_API_KEY to your environment variables to enable Dolby AI Enhancement.');
         } else {
-          setErrorMsg(data.error || 'Failed to enhance audio.');
+          setErrorMsg(data.error || 'Failed to enhance audio with Dolby.');
         }
         setStatus('error');
         return;
@@ -51,7 +51,7 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
       }, 1200);
 
     } catch (err: unknown) {
-      console.error('AI Voice Isolation failed:', err);
+      console.error('Dolby enhance failed:', err);
       setErrorMsg('Network or connection error. Please try again.');
       setStatus('error');
     } finally {
@@ -65,7 +65,7 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
         onClick={handleEnhance}
         disabled={loading}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-violet-600/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-        title="Isolate voice & eliminate background noise with ElevenLabs AI"
+        title="Isolate voice & eliminate background noise with Dolby.io AI"
       >
         {loading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -74,14 +74,14 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
         ) : (
           <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
         )}
-        <span>{loading ? 'Isolating Voice...' : status === 'done' ? 'Isolated!' : 'AI Voice Isolator'}</span>
+        <span>{loading ? 'Enhancing with Dolby...' : status === 'done' ? 'Enhanced!' : 'Dolby AI Voice'}</span>
       </button>
 
       {status === 'error' && errorMsg && (
         <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-zinc-900 border border-rose-500/30 rounded-xl shadow-2xl z-50 text-[11px] text-rose-300 space-y-2">
           <div className="flex items-center gap-1.5 text-rose-400 font-semibold">
             <ShieldAlert className="w-4 h-4 shrink-0" />
-            <span>AI Key Required</span>
+            <span>Dolby Setup Required</span>
           </div>
           <p className="leading-relaxed text-zinc-300">{errorMsg}</p>
           <button
