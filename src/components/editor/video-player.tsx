@@ -120,6 +120,54 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
   const [renderScale, setRenderScale] = useState(1);
   const [mountedSegments, setMountedSegments] = useState<Record<string, boolean>>({});
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isDraggingRef = useRef(false);
+  const [isDraggingCaption, setIsDraggingCaption] = useState(false);
+
+  const handleCaptionPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = subtitleStyle.positionX;
+    const startPosY = subtitleStyle.positionY;
+
+    isDraggingRef.current = true;
+    setIsDraggingCaption(true);
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = moveEv.clientX - startX;
+      const deltaY = moveEv.clientY - startY;
+
+      const deltaPercentX = (deltaX / containerRect.width) * 100;
+      const deltaPercentY = (deltaY / containerRect.height) * 100;
+
+      const newPosX = Math.max(-60, Math.min(60, startPosX + deltaPercentX));
+      const newPosY = Math.max(-60, Math.min(60, startPosY + deltaPercentY));
+
+      setSubtitleStyleV2(prev => ({
+        ...prev,
+        positionX: Number(newPosX.toFixed(1)),
+        positionY: Number(newPosY.toFixed(1)),
+      }));
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+      setIsDraggingCaption(false);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [subtitleStyle.positionX, subtitleStyle.positionY, setSubtitleStyleV2]);
 
   // Caption styles are authored for a 1080px-wide canvas. The preview can be
   // any size, so keep its visual scale proportional to the rendered video.
@@ -525,37 +573,16 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
       {/* Subtitle Overlay */}
       {(useCompositionRenderer ? activeBlock : activeSegment) && (
-        <motion.div
-          drag
-          dragMomentum={false}
-          onDragEnd={() => {
-            if (!containerRef.current || !subtitleBoxRef.current) return;
-            const containerRect = containerRef.current.getBoundingClientRect();
-            const boxRect = subtitleBoxRef.current.getBoundingClientRect();
-            
-            const newCenterX = boxRect.left + boxRect.width / 2;
-            const newCenterY = boxRect.top + boxRect.height / 2;
-            
-            const containerCenterX = containerRect.left + containerRect.width / 2;
-            const containerCenterY = containerRect.top + containerRect.height / 2;
-
-            const percentX = ((newCenterX - containerCenterX) / containerRect.width) * 100;
-            const percentY = ((newCenterY - containerCenterY) / containerRect.height) * 100;
-
-            setSubtitleStyleV2(prev => ({
-              ...prev,
-              positionX: Math.max(-50, Math.min(50, percentX)),
-              positionY: Math.max(-50, Math.min(50, percentY))
-            }));
-          }}
-          className="absolute pointer-events-none"
+        <div
+          onPointerDown={handleCaptionPointerDown}
+          className={`absolute z-50 cursor-grab active:cursor-grabbing select-none transition-shadow ${
+            isDraggingCaption ? 'ring-2 ring-violet-500/80 shadow-2xl rounded-lg' : ''
+          }`}
           style={{
-            width: '100%',
             top: `${50 + subtitleStyle.positionY}%`,
             left: `${50 + subtitleStyle.positionX}%`,
-            x: 0,
-            y: 0,
-            zIndex: 50,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'auto',
           }}
         >
           <CaptionOverlay
@@ -576,7 +603,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
           >
             {!isExportMode && (
               <div 
-                className="absolute -bottom-2 -right-2 w-5 h-5 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110"
+                className="absolute -bottom-2 -right-2 w-6 h-6 bg-violet-600 rounded-full cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg hover:scale-110 z-50"
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   if (!subtitleBoxRef.current) return;
@@ -593,7 +620,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
                     if (startDist === 0) return;
                     const scale = currentDist / startDist;
                     
-                    const newSize = Math.max(12, Math.min(300, startFontSize * scale));
+                    const newSize = Math.max(20, Math.min(300, startFontSize * scale));
                     setSubtitleStyleV2(prev => ({ ...prev, fontSize: Math.round(newSize) }));
                   };
                   
@@ -610,7 +637,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
               </div>
             )}
           </CaptionOverlay>
-        </motion.div>
+        </div>
       )}
 
       {/* Custom Controls */}

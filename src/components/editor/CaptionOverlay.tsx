@@ -41,11 +41,10 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
     return (
       <div
         style={{
-          transform: 'translate(-50%, -50%)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          width: '85%',
+          width: '100%',
           pointerEvents: 'none',
         }}
       >
