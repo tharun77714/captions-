@@ -80,7 +80,7 @@ export function ProjectCard({ project }: { project: any }) {
 
   return (
     <div
-      className="group flex flex-col bg-zinc-900/30 border border-zinc-800/80 rounded-xl hover:bg-zinc-900/60 transition-all duration-200 hover:border-zinc-700/80 overflow-hidden relative shadow-sm cursor-pointer"
+      className="group flex flex-col bg-zinc-900 border border-zinc-800/80 rounded-xl hover:border-zinc-700/80 transition-all duration-300 overflow-hidden relative shadow-sm cursor-pointer min-h-[200px] hover:shadow-xl"
       onMouseEnter={() => {
         setIsHovered(true);
         if (videoRef.current) {
@@ -102,37 +102,101 @@ export function ProjectCard({ project }: { project: any }) {
         }
       }}
     >
-      {/* Thumbnail Area */}
-      <div className="h-32 w-full rounded-t-xl overflow-hidden relative bg-zinc-900/50 flex items-center justify-center">
-        {project.media_url ? (
-          <>
-            {videoUrl && (
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                muted
-                preload="metadata"
-                playsInline
-                loop
-                className={`w-full h-full object-cover transition-all duration-300 ${isHovered ? 'blur-0' : 'blur-[1px]'}`}
-              />
-            )}
-            <div className={`absolute inset-0 bg-zinc-950/40 transition-opacity duration-300 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
-          </>
-        ) : (
-          <Film className="text-zinc-600 w-6 h-6" />
-        )}
-      </div>
+      {/* Full Card Video Background */}
+      {project.media_url ? (
+        <>
+          {videoUrl ? (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              muted
+              preload="metadata"
+              playsInline
+              loop
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ${
+                isHovered ? 'scale-105 filter-none' : 'scale-100 brightness-[0.65]'
+              }`}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-zinc-900 animate-pulse" />
+          )}
+          {/* Subtle Dark Gradient Overlay for Text Visibility */}
+          <div
+            className={`absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-zinc-950/20 transition-opacity duration-300 ${
+              isHovered ? 'opacity-70' : 'opacity-85'
+            }`}
+          />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-zinc-900/90 flex items-center justify-center">
+          <Film className="text-zinc-700 w-8 h-8" />
+        </div>
+      )}
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col p-5 h-full min-h-[110px]">
-        <div className="flex items-start justify-between mb-4 gap-2">
+      {/* Card Content Layer */}
+      <div className="relative z-10 flex flex-col justify-between h-full p-5 min-h-[200px]">
+        {/* Top Row: Status Badge + Menu */}
+        <div className="flex items-center justify-between menu-container">
+          <ProjectStatusBadge status={project.status} />
+
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-1.5 hover:bg-zinc-800/80 bg-zinc-950/60 backdrop-blur-md rounded-md text-zinc-300 hover:text-white transition-colors border border-white/5"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {showMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                  }}
+                />
+                <div className="absolute right-0 mt-1 w-32 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 py-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsRenaming(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 flex items-center gap-2"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Rename
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      handleDelete();
+                    }}
+                    disabled={isDeleting}
+                    className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Title + Language + Date */}
+        <div className="mt-8">
           {isRenaming ? (
-            <div className="menu-container w-full mr-2">
+            <div className="menu-container w-full mb-2">
               <input
                 autoFocus
                 type="text"
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-2 py-1 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                className="w-full bg-zinc-950/90 border border-zinc-700 rounded-md px-2 py-1 text-sm text-zinc-100 outline-none focus:border-violet-500"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={handleRename}
@@ -146,77 +210,25 @@ export function ProjectCard({ project }: { project: any }) {
               />
             </div>
           ) : (
-            <h3 className="font-medium text-sm truncate group-hover:text-zinc-100 text-zinc-300 transition-colors">
+            <h3 className="font-semibold text-base text-white truncate drop-shadow-sm mb-2 group-hover:text-violet-200 transition-colors">
               {project.title || 'Untitled Studio Project'}
             </h3>
           )}
 
-          <div className="flex items-center gap-2 menu-container shrink-0">
-            <ProjectStatusBadge status={project.status} />
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(!showMenu);
-                }}
-                className="p-1 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-zinc-200 transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-              
-              {showMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMenu(false);
-                    }}
-                  />
-                  <div className="absolute right-0 mt-1 w-32 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 py-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsRenaming(true);
-                        setShowMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 flex items-center gap-2"
-                    >
-                      <Pencil className="w-3 h-3" />
-                      Rename
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        handleDelete();
-                      }}
-                      disabled={isDeleting}
-                      className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-950/30 hover:text-red-300 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-auto pt-3 border-t border-zinc-800/50 flex items-center justify-between text-[11px] font-mono text-zinc-500">
-          <span>
-            {new Intl.DateTimeFormat('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }).format(new Date(project.created_at))}
-          </span>
-          {project.language && (
-            <span className="uppercase px-2 py-0.5 bg-zinc-800/80 text-zinc-400 rounded text-[10px] font-mono border border-zinc-700/50">
-              {project.language}
+          <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+            <span>
+              {new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              }).format(new Date(project.created_at))}
             </span>
-          )}
+            {project.language && (
+              <span className="uppercase px-2 py-0.5 bg-zinc-950/80 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700/50">
+                {project.language}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
