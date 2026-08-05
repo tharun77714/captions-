@@ -58,6 +58,7 @@ export function TranscriptPanel() {
     splitSegment,
     mergeSegments,
     replaceText,
+    applyTemplate,
     selectedWordIds,
     toggleWordSelection,
   } = useEditorStore();
@@ -185,6 +186,28 @@ export function TranscriptPanel() {
         
         <div className="mt-3 flex items-center justify-between">
           <SplitByWords />
+        </div>
+
+        {/* Quick Viral Presets Bar */}
+        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider shrink-0 mr-1">Style:</span>
+          {[
+            { id: 'kalakar-glow', label: '✨ Glow', color: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10' },
+            { id: 'hormozi-style', label: '⚡ Hormozi', color: 'border-amber-500/40 text-amber-300 bg-amber-500/10' },
+            { id: 'tiktok-viral-yellow', label: '🔥 Viral Yellow', color: 'border-yellow-400/40 text-yellow-200 bg-yellow-400/10' },
+            { id: 'neon-cyberpunk', label: '🔮 Cyberpunk', color: 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' },
+            { id: 'cinema-gold', label: '🎬 Gold', color: 'border-orange-500/40 text-orange-300 bg-orange-500/10' },
+            { id: 'sam-sulek-raw', label: '💪 Red Impact', color: 'border-rose-500/40 text-rose-300 bg-rose-500/10' },
+            { id: 'ali-abdaal', label: '☕ Minimal', color: 'border-zinc-700 text-zinc-300 bg-zinc-800/50' },
+          ].map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => applyTemplate(preset.id)}
+              className={`shrink-0 px-2 py-0.5 text-[10px] font-semibold rounded-full border transition-all hover:scale-105 ${preset.color}`}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
       </div>
 
