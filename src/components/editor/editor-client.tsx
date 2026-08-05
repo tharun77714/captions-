@@ -14,6 +14,7 @@ import { preloadFonts } from '@/lib/font-registry';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRemotionExport } from '@/hooks/use-remotion-export';
 import { exportSrt, exportVtt, exportTranscript } from '@/lib/srt-export';
+import { DolbyEnhanceButton } from '@/components/editor/dolby-enhance-button';
 
 interface EditorClientProps {
   project: {
@@ -537,6 +538,9 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
               );
             })}
           </div>
+
+          <DolbyEnhanceButton projectId={project.id} />
+
           <button
             onClick={handleSave}
             disabled={saveStatus === 'saving'}
