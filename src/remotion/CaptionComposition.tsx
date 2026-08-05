@@ -120,6 +120,7 @@ export const CaptionComposition: React.FC<ExportInputProps> = ({
             position: 'absolute',
             top: `${50 + subtitleStyle.positionY}%`,
             left: `${50 + subtitleStyle.positionX}%`,
+            transform: 'translate(-50%, -50%)',
             width: '100%',
             zIndex: 50,
           }}
