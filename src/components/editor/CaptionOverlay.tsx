@@ -68,6 +68,7 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
             backgroundColor: subtitleStyle.background.enabled ? subtitleStyle.background.color : 'transparent',
             textShadow: subtitleStyle.shadow.blur > 0 ? `0 0 ${subtitleStyle.shadow.blur}px ${subtitleStyle.shadow.color}` : undefined,
             WebkitTextStroke: subtitleStyle.stroke.enabled && subtitleStyle.stroke.width > 0 ? `${subtitleStyle.stroke.width}px ${subtitleStyle.stroke.color}` : undefined,
+            paintOrder: 'stroke fill',
           }}
         >
           <CaptionLayer

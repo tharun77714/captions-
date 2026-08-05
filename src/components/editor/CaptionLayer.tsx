@@ -145,6 +145,8 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
     }
     if (computedStyle.strokeEnabled && computedStyle.strokeWidth > 0) {
       dynamicStyle.WebkitTextStroke = `${computedStyle.strokeWidth}px ${computedStyle.strokeColor}`;
+      dynamicStyle.paintOrder = 'stroke fill';
+      (dynamicStyle as any).WebkitPaintOrder = 'stroke fill';
     }
 
     // Highlight Modes

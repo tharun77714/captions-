@@ -694,7 +694,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                   ))}
                 </div>
               </div>
-              <div className="w-full h-full max-h-[calc(100vh-280px)] flex items-center justify-center overflow-hidden">
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden relative">
                 <div style={{ transform: `scale(${videoZoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s ease', maxHeight: '100%', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <VideoPlayer ref={videoPlayerRef} aspectRatioOverride={aspectRatio} />
                 </div>
