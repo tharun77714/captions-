@@ -82,6 +82,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
   const [editorReady, setEditorReady] = useState(false);
   const [videoZoom, setVideoZoom] = useState(100);
+  const [aspectRatio, setAspectRatio] = useState<string>('auto');
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const [leftPanel, setLeftPanel] = useState<'transcript' | 'clips'>('transcript');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -651,18 +652,51 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-2 mb-3 self-end">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Zoom</span>
-                {[50, 75, 100, 125].map(z => (
-                  <button key={z} onClick={() => setVideoZoom(z)}
-                    className={`px-2 py-0.5 text-[10px] rounded font-mono transition-colors ${
-                      videoZoom === z ? 'bg-violet-600/30 text-violet-300 border border-violet-500/30' : 'text-zinc-500 hover:text-zinc-300'
-                    }`}>{z}%</button>
-                ))}
+              <div className="flex items-center gap-4 mb-3 self-end z-10">
+                {/* Ratio Selector */}
+                <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 rounded-lg p-1">
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider px-1">Ratio</span>
+                  {[
+                    { id: 'auto', label: 'Auto' },
+                    { id: '16:9', label: '16:9' },
+                    { id: '9:16', label: '9:16' },
+                    { id: '1:1', label: '1:1' },
+                  ].map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => setAspectRatio(r.id)}
+                      className={`px-2 py-0.5 text-[10px] rounded font-mono transition-colors ${
+                        aspectRatio === r.id
+                          ? 'bg-violet-600/40 text-violet-200 border border-violet-500/40 font-semibold'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Zoom Selector */}
+                <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-white/10 rounded-lg p-1">
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider px-1">Zoom</span>
+                  {[50, 75, 100, 125].map(z => (
+                    <button
+                      key={z}
+                      onClick={() => setVideoZoom(z)}
+                      className={`px-2 py-0.5 text-[10px] rounded font-mono transition-colors ${
+                        videoZoom === z
+                          ? 'bg-violet-600/40 text-violet-200 border border-violet-500/40 font-semibold'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {z}%
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="w-full h-full flex items-center justify-center">
-                <div style={{ transform: `scale(${videoZoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s ease' }}>
-                  <VideoPlayer ref={videoPlayerRef} />
+              <div className="w-full h-full max-h-[calc(100vh-280px)] flex items-center justify-center overflow-hidden">
+                <div style={{ transform: `scale(${videoZoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s ease', maxHeight: '100%', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <VideoPlayer ref={videoPlayerRef} aspectRatioOverride={aspectRatio} />
                 </div>
               </div>
             </div>

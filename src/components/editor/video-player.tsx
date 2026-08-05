@@ -90,7 +90,12 @@ export interface VideoPlayerRef {
   getVideoMetadata: () => { width: number; height: number; duration: number } | null;
 }
 
-export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_props, ref) {
+interface VideoPlayerProps {
+  aspectRatioOverride?: string;
+}
+
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function VideoPlayer(props, ref) {
+  const { aspectRatioOverride = 'auto' } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const subtitleBoxRef = useRef<HTMLSpanElement>(null);
@@ -484,12 +489,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
 
 
 
+  const effectiveAspectRatio = 
+    aspectRatioOverride === '16:9' ? (16 / 9) :
+    aspectRatioOverride === '9:16' ? (9 / 16) :
+    aspectRatioOverride === '1:1' ? 1 :
+    (videoDimensions.width / videoDimensions.height);
+
   return (
     <div
       ref={containerRef}
       id="video-player-container"
-      className="relative bg-black rounded-xl overflow-hidden shadow-2xl group flex items-center justify-center max-w-full max-h-full"
-      style={{ aspectRatio: isExportMode ? "9 / 16" : `${videoDimensions.width} / ${videoDimensions.height}` }}
+      className="relative bg-black rounded-xl overflow-hidden shadow-2xl group flex items-center justify-center max-w-full max-h-[calc(100vh-280px)]"
+      style={{ aspectRatio: isExportMode ? "9 / 16" : `${effectiveAspectRatio}` }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -497,7 +508,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef>(function VideoPlayer(_prop
         <video
           ref={videoRef}
           src={videoUrl}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-black"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onPlay={() => setIsPlaying(true)}
