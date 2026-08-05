@@ -215,7 +215,7 @@ export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
 export const DEFAULT_STYLE: SubtitleStyleV2 = {
   _version: 2,
   font: { ...DEFAULT_FONT },
-  fontSize: 96,
+  fontSize: 120,
   letterSpacing: 0,
   wordSpacing: 0,
   lineSpacing: 1.375,

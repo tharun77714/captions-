@@ -358,7 +358,7 @@ function TextTab() {
       <div className="grid grid-cols-2 gap-2">
         <Section title="Size">
           <SliderWithValue
-            min={36}
+            min={20}
             max={250}
             step={1}
             value={activeStyle.fontSize}
@@ -760,7 +760,7 @@ function PositionTab() {
         <SliderWithValue
           min={-50}
           max={150}
-          step={1}
+          step={0.5}
           value={subtitleStyle.positionX}
           onChange={(v) => setSubtitleStyleV2((s) => ({ ...s, positionX: v }))}
           unit="%"
@@ -771,7 +771,7 @@ function PositionTab() {
         <SliderWithValue
           min={-50}
           max={150}
-          step={1}
+          step={0.5}
           value={subtitleStyle.positionY}
           onChange={(v) => setSubtitleStyleV2((s) => ({ ...s, positionY: v }))}
           unit="%"
