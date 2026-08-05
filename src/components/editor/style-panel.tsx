@@ -218,7 +218,8 @@ function TemplatesTab() {
 // ═══════════════════════════════════════════════════════════════════════
 
 function TextTab() {
-  const { subtitleStyle, setSubtitleStyleV2, selectedWordIds, updateSelectedWordsStyle, segments } = useEditorStore();
+  const { subtitleStyle, setSubtitleStyleV2, selectedWordIds, updateSelectedWordsStyle, segments, autoSplitByWords } = useEditorStore();
+  const [maxWordsPerLine, setMaxWordsPerLine] = React.useState(3);
 
   const isOverrideMode = selectedWordIds.length > 0;
   
@@ -317,6 +318,26 @@ function TextTab() {
 
   return (
     <div className="p-3 space-y-4">
+      {/* Max Words Per Segment */}
+      <div className="px-4 py-3 border-b border-white/5">
+        <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold block mb-3">Max Words Per Line</label>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={1} max={8} step={1}
+            value={maxWordsPerLine}
+            onChange={(e) => setMaxWordsPerLine(Number(e.target.value))}
+            className="flex-1 accent-violet-500"
+          />
+          <span className="text-xs font-mono text-zinc-300 w-4 text-center">{maxWordsPerLine}</span>
+          <button
+            onClick={() => autoSplitByWords(maxWordsPerLine)}
+            className="px-2.5 py-1 bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 text-xs rounded-lg transition-colors"
+          >Apply</button>
+        </div>
+        <p className="text-[10px] text-zinc-600 mt-1.5">Splits all segments to this word count</p>
+      </div>
+
       {isOverrideMode && (
         <div className="bg-violet-500/20 text-violet-300 text-xs py-2 px-3 rounded-md flex items-center justify-between">
           <span>Editing {selectedWordIds.length} word(s)</span>

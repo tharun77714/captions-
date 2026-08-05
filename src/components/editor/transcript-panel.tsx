@@ -2,8 +2,47 @@
 
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useEditorStore } from '@/store/editor-store';
-import { Search, Clock, Type, SplitSquareHorizontal, Merge, Replace, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Clock, Type, SplitSquareHorizontal, Merge, Replace, ChevronDown, ChevronUp, Scissors } from 'lucide-react';
 import { CaptionTools } from '@/components/editor/caption-tools';
+
+function SplitByWords() {
+  const [selectedN, setSelectedN] = React.useState(3);
+  const [showToast, setShowToast] = React.useState(false);
+  const { autoSplitByWords } = useEditorStore();
+
+  const handleApply = () => {
+    autoSplitByWords(selectedN);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full px-2 py-1 relative">
+      <span className="text-xs text-zinc-400 font-medium pl-1">Auto-split</span>
+      <select 
+        value={selectedN} 
+        onChange={(e) => setSelectedN(Number(e.target.value))}
+        className="bg-zinc-800 text-xs text-zinc-200 border-none rounded px-1 py-0.5 focus:outline-none"
+      >
+        {[1, 2, 3, 4, 5].map(n => (
+          <option key={n} value={n}>{n} words</option>
+        ))}
+      </select>
+      <button 
+        onClick={handleApply}
+        className="flex items-center gap-1 bg-violet-600 hover:bg-violet-500 text-white text-xs px-2 py-0.5 rounded-full transition-colors"
+      >
+        <Scissors className="w-3 h-3" />
+        Apply
+      </button>
+      {showToast && (
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
+          Done
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TranscriptPanel() {
   const {
@@ -142,6 +181,10 @@ export function TranscriptPanel() {
           </div>
 
           <CaptionTools />
+        </div>
+        
+        <div className="mt-3 flex items-center justify-between">
+          <SplitByWords />
         </div>
       </div>
 
@@ -319,7 +362,7 @@ function WordList({
   selectedWordIds,
   toggleWordSelection,
 }: {
-  words: { id: string; segId: number; word: string; start: number; end: number }[];
+  words: { id: string; segId: number; word: string; start: number; end: number; probability?: number }[];
   currentTime: number;
   onWordClick: (start: number) => void;
   updateWordText: (segId: number, wordId: string, text: string) => void;
@@ -369,6 +412,10 @@ function WordList({
 
   return (
     <div className="p-3">
+      <div className="px-3 pt-2 pb-1 flex items-center gap-3 text-[10px] text-zinc-600">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500/60 inline-block"/>Low conf</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500/60 inline-block"/>Mid conf</span>
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {words.length === 0 ? (
           <p className="text-zinc-600 text-xs text-center py-8 w-full">No words found.</p>
@@ -377,6 +424,11 @@ function WordList({
             const isActive = currentTime >= word.start && currentTime <= word.end;
             const isEditing = editingIndex === i;
             const isSelected = selectedWordIds.includes(word.id);
+
+            const confidenceClass = 
+              word.probability === undefined ? '' :
+              word.probability < 0.6 ? 'ring-1 ring-rose-500/40' :
+              word.probability < 0.8 ? 'ring-1 ring-amber-500/30' : '';
 
             if (isEditing) {
               return (
@@ -394,7 +446,7 @@ function WordList({
                     }
                     if (e.key === 'Escape') setEditingIndex(null);
                   }}
-                  className="px-2 py-1 rounded text-sm bg-zinc-800 border border-violet-500 text-white w-20 focus:outline-none focus:ring-0"
+                  className={`px-2 py-1 rounded text-sm bg-zinc-800 border border-violet-500 text-white w-20 focus:outline-none focus:ring-0 ${confidenceClass}`}
                   autoFocus
                 />
               );
@@ -413,14 +465,14 @@ function WordList({
                   }
                 }}
                 onDoubleClick={() => startEditing(i, word.word)}
-                className={`px-2 py-1 rounded text-sm transition-all duration-150 relative ${
+                className={`px-2 py-1 rounded text-sm transition-all duration-150 relative ${confidenceClass} ${
                   isSelected 
                     ? 'bg-violet-600 border border-violet-400 text-white shadow-[0_0_10px_rgba(139,92,246,0.5)] z-10'
                     : isActive
                       ? 'bg-violet-500/20 text-violet-300 font-medium'
                       : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 border border-transparent'
                 }`}
-                title={`Double click to edit | Shift+Click to multi-select | ${word.start.toFixed(2)}s - ${word.end.toFixed(2)}s`}
+                title={`Double click to edit | Shift+Click to multi-select | ${word.start.toFixed(2)}s - ${word.end.toFixed(2)}s | Confidence: ${word.probability !== undefined ? Math.round(word.probability * 100) + '%' : 'N/A'}`}
               >
                 {word.word}
               </button>

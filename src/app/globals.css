@@ -40,3 +40,5 @@ body {
   animation-play-state: paused;
 }
 
+[data-theme='sepia'] { --bg-base: #1c1611; --surface: #241e17; } [data-theme='sepia'] body { background-color: #1c1611; }  
+ 

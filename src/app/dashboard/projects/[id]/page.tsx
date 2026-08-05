@@ -8,7 +8,9 @@ import { ExportStatusTracker } from '@/components/dashboard/export-status-tracke
 import { LocalDate } from '@/components/dashboard/local-date';
 
 import { ProcessingTracker } from '@/components/dashboard/processing-tracker';
-
+import { ShareButton } from '@/components/dashboard/share-button';
+import { RetranscribeButton } from '@/components/dashboard/retranscribe-button';
+import { CopyTranscriptBtn } from '@/components/dashboard/copy-transcript-btn';
 // Helper for formatting time (e.g., 65.4s -> 01:05)
 function formatTimestamp(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -70,13 +72,17 @@ export default async function ProjectDetailsPage({ params }: { params: Promise<{
             </div>
           </div>
           {project.status === 'ready' && (
-            <Link
-              href={`/dashboard/projects/${id}/editor`}
-              className="ml-4 flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-colors"
-            >
-              <Pencil className="w-4 h-4" />
-              Open Editor
-            </Link>
+            <div className="flex items-center">
+              <RetranscribeButton projectId={id} />
+              <ShareButton projectId={id} />
+              <Link
+                href={`/dashboard/projects/${id}/editor`}
+                className="ml-4 flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Open Editor
+              </Link>
+            </div>
           )}
         </div>
 
@@ -164,7 +170,10 @@ function TranscriptViewer({ transcription }: { transcription: Transcription }) {
       {/* Left Column: Readable Paragraphs */}
       <div className="lg:col-span-2 space-y-6">
         <div className="p-6 bg-zinc-950 border border-white/10 rounded-2xl">
-          <h2 className="text-lg font-medium mb-6 text-zinc-200">Readable Transcript</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-medium text-zinc-200">Readable Transcript</h2>
+            <CopyTranscriptBtn segments={segments} />
+          </div>
           <div className="space-y-4 text-zinc-300 leading-relaxed text-lg">
             {segments.map((segment: Segment, i: number) => (
               <p key={i} className="hover:bg-white/5 p-2 rounded-lg transition-colors cursor-pointer group">

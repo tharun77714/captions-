@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type {
   CaptionConfig,
 } from '@/lib/subtitle-schema-v2';
@@ -17,7 +17,7 @@ import { enrichTranscript, SemanticTag } from '@/lib/semantic-engine';
 import { LayoutContext, CaptionBlock, CompositionDiagnostics, compositionEngine } from '@/lib/caption-composition';
 import { measurementService } from '@/lib/measurement-service';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ────────────────────────────────────────────────────────────
 
 // Raw types from API/Database
 export interface RawWord {
@@ -89,7 +89,7 @@ export interface ValidationReport {
   errors: string[];
 }
 
-// â”€â”€â”€ State Interface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── State Interface ──────────────────────────────────────────────────
 interface EditorState {
   // Project data
   projectId: string | null;
@@ -198,6 +198,7 @@ interface EditorState {
   mergeSegments: (id: number) => void;
   deleteSegment: (id: number) => void;
   autoLineBreak: (maxChars?: number) => void;
+  autoSplitByWords: (maxWords: number) => void;
   removeFillers: () => void;
   removePunctuation: () => void;
   removeEmojis: () => void;
@@ -214,11 +215,11 @@ interface EditorState {
   redo: () => void;
 }
 
-// â”€â”€â”€ Default Subtitle Style â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Default Subtitle Style ──────────────────────────────────────────
 /** @deprecated Use DEFAULT_STYLE from subtitle-schema-v2.ts */
 const defaultSubtitleStyle: SubtitleStyleV3 = { ...DEFAULT_STYLE, _version: 3, overrides: EMPTY_OVERRIDES };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const getBackingUpdates = (state: EditorState, newSegments: Segment[]) => {
@@ -282,7 +283,7 @@ const resegmentSync = (oldSegs: Segment[] | undefined, newOriginalSegs: Segment[
   });
 };
 
-// â”€â”€â”€ Store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Store ────────────────────────────────────────────────────────────
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   projectId: null,
@@ -1121,6 +1122,62 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     }),
 
+  autoSplitByWords: (maxWords: number) =>
+    set((state) => {
+      const prevMaxWords = state.captionConfig.maxWordsPerLine;
+      state.captionConfig.maxWordsPerLine = maxWords;
+      const activeWords = [...state.segments.flatMap(s => s.words)].sort((a, b) => a.start - b.start);
+      const originalWords = [...state.originalSegments.flatMap(s => s.words)].sort((a, b) => a.start - b.start);
+      const groups: number[][] = [];
+      let currentGroup: number[] = [];
+      for (let i = 0; i < activeWords.length; i++) {
+        const w = activeWords[i];
+        if (!w.word.trim()) continue;
+        const isWordLimitExceeded = currentGroup.length >= maxWords;
+        if (isWordLimitExceeded) {
+          if (currentGroup.length > 0) groups.push(currentGroup);
+          currentGroup = [i];
+        } else {
+          currentGroup.push(i);
+        }
+        if (/[.!?]$/.test(w.word.trim()) && currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+      }
+      if (currentGroup.length > 0) groups.push(currentGroup);
+      const buildSegmentsFromGroups = (wordsList: Word[]) => {
+        let segId = 1;
+        return groups.map(group => {
+          const groupWords = group.map(idx => wordsList[idx]).filter(Boolean);
+          return {
+            id: segId++,
+            start: groupWords[0]?.start || 0,
+            end: Math.max((groupWords[0]?.start || 0) + 0.1, groupWords[groupWords.length - 1]?.end || 0.1),
+            text: groupWords.map(w => w.word.trim()).join(' '),
+            words: groupWords
+          };
+        });
+      };
+      const newSegments = buildSegmentsFromGroups(activeWords);
+      const newOriginal = buildSegmentsFromGroups(originalWords);
+      const newTranslit = resegmentSync(state.transliteratedSegments, newOriginal);
+      const newTranslated = resegmentSync(state.translatedSegments, newOriginal);
+      const snapshot = getGlobalSnapshot(state);
+      const newPast = [...state.past, snapshot].slice(-50);
+      state.captionConfig.maxWordsPerLine = prevMaxWords;
+      return {
+        segments: newSegments,
+        originalSegments: newOriginal,
+        transliteratedSegments: newTranslit,
+        translatedSegments: newTranslated,
+        past: newPast,
+        future: [],
+        canUndo: true,
+        canRedo: false
+      };
+    }),
+
   autoLineBreak: (maxChars?: number) => 
     set((state) => {
       const limit = maxChars ?? state.captionConfig.maxCharsPerLine ?? 24;
@@ -1487,7 +1544,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 }));
 
-// â”€â”€â”€ Reactive Composition Engine Trigger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Reactive Composition Engine Trigger ──────────────────────────────
 // Automatically trigger the composition engine whenever dependencies change.
 // This ensures that all state mutators (undo, redo, edits, style changes)
 // are automatically caught without manually hooking each function.
@@ -1503,3 +1560,4 @@ useEditorStore.subscribe((state, prevState) => {
     state.recomputeBlocks();
   }
 });
+

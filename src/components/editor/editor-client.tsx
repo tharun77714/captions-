@@ -81,6 +81,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
   const [editorReady, setEditorReady] = useState(false);
+  const [videoZoom, setVideoZoom] = useState(100);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
   const [leftPanel, setLeftPanel] = useState<'transcript' | 'clips'>('transcript');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -361,6 +362,26 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             e.preventDefault();
             setEditMode('word');
             break;
+          case 'j':
+            e.preventDefault();
+            if (video) video.currentTime = Math.max(0, video.currentTime - 10);
+            break;
+          case 'k':
+            e.preventDefault();
+            if (video) { if (video.paused) video.play(); else video.pause(); }
+            break;
+          case 'l':
+            e.preventDefault();
+            if (video) video.currentTime = Math.min(video.duration, video.currentTime + 10);
+            break;
+          case ',':
+            e.preventDefault();
+            if (video) video.currentTime = Math.max(0, video.currentTime - 0.1);
+            break;
+          case '.':
+            e.preventDefault();
+            if (video) video.currentTime = Math.min(video.duration, video.currentTime + 0.1);
+            break;
           case 'arrowleft':
             e.preventDefault();
             if (e.shiftKey) {
@@ -630,8 +651,19 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                   </div>
                 </div>
               )}
+              <div className="flex items-center gap-2 mb-3 self-end">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Zoom</span>
+                {[50, 75, 100, 125].map(z => (
+                  <button key={z} onClick={() => setVideoZoom(z)}
+                    className={`px-2 py-0.5 text-[10px] rounded font-mono transition-colors ${
+                      videoZoom === z ? 'bg-violet-600/30 text-violet-300 border border-violet-500/30' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}>{z}%</button>
+                ))}
+              </div>
               <div className="w-full h-full flex items-center justify-center">
-                <VideoPlayer ref={videoPlayerRef} />
+                <div style={{ transform: `scale(${videoZoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s ease' }}>
+                  <VideoPlayer ref={videoPlayerRef} />
+                </div>
               </div>
             </div>
 
