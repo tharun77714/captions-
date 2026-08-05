@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Wand2, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 interface DolbyEnhanceButtonProps {
   projectId: string;
@@ -64,17 +64,17 @@ export function DolbyEnhanceButton({ projectId, onSuccess }: DolbyEnhanceButtonP
       <button
         onClick={handleEnhance}
         disabled={loading}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-violet-600/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+        className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-800 bg-zinc-900/90 hover:bg-zinc-800/80 text-zinc-300 hover:text-zinc-100 text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
         title="Isolate voice & eliminate background noise with Dolby.io AI"
       >
         {loading ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
         ) : status === 'done' ? (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
         ) : (
-          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+          <Wand2 className="w-3.5 h-3.5 text-violet-400" />
         )}
-        <span>{loading ? 'Enhancing with Dolby...' : status === 'done' ? 'Enhanced!' : 'Dolby AI Voice'}</span>
+        <span>{loading ? 'Enhancing...' : status === 'done' ? 'Enhanced' : 'Dolby Voice'}</span>
       </button>
 
       {status === 'error' && errorMsg && (
