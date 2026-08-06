@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required audio_b64 or s3_key field" }, { status: 400 });
     }
 
-    // Call Modal GPU Full Pipeline with direct s3_key (Zero Base64 HTTP payload limit issue!)
+    // Call Modal GPU Full Pipeline — pass s3_key directly (no base64 payload limit!)
     const modalResponse = await fetch(MODAL_FULL_PIPELINE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

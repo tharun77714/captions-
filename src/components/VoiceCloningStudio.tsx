@@ -33,8 +33,22 @@ const SUPPORTED_LANGUAGES = [
   { code: 'ja', name: 'Japanese (日本語)' },
 ];
 
+const SOURCE_LANGUAGES = [
+  { code: 'auto', name: 'Auto Detect' },
+  { code: 'te', name: 'Telugu (తెలుగు)' },
+  { code: 'hi', name: 'Hindi (हिन्दी)' },
+  { code: 'en', name: 'English (US/UK)' },
+  { code: 'ta', name: 'Tamil (தமிழ்)' },
+  { code: 'kn', name: 'Kannada (ಕನ್ನಡ)' },
+  { code: 'es', name: 'Spanish (Español)' },
+  { code: 'fr', name: 'French (Français)' },
+  { code: 'de', name: 'German (Deutsch)' },
+  { code: 'ja', name: 'Japanese (日本語)' },
+];
+
 export default function VoiceCloningStudio() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [sourceLang, setSourceLang] = useState<string>('auto');
   const [targetLang, setTargetLang] = useState<string>('en');
   
   // Pipeline Processing States
@@ -128,6 +142,7 @@ export default function VoiceCloningStudio() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           s3_key: key,
+          source_language: sourceLang,
           target_language: targetLang
         })
       });
@@ -265,12 +280,30 @@ export default function VoiceCloningStudio() {
             </div>
           </div>
 
-          {/* Right Column: Target Dubbing Language Selection */}
+          {/* Right Column: Source + Target Language Selection */}
           <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
               <Globe className="w-4 h-4 text-cyan-400" />
-              <span>2. Select Target Dubbing Language</span>
+              <span>2. Select Languages</span>
             </label>
+
+            {/* Source Language */}
+            <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-4">
+              <label className="text-[11px] text-zinc-400 mb-2 block font-medium">
+                Original video language:
+              </label>
+              <select
+                value={sourceLang}
+                onChange={(e) => setSourceLang(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-700 text-zinc-200 text-sm rounded-lg p-3 outline-none focus:border-violet-500 cursor-pointer font-medium transition-colors"
+              >
+                {SOURCE_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-5 flex flex-col justify-between h-full">
               <div>
