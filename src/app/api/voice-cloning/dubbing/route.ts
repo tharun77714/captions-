@@ -53,7 +53,7 @@ export async function POST(request: Request) {
           "Authorization": `Token ${DEEPGRAM_API_KEY}`,
           "Content-Type": "audio/wav",
         },
-        body: audioBuffer,
+        body: new Uint8Array(audioBuffer),
       });
 
       if (dgResponse.ok) {
