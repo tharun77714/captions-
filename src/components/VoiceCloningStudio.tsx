@@ -35,11 +35,11 @@ const SUPPORTED_LANGUAGES = [
 
 export default function VoiceCloningStudio() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [audioBase64, setAudioBase64] = useState<string>('');
   const [targetLang, setTargetLang] = useState<string>('en');
   
   // Pipeline Processing States
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -55,7 +55,7 @@ export default function VoiceCloningStudio() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Handle File Upload (Video or Audio)
+  // Handle File Upload Select
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -65,41 +65,72 @@ export default function VoiceCloningStudio() {
     setDubbedAudioUrl(null);
     setOriginalTranscript('');
     setTranslatedScript('');
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64Data = result.split(',')[1];
-      setAudioBase64(base64Data);
-    };
-    reader.readAsDataURL(file);
   };
 
   // Run End-to-End Dubbing & Voice Cloning Pipeline
   const handleStartDubbing = async () => {
-    if (!audioBase64) {
+    if (!mediaFile) {
       setErrorMsg("Please upload a video or audio file first.");
       return;
     }
 
     setIsProcessing(true);
     setErrorMsg(null);
-    setCurrentStep("1/4 Extracting audio dialogue & timestamps with Deepgram STT...");
+    setUploadProgress(0);
+    setCurrentStep("1/4 Initializing Cloudflare R2 Upload...");
 
     try {
-      // Call Dubbing Pipeline API
-      setCurrentStep("2/4 Translating script to Target Language...");
+      // Step A: Initialize presigned R2 upload URL
+      const initRes = await fetch('/api/upload/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: mediaFile.name,
+          contentType: mediaFile.type || 'video/mp4',
+          fileSize: mediaFile.size
+        })
+      });
+
+      if (!initRes.ok) {
+        const errJson = await initRes.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to initialize R2 upload.");
+      }
+
+      const { url, key } = await initRes.json();
+
+      // Step B: Upload file directly to R2 bucket via presigned PUT URL
+      setCurrentStep("2/4 Uploading media to Cloudflare R2 storage...");
       
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', url, true);
+        xhr.setRequestHeader('Content-Type', mediaFile.type || 'video/mp4');
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`R2 Upload failed with status ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error("Network error during R2 upload"));
+        xhr.send(mediaFile);
+      });
+
+      // Step C: Trigger Deepgram STT, Gemini Translation & CosyVoice 2 Modal Synthesis
+      setCurrentStep("3/4 Deepgram STT, Gemini Translation & CosyVoice 2 Synthesis...");
+
       const response = await fetch('/api/voice-cloning/dubbing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          audio_b64: audioBase64,
+          s3_key: key,
           target_language: targetLang
         })
       });
-
-      setCurrentStep("3/4 Synthesizing voice clone on CosyVoice 2-0.5B Modal GPU...");
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -108,7 +139,7 @@ export default function VoiceCloningStudio() {
 
       const data = await response.json();
 
-      setCurrentStep("4/4 Matching speaker pace & aligning timestamps...");
+      setCurrentStep("4/4 Dubbing complete! Matching speaker pace...");
 
       setOriginalTranscript(data.original_transcript || '');
       setTranslatedScript(data.translated_script || '');
@@ -116,8 +147,8 @@ export default function VoiceCloningStudio() {
 
       if (data.dubbed_audio_b64) {
         const audioBlob = b64toBlob(data.dubbed_audio_b64, 'audio/wav');
-        const url = URL.createObjectURL(audioBlob);
-        setDubbedAudioUrl(url);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setDubbedAudioUrl(audioUrl);
       } else {
         throw new Error("No dubbed audio output was returned from voice engine.");
       }
@@ -128,6 +159,7 @@ export default function VoiceCloningStudio() {
     } finally {
       setIsProcessing(false);
       setCurrentStep('');
+      setUploadProgress(0);
     }
   };
 
@@ -213,9 +245,9 @@ export default function VoiceCloningStudio() {
                 
                 {mediaFile ? (
                   <div>
-                    <p className="text-sm font-medium text-emerald-400 flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{mediaFile.name}</span>
+                    <p className="text-sm font-medium text-emerald-400 flex items-center justify-center gap-1.5 truncate max-w-[240px] mx-auto">
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{mediaFile.name}</span>
                     </p>
                     <p className="text-xs text-zinc-500 mt-1">{(mediaFile.size / 1024 / 1024).toFixed(2)} MB loaded</p>
                   </div>
@@ -225,7 +257,7 @@ export default function VoiceCloningStudio() {
                       Drop video or audio file here
                     </p>
                     <p className="text-xs text-zinc-500 mt-1">
-                      MP4, MOV, WEBM, WAV, MP3
+                      MP4, MOV, WEBM, WAV, MP3 (Up to 500 MB)
                     </p>
                   </div>
                 )}
@@ -295,9 +327,19 @@ export default function VoiceCloningStudio() {
           </button>
 
           {isProcessing && (
-            <p className="text-xs text-violet-400 font-mono mt-3 animate-pulse">
-              {currentStep}
-            </p>
+            <div className="w-full max-w-xs mt-4 flex flex-col items-center">
+              <p className="text-xs text-violet-400 font-mono mb-2 animate-pulse text-center">
+                {currentStep} {uploadProgress > 0 && uploadProgress < 100 ? `(${uploadProgress}%)` : ''}
+              </p>
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-violet-500 transition-all duration-200" 
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </div>
 
