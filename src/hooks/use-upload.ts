@@ -108,8 +108,6 @@ export function useUpload() {
           title: file.name,
           s3Key: key,
           sourceLanguage: useUploadStore.getState().sourceLanguage,
-          targetLanguage: useUploadStore.getState().targetLanguage,
-          enableVoiceCloning: useUploadStore.getState().enableVoiceCloning,
           durationMs,
           fileSize: file.size,
           contentType: descriptor.contentType,

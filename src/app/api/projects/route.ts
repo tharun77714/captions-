@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    const { projectId, title, s3Key, durationMs, sourceLanguage, targetLanguage, enableVoiceCloning, fileSize, contentType } = await request.json();
+    const { projectId, title, s3Key, durationMs, sourceLanguage, fileSize, contentType } = await request.json();
 
     if (!isUuid(projectId) || !title || !s3Key) {
       return NextResponse.json({ error: 'Missing or invalid project upload details' }, { status: 400 });
@@ -91,9 +91,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           project_id: project.id,
           s3_key: s3Key,
-          source_language: sourceLanguage || 'auto',
-          target_language: targetLanguage || 'en',
-          enable_voice_cloning: enableVoiceCloning ?? true
+          source_language: sourceLanguage || 'auto'
         }),
         signal: controller.signal,
       });
