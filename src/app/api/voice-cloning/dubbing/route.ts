@@ -47,14 +47,26 @@ export async function POST(request: Request) {
     let utterances: Array<{ text: string; start: number; end: number }> = [];
 
     try {
-      const dgResponse = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true", {
+      let dgResponse = await fetch("https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&utterances=true&punctuate=true", {
         method: "POST",
         headers: {
           "Authorization": `Token ${DEEPGRAM_API_KEY}`,
-          "Content-Type": "audio/wav",
+          "Content-Type": "application/octet-stream",
         },
         body: new Uint8Array(audioBuffer),
       });
+
+      if (!dgResponse.ok) {
+        // Fallback to nova-2 for regional multi-lingual speech
+        dgResponse = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true", {
+          method: "POST",
+          headers: {
+            "Authorization": `Token ${DEEPGRAM_API_KEY}`,
+            "Content-Type": "application/octet-stream",
+          },
+          body: new Uint8Array(audioBuffer),
+        });
+      }
 
       if (dgResponse.ok) {
         const dgData = await dgResponse.json();
