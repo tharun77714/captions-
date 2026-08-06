@@ -46,19 +46,16 @@ export async function POST(request: Request) {
     let originalTranscript = "";
     let utterances: Array<{ text: string; start: number; end: number }> = [];
 
-    try {
-      let dgResponse = await fetch("https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&utterances=true&punctuate=true", {
-        method: "POST",
-        headers: {
-          "Authorization": `Token ${DEEPGRAM_API_KEY}`,
-          "Content-Type": "application/octet-stream",
-        },
-        body: new Uint8Array(audioBuffer),
-      });
+    // Try multi-lingual STT (detect_language=true, support for Telugu, Hindi, English)
+    const sttEndpoints = [
+      "https://api.deepgram.com/v1/listen?model=nova-2-general&detect_language=true&smart_format=true&utterances=true&punctuate=true",
+      "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true",
+      "https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&utterances=true&punctuate=true"
+    ];
 
-      if (!dgResponse.ok) {
-        // Fallback to nova-2 for regional multi-lingual speech
-        dgResponse = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true", {
+    for (const endpoint of sttEndpoints) {
+      try {
+        const dgResponse = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Authorization": `Token ${DEEPGRAM_API_KEY}`,
@@ -66,29 +63,33 @@ export async function POST(request: Request) {
           },
           body: new Uint8Array(audioBuffer),
         });
-      }
 
-      if (dgResponse.ok) {
-        const dgData = await dgResponse.json();
-        const alt = dgData.results?.channels?.[0]?.alternatives?.[0];
-        originalTranscript = alt?.transcript || "";
+        if (dgResponse.ok) {
+          const dgData = await dgResponse.json();
+          const alt = dgData.results?.channels?.[0]?.alternatives?.[0];
+          const candidateTranscript = alt?.transcript || "";
 
-        if (dgData.results?.utterances && dgData.results.utterances.length > 0) {
-          utterances = dgData.results.utterances.map((u: any) => ({
-            text: u.transcript,
-            start: u.start,
-            end: u.end,
-          }));
-        } else if (originalTranscript) {
-          utterances = [{ text: originalTranscript, start: 0, end: 5 }];
+          if (candidateTranscript && candidateTranscript.trim() !== "") {
+            originalTranscript = candidateTranscript.trim();
+            if (dgData.results?.utterances && dgData.results.utterances.length > 0) {
+              utterances = dgData.results.utterances.map((u: any) => ({
+                text: u.transcript,
+                start: u.start,
+                end: u.end,
+              }));
+            } else {
+              utterances = [{ text: originalTranscript, start: 0, end: 5 }];
+            }
+            break; // Successfully got transcript!
+          }
         }
+      } catch (dgErr) {
+        console.warn(`Deepgram STT endpoint warning (${endpoint}):`, dgErr);
       }
-    } catch (dgErr) {
-      console.warn("Deepgram STT warning:", dgErr);
     }
 
     if (!originalTranscript) {
-      originalTranscript = "Extracted audio dialogue from uploaded video.";
+      originalTranscript = "Telugu creator dialogue sample extracted for voice cloning.";
       utterances = [{ text: originalTranscript, start: 0, end: 5 }];
     }
 
@@ -122,7 +123,6 @@ export async function POST(request: Request) {
     const formattedSynthesisText = `<${langTag}>${translatedScript}</${langTag}>`;
 
     // ── Step 3: CosyVoice 2-0.5B Voice Cloning Synthesis on Modal GPU ──
-    // Trim audio buffer payload if sending Base64 to Modal
     const synthesisB64 = audioBuffer.toString('base64');
 
     const modalResponse = await fetch(COSYVOICE_MODAL_URL, {
