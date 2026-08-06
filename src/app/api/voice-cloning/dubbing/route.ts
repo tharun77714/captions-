@@ -19,7 +19,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
-    const { audio_b64, s3_key, target_language = "en" } = await request.json();
+    const { audio_b64, s3_key, source_language = "auto", target_language = "en" } = await request.json();
 
     if (!audio_b64 && !s3_key) {
       return NextResponse.json({ error: "Missing required audio_b64 or s3_key field" }, { status: 400 });
@@ -42,12 +42,19 @@ export async function POST(request: Request) {
 
     const targetLangName = LANGUAGE_NAMES[target_language] || "English";
 
-    // ── Step 1: Deepgram STT (Extract transcript with word/sentence timestamps) ──
+    // ── Step 1: Deepgram STT (Captions Logic: Nova-3 auto-detect + Nova-2 regional) ──
     let originalTranscript = "";
     let utterances: Array<{ text: string; start: number; end: number }> = [];
 
-    // Deepgram Nova-2 STT (Extract transcript with word/sentence timestamps)
+    // Construct Deepgram endpoints based on exact Captions routing logic
+    let primaryEndpoint = "https://api.deepgram.com/v1/listen?model=nova-3&detect_language=true&smart_format=true&utterances=true&punctuate=true";
+    
+    if (source_language !== "auto" && source_language !== "en") {
+      primaryEndpoint = `https://api.deepgram.com/v1/listen?model=nova-2&language=${source_language}&smart_format=true&utterances=true&punctuate=true`;
+    }
+
     const sttEndpoints = [
+      primaryEndpoint,
       "https://api.deepgram.com/v1/listen?model=nova-2-general&detect_language=true&smart_format=true&utterances=true&punctuate=true",
       "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true"
     ];
@@ -88,15 +95,15 @@ export async function POST(request: Request) {
     }
 
     if (!originalTranscript) {
-      originalTranscript = "Telugu creator dialogue sample extracted for voice cloning.";
+      originalTranscript = "Extracted dialogue from uploaded video.";
       utterances = [{ text: originalTranscript, start: 0, end: 5 }];
     }
 
-    // ── Step 2: Translation to Target Language ──────────────────────
+    // ── Step 2: Gemini LLM Translation with Natural Human Prosody ──
     let translatedScript = originalTranscript;
     
     try {
-      const translatePrompt = `Translate the following text into ${targetLangName}. Return ONLY the translated text without extra formatting:\n\n${originalTranscript}`;
+      const translatePrompt = `You are a professional voice director. Translate the following video script into natural, conversational ${targetLangName}. Add natural punctuation (commas, periods, exclamation points) so speech flows naturally like a real human creator speaking, NOT robotic:\n\n${originalTranscript}`;
       
       const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY || ''}`, {
         method: 'POST',
@@ -150,7 +157,7 @@ export async function POST(request: Request) {
       original_transcript: originalTranscript,
       translated_script: translatedScript,
       target_language: target_language,
-      utterances: utterances.map((u, i) => ({
+      utterances: utterances.map((u) => ({
         ...u,
         translated_text: translatedScript
       })),
