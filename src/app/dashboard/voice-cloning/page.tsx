@@ -3,30 +3,28 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { Sparkles } from 'lucide-react';
+import VoiceCloningStudio from '@/components/VoiceCloningStudio';
+import { Sparkles, ArrowLeft } from 'lucide-react';
 
-export default async function DashboardPage() {
+export default async function VoiceCloningPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
   return (
     <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] selection:bg-zinc-800 selection:text-zinc-100 antialiased font-sans">
+      {/* Dashboard Top Navbar */}
       <header className="border-b border-zinc-800/80 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between text-sm">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center shadow-sm">
-              <span className="text-[#09090b] font-bold text-xs">V</span>
-            </div>
-            <span className="font-semibold tracking-tight text-base text-zinc-100">Vidyut Studio</span>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/dashboard" className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center shadow-sm">
+                <span className="text-[#09090b] font-bold text-xs">V</span>
+              </div>
+              <span className="font-semibold tracking-tight text-base text-zinc-100">Vidyut Studio</span>
+            </Link>
+          </div>
+
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline-block text-xs text-zinc-500 border-r border-zinc-800 pr-3 mr-1 truncate max-w-[200px]">
               {user.email}
@@ -69,8 +67,19 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-5xl px-6 py-16 mx-auto">
-        <DashboardClient projects={projects || []} user={{ email: user.email || '' }} />
+      {/* Main Studio View */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="mb-6">
+          <Link 
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Studio Workspace</span>
+          </Link>
+        </div>
+
+        <VoiceCloningStudio />
       </main>
     </div>
   );
