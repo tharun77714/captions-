@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import Navbar from '@/components/Navbar';
+import VoiceCloningStudio from '@/components/VoiceCloningStudio';
 import { 
   Sparkles, 
   CheckCircle2, 
@@ -88,42 +90,8 @@ export default function Home() {
       {/* Subtle architectural background grid */}
       <div className="fixed inset-0 pointer-events-none opacity-20 bg-[linear-gradient(to_right,#18181b_1px,transparent_1px),linear-gradient(to_bottom,#18181b_1px,transparent_1px)] bg-[size:48px_48px] -z-10" />
 
-      {/* Clean Minimalist Top Navigation */}
-      <header className="sticky top-0 z-50 bg-[#09090b]/80 backdrop-blur-md border-b border-zinc-800/80 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center shadow-sm">
-              <span className="text-[#09090b] font-bold text-xs">V</span>
-            </div>
-            <span className="font-semibold tracking-tight text-base text-zinc-100">Vidyut Studio</span>
-            <span className="ml-1 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/50">
-              v2.0
-            </span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-normal text-zinc-400">
-            <a href="#workspace" className="hover:text-zinc-100 transition-colors">Workspace</a>
-            <a href="#philosophy" className="hover:text-zinc-100 transition-colors">Philosophy</a>
-            <a href="#testimonials" className="hover:text-zinc-100 transition-colors">Testimonials</a>
-            <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</a>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <Link 
-              href="/auth/login" 
-              className="text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link 
-              href="/auth/sign-up" 
-              className="px-3.5 py-2 rounded-md text-sm font-medium bg-zinc-100 text-[#09090b] hover:bg-white transition-all shadow-sm"
-            >
-              Start Free Trial
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Modern Sleek Navigation */}
+      <Navbar />
 
       {/* Serene Hero Section */}
       <section className="relative pt-24 pb-20 px-6 max-w-5xl mx-auto text-center">
@@ -142,10 +110,10 @@ export default function Home() {
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link 
-            href="/auth/sign-up" 
+            href="#voice-cloning" 
             className="w-full sm:w-auto px-6 py-2.5 rounded-md bg-zinc-100 text-[#09090b] font-medium text-sm hover:bg-white transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span>Launch Studio</span>
+            <span>Try Voice Cloning Studio</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <a 
@@ -155,6 +123,9 @@ export default function Home() {
             Explore Workspace
           </a>
         </div>
+
+        {/* Voice Cloning Studio Web Component */}
+        <VoiceCloningStudio />
 
         {/* Lumina Interactive Studio Preview */}
         <div id="workspace" className="mt-16 max-w-5xl mx-auto rounded-xl border border-zinc-800/80 bg-[#121215]/80 shadow-2xl overflow-hidden text-left">
