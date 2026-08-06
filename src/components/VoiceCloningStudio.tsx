@@ -206,7 +206,7 @@ export default function VoiceCloningStudio() {
       <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Deepgram Nova-3 STT + Gemini 1.5 + CosyVoice 2-0.5B</span>
+          <span>Deepgram Nova-2 STT + Gemini 1.5 + CosyVoice 2-0.5B</span>
         </div>
         
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-100">

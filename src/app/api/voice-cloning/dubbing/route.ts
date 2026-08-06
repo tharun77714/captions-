@@ -46,11 +46,10 @@ export async function POST(request: Request) {
     let originalTranscript = "";
     let utterances: Array<{ text: string; start: number; end: number }> = [];
 
-    // Try multi-lingual STT (detect_language=true, support for Telugu, Hindi, English)
+    // Deepgram Nova-2 STT (Extract transcript with word/sentence timestamps)
     const sttEndpoints = [
       "https://api.deepgram.com/v1/listen?model=nova-2-general&detect_language=true&smart_format=true&utterances=true&punctuate=true",
-      "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true",
-      "https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&utterances=true&punctuate=true"
+      "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&punctuate=true"
     ];
 
     for (const endpoint of sttEndpoints) {
