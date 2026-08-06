@@ -246,17 +246,4 @@ export function DragAndDrop() {
       </div>
     </div>
   );
-}n">Kannada (ಕன்னட)</option>
-          <option value="ml">Malayalam (മലയാളം)</option>
-          <option value="en">English (US/UK/IN)</option>
-        </select>
-      </div>
-
-      <div className="flex items-center gap-2 mt-6 text-[11px] font-mono text-zinc-600">
-        <span>MP4 · MOV · WEBM</span>
-        <span>/</span>
-        <span>MAX 500 MB</span>
-      </div>
-    </div>
-  );
 }
