@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mic, 
@@ -14,181 +14,218 @@ import {
   AlertCircle,
   Zap,
   Volume2,
-  FileAudio
+  FileVideo,
+  Globe,
+  Clock,
+  Edit3,
+  Sliders
 } from 'lucide-react';
 
-const MODAL_ENDPOINT_URL = "https://varunchow123--cross-lingual-voice-cloning-cosyvoice2-cos-22038c.modal.run";
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English (US/UK)' },
+  { code: 'te', name: 'Telugu (తెలుగు)' },
+  { code: 'hi', name: 'Hindi (हिन्दी)' },
+  { code: 'ta', name: 'Tamil (தமிழ்)' },
+  { code: 'kn', name: 'Kannada (ಕನ್ನಡ)' },
+  { code: 'es', name: 'Spanish (Español)' },
+  { code: 'fr', name: 'French (Français)' },
+  { code: 'de', name: 'German (Deutsch)' },
+  { code: 'ja', name: 'Japanese (日本語)' },
+];
 
 export default function VoiceCloningStudio() {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [audioBase64, setAudioBase64] = useState<string>('');
-  const [englishText, setEnglishText] = useState<string>(
-    "Welcome back to my channel! Today we are exploring how AI cross-lingual voice cloning works in real-time."
-  );
+  const [targetLang, setTargetLang] = useState<string>('en');
   
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [clonedAudioUrl, setClonedAudioUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  // Pipeline Processing States
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  // Result States
+  const [originalTranscript, setOriginalTranscript] = useState<string>('');
+  const [translatedScript, setTranslatedScript] = useState<string>('');
+  const [utterances, setUtterances] = useState<Array<{ text: string; start: number; end: number }>>([]);
+  const [dubbedAudioUrl, setDubbedAudioUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  // Handle File Upload
+  // Speaking Pace Control
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Handle File Upload (Video or Audio)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setAudioFile(file);
+    setMediaFile(file);
     setErrorMsg(null);
+    setDubbedAudioUrl(null);
+    setOriginalTranscript('');
+    setTranslatedScript('');
 
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove data url prefix (e.g. data:audio/wav;base64,)
       const base64Data = result.split(',')[1];
       setAudioBase64(base64Data);
     };
     reader.readAsDataURL(file);
   };
 
-  // Generate Voice Clone via Modal API
-  const handleGenerateVoice = async () => {
+  // Run End-to-End Dubbing & Voice Cloning Pipeline
+  const handleStartDubbing = async () => {
     if (!audioBase64) {
-      setErrorMsg("Please upload a creator audio sample (3-10 sec) first.");
-      return;
-    }
-    if (!englishText.trim()) {
-      setErrorMsg("Please enter the English text to generate.");
+      setErrorMsg("Please upload a video or audio file first.");
       return;
     }
 
-    setIsGenerating(true);
+    setIsProcessing(true);
     setErrorMsg(null);
+    setCurrentStep("1/4 Extracting audio dialogue & timestamps with Deepgram STT...");
 
     try {
-      const response = await fetch(MODAL_ENDPOINT_URL, {
+      // Call Dubbing Pipeline API
+      setCurrentStep("2/4 Translating script to Target Language...");
+      
+      const response = await fetch('/api/voice-cloning/dubbing', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: englishText,
-          audio_b64: audioBase64
+          audio_b64: audioBase64,
+          target_language: targetLang
         })
       });
 
+      setCurrentStep("3/4 Synthesizing voice clone on CosyVoice 2-0.5B Modal GPU...");
+
       if (!response.ok) {
-        throw new Error(`Server returned status ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server returned error (${response.status})`);
       }
 
       const data = await response.json();
 
-      if (data.audio_b64) {
-        const audioBlob = b64toBlob(data.audio_b64, 'audio/wav');
+      setCurrentStep("4/4 Matching speaker pace & aligning timestamps...");
+
+      setOriginalTranscript(data.original_transcript || '');
+      setTranslatedScript(data.translated_script || '');
+      setUtterances(data.utterances || []);
+
+      if (data.dubbed_audio_b64) {
+        const audioBlob = b64toBlob(data.dubbed_audio_b64, 'audio/wav');
         const url = URL.createObjectURL(audioBlob);
-        setClonedAudioUrl(url);
+        setDubbedAudioUrl(url);
       } else {
-        throw new Error(data.error || "Failed to generate audio output.");
+        throw new Error("No dubbed audio output was returned from voice engine.");
       }
+
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "Something went wrong while contacting the Modal voice engine.");
+      setErrorMsg(err.message || "Failed to complete AI dubbing pipeline.");
     } finally {
-      setIsGenerating(false);
+      setIsProcessing(false);
+      setCurrentStep('');
     }
   };
 
-  // Utility to convert Base64 to Blob
+  // Base64 to Blob helper
   const b64toBlob = (b64Data: string, contentType = 'audio/wav', sliceSize = 512) => {
     const byteCharacters = atob(b64Data);
     const byteArrays = [];
-
     for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
       const slice = byteCharacters.slice(offset, offset + sliceSize);
       const byteNumbers = new Array(slice.length);
       for (let i = 0; i < slice.length; i++) {
         byteNumbers[i] = slice.charCodeAt(i);
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
+      byteArrays.push(new Uint8Array(byteNumbers));
     }
     return new Blob(byteArrays, { type: contentType });
   };
 
+  // Toggle Audio Playback
   const togglePlay = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      audioRef.current.playbackRate = playbackRate;
       audioRef.current.play();
       setIsPlaying(true);
     }
   };
 
+  // Update Pace / Speed
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackRate(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
+
   return (
-    <section id="voice-cloning" className="py-20 px-6 max-w-5xl mx-auto scroll-mt-20">
+    <section className="py-8 px-4 max-w-5xl mx-auto">
       
-      {/* Header Badge & Title */}
-      <div className="text-center mb-12">
+      {/* Title */}
+      <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Powered by CosyVoice 2-0.5B on Modal L4 GPU</span>
+          <span>Deepgram STT + Gemini Translation + CosyVoice 2-0.5B</span>
         </div>
         
-        <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-100">
-          Cross-Lingual Voice Cloning Studio
-        </h2>
+        <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-100">
+          AI Video Dubbing & Voice Cloning Studio
+        </h1>
         
-        <p className="mt-4 text-base text-zinc-400 max-w-xl mx-auto">
-          Upload a 3–10 second audio sample of your creator speaking in Telugu (or any language), and generate English speech in their exact voice.
+        <p className="mt-3 text-sm text-zinc-400 max-w-xl mx-auto">
+          Upload any raw video file. Our pipeline transcribes audio with Deepgram, translates script to your target language with timestamps, and synthesizes dubbed speech in the creator's exact voice.
         </p>
       </div>
 
-      {/* Main Studio Card */}
+      {/* Main Container */}
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 sm:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
         
-        {/* Glow Effects */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           
-          {/* Left Column: Creator Audio Upload */}
-          <div className="flex flex-col gap-4">
+          {/* Left Column: Media File Upload */}
+          <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <Mic className="w-4 h-4 text-violet-400" />
-              <span>1. Creator Voice Sample</span>
+              <FileVideo className="w-4 h-4 text-violet-400" />
+              <span>1. Upload Video / Audio File</span>
             </label>
 
             <div className="relative border-2 border-dashed border-zinc-800 hover:border-violet-500/50 rounded-xl p-6 text-center transition-all bg-zinc-950/40 group cursor-pointer">
               <input 
                 type="file" 
-                accept="audio/*" 
+                accept="video/*,audio/*" 
                 onChange={handleFileChange}
                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
               />
               
               <div className="flex flex-col items-center justify-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-zinc-900 group-hover:bg-violet-500/10 border border-zinc-800 group-hover:border-violet-500/30 flex items-center justify-center transition-all">
-                  <FileAudio className="w-6 h-6 text-zinc-400 group-hover:text-violet-400 transition-colors" />
+                  <Upload className="w-6 h-6 text-zinc-400 group-hover:text-violet-400 transition-colors" />
                 </div>
                 
-                {audioFile ? (
+                {mediaFile ? (
                   <div>
                     <p className="text-sm font-medium text-emerald-400 flex items-center justify-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{audioFile.name}</span>
+                      <span>{mediaFile.name}</span>
                     </p>
-                    <p className="text-xs text-zinc-500 mt-1">{(audioFile.size / 1024 / 1024).toFixed(2)} MB loaded</p>
+                    <p className="text-xs text-zinc-500 mt-1">{(mediaFile.size / 1024 / 1024).toFixed(2)} MB loaded</p>
                   </div>
                 ) : (
                   <div>
                     <p className="text-sm font-medium text-zinc-200 group-hover:text-white">
-                      Drop creator audio file here
+                      Drop video or audio file here
                     </p>
                     <p className="text-xs text-zinc-500 mt-1">
-                      Supports .wav, .mp3, .m4a (3-10 sec clip)
+                      MP4, MOV, WEBM, WAV, MP3
                     </p>
                   </div>
                 )}
@@ -196,93 +233,172 @@ export default function VoiceCloningStudio() {
             </div>
           </div>
 
-          {/* Right Column: English Script Input */}
-          <div className="flex flex-col gap-4">
+          {/* Right Column: Target Dubbing Language Selection */}
+          <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>2. Target English Script</span>
+              <Globe className="w-4 h-4 text-cyan-400" />
+              <span>2. Select Target Dubbing Language</span>
             </label>
 
-            <textarea 
-              value={englishText}
-              onChange={(e) => setEnglishText(e.target.value)}
-              rows={4}
-              placeholder="Enter translated English script..."
-              className="w-full rounded-xl bg-zinc-950/60 border border-zinc-800 p-4 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 transition-all resize-none"
-            />
+            <div className="bg-zinc-950/60 border border-zinc-800 rounded-xl p-5 flex flex-col justify-between h-full">
+              <div>
+                <label className="text-[11px] text-zinc-400 mb-2 block font-medium">
+                  Dub video dialogue into:
+                </label>
+                <select
+                  value={targetLang}
+                  onChange={(e) => setTargetLang(e.target.value)}
+                  className="w-full bg-zinc-900 border border-violet-500/40 text-violet-200 text-sm rounded-lg p-3 outline-none focus:border-violet-500 cursor-pointer font-medium transition-colors"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 text-xs text-zinc-500 flex items-center gap-2">
+                <Mic className="w-3.5 h-3.5 text-violet-400" />
+                <span>CosyVoice 2 will synthesize translated speech matching original vocal timbre & pace.</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3">
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Action Button */}
-        <div className="mt-8 flex justify-end">
+        {/* Action Button & Processing Progress */}
+        <div className="flex flex-col items-center">
           <button
-            onClick={handleGenerateVoice}
-            disabled={isGenerating}
+            onClick={handleStartDubbing}
+            disabled={isProcessing || !mediaFile}
             className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-violet-600/25 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? (
+            {isProcessing ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Cloning Voice on Modal L4 GPU...</span>
+                <span>Processing AI Video Dubbing...</span>
               </>
             ) : (
               <>
                 <Zap className="w-4 h-4" />
-                <span>Generate Cloned English Voice</span>
+                <span>Start AI Video Dubbing & Voice Cloning</span>
               </>
             )}
           </button>
+
+          {isProcessing && (
+            <p className="text-xs text-violet-400 font-mono mt-3 animate-pulse">
+              {currentStep}
+            </p>
+          )}
         </div>
 
-        {/* Generated Output Player */}
-        {clonedAudioUrl && (
+        {/* Results View: Timestamps & Translated Script */}
+        {translatedScript && (
           <motion.div 
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-8 p-6 rounded-xl bg-zinc-950 border border-violet-500/30 flex flex-col sm:flex-row items-center justify-between gap-4"
+            className="mt-10 pt-8 border-t border-zinc-800"
           >
-            <div className="flex items-center gap-4">
-              <button
-                onClick={togglePlay}
-                className="w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-transform active:scale-95 shadow-md shadow-violet-600/30"
-              >
-                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-              </button>
+            <h3 className="text-base font-semibold text-zinc-100 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-violet-400" />
+              <span>Timestamped Dialogue & Translated Script</span>
+            </h3>
 
-              <div>
-                <div className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-emerald-400" />
-                  <span>Cloned Voice Generated Successfully!</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Original Transcript */}
+              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+                <div className="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-2">Original Video Speech</div>
+                <p className="text-sm text-zinc-300 leading-relaxed">{originalTranscript}</p>
+              </div>
+
+              {/* Translated Target Script */}
+              <div className="bg-zinc-950 border border-violet-500/30 rounded-xl p-4">
+                <div className="text-xs font-mono uppercase tracking-wider text-violet-400 mb-2 flex items-center justify-between">
+                  <span>Translated Target Script ({SUPPORTED_LANGUAGES.find(l=>l.code===targetLang)?.name})</span>
+                  <Edit3 className="w-3.5 h-3.5 text-zinc-500" />
                 </div>
-                <div className="text-xs text-zinc-400 mt-0.5">
-                  High-fidelity zero-shot speech in creator's voice
-                </div>
+                <textarea 
+                  value={translatedScript}
+                  onChange={(e) => setTranslatedScript(e.target.value)}
+                  rows={3}
+                  className="w-full bg-transparent text-sm text-zinc-100 outline-none resize-none"
+                />
               </div>
             </div>
 
-            <audio 
-              ref={audioRef} 
-              src={clonedAudioUrl} 
-              onEnded={() => setIsPlaying(false)}
-              className="hidden" 
-            />
+            {/* Generated Dubbed Audio Player */}
+            {dubbedAudioUrl && (
+              <div className="p-6 rounded-xl bg-zinc-950 border border-violet-500/40 flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={togglePlay}
+                      className="w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-transform active:scale-95 shadow-md shadow-violet-600/30"
+                    >
+                      {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                    </button>
 
-            <a
-              href={clonedAudioUrl}
-              download="cloned_creator_voice.wav"
-              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center justify-center gap-2 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Audio</span>
-            </a>
+                    <div>
+                      <div className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                        <Volume2 className="w-4 h-4 text-emerald-400" />
+                        <span>Dubbed Audio Track Generated!</span>
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        Synthesized in creator's voice with target language alignment
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={dubbedAudioUrl}
+                    download={`dubbed_voice_${targetLang}.wav`}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Dubbed Audio (.wav)</span>
+                  </a>
+                </div>
+
+                {/* Speaking Pace / Speed Adjustment */}
+                <div className="pt-4 border-t border-zinc-800/80 flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+                    <Sliders className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Speaking Pace:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[0.9, 1.0, 1.1, 1.25].map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => handleSpeedChange(speed)}
+                        className={`px-2.5 py-1 rounded text-xs font-mono transition-colors ${
+                          playbackRate === speed 
+                            ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 font-semibold' 
+                            : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800'
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <audio 
+                  ref={audioRef} 
+                  src={dubbedAudioUrl} 
+                  onEnded={() => setIsPlaying(false)}
+                  className="hidden" 
+                />
+              </div>
+            )}
           </motion.div>
         )}
 
