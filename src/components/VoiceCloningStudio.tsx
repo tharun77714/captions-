@@ -133,7 +133,7 @@ export default function VoiceCloningStudio() {
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Self-Hosted Serverless Engine on Modal</span>
+          <span>Powered by CosyVoice 2-0.5B on Modal L4 GPU</span>
         </div>
         
         <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-100">
@@ -141,7 +141,7 @@ export default function VoiceCloningStudio() {
         </h2>
         
         <p className="mt-4 text-base text-zinc-400 max-w-xl mx-auto">
-          Upload a 3–10 second audio sample of your creator speaking in Telugu (or any language), and hear them speak English in their exact voice.
+          Upload a 3–10 second audio sample of your creator speaking in Telugu (or any language), and generate English speech in their exact voice.
         </p>
       </div>
 
