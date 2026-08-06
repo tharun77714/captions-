@@ -17,7 +17,7 @@ import {
   FileAudio
 } from 'lucide-react';
 
-const MODAL_ENDPOINT_URL = "https://varunchow123--cross-lingual-voice-cloning-api-clone-voice.modal.run";
+const MODAL_ENDPOINT_URL = "https://varunchow123--cross-lingual-voice-cloning-cosyvoice2-cos-22038c.modal.run";
 
 export default function VoiceCloningStudio() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
