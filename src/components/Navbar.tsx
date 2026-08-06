@@ -102,6 +102,11 @@ export default function Navbar() {
             <span>Voice Cloning</span>
           </Link>
 
+          <Link href="/dashboard/svara-voice" className="px-3 py-1.5 rounded-md hover:text-zinc-100 hover:bg-zinc-800/50 transition-all flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Voice Svara</span>
+          </Link>
+
           <Link href="#pricing" className="px-3 py-1.5 rounded-md hover:text-zinc-100 hover:bg-zinc-800/50 transition-all">
             Pricing
           </Link>
@@ -159,6 +164,14 @@ export default function Navbar() {
               >
                 <Mic className="w-4 h-4 text-violet-400" />
                 <span>AI Voice Cloning</span>
+              </Link>
+              <Link 
+                href="/dashboard/svara-voice" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 py-2 text-zinc-300 hover:text-white"
+              >
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span>Voice Svara</span>
               </Link>
               <Link 
                 href="#features" 

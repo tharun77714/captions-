@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import VoiceCloningStudio from '@/components/VoiceCloningStudio';
+import SvaraVoiceStudio from '@/components/SvaraVoiceStudio';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 
-export default async function VoiceCloningPage() {
+export default async function SvaraVoicePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
@@ -31,16 +31,16 @@ export default async function VoiceCloningPage() {
             </span>
             <Link 
               href="/dashboard/voice-cloning" 
-              className="rounded-md border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-300 font-medium flex items-center gap-1.5 hover:bg-violet-500/20 transition-colors shadow-sm shadow-violet-500/10"
+              className="rounded-md border border-zinc-800/80 bg-zinc-900/40 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/60 transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-              <span>Voice Cloning</span>
+              Voice Cloning
             </Link>
             <Link 
               href="/dashboard/svara-voice" 
-              className="rounded-md border border-zinc-800/80 bg-zinc-900/40 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/60 transition-colors"
+              className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-300 font-medium flex items-center gap-1.5 hover:bg-cyan-500/20 transition-colors shadow-sm shadow-cyan-500/10"
             >
-              Voice Svara
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Voice Svara</span>
             </Link>
             <Link 
               href="/dashboard/exports" 
@@ -85,7 +85,7 @@ export default async function VoiceCloningPage() {
           </Link>
         </div>
 
-        <VoiceCloningStudio />
+        <SvaraVoiceStudio />
       </main>
     </div>
   );
