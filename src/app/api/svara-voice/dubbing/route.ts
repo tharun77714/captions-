@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const MODAL_SVARA_PIPELINE_URL = process.env.MODAL_SVARA_PIPELINE_URL || "YOUR_SVARA_MODAL_URL_HERE";
+const MODAL_SVARA_PIPELINE_URL = process.env.MODAL_SVARA_PIPELINE_URL || "https://varunchow123--cross-lingual-voice-cloning-svara-svaratts-7e7188.modal.run";
 
 export async function POST(request: Request) {
   try {
