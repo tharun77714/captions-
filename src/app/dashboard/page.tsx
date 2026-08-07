@@ -39,6 +39,13 @@ export default async function DashboardPage() {
               <span>Voice Cloning</span>
             </Link>
             <Link 
+              href="/dashboard/svara-voice" 
+              className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-300 font-medium flex items-center gap-1.5 hover:bg-cyan-500/20 transition-colors shadow-sm shadow-cyan-500/10"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Voice Svara</span>
+            </Link>
+            <Link 
               href="/dashboard/exports" 
               className="rounded-md border border-zinc-800/80 bg-zinc-900/40 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/60 transition-colors"
             >
