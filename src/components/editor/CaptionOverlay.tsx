@@ -61,7 +61,6 @@ export const CaptionOverlay = React.forwardRef<HTMLSpanElement, CaptionOverlayPr
             fontSize: `${subtitleStyle.fontSize}px`,
             fontWeight: subtitleStyle.font.weight,
             letterSpacing: `${subtitleStyle.letterSpacing}px`,
-            wordSpacing: `${subtitleStyle.wordSpacing}px`,
             lineHeight: subtitleStyle.lineSpacing,
             textAlign: subtitleStyle.alignment,
             color: subtitleStyle.textColor.solid,

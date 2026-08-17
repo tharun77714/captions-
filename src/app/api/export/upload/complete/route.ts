@@ -70,7 +70,8 @@ export async function POST(request: Request) {
         export_url: s3Key,
         export_error: null,
       })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .eq('user_id', user.id);
 
     if (updateError) {
       console.error('[UploadCompleteAPI] Failed to update project in Supabase:', updateError);

@@ -226,6 +226,7 @@ export const EMPTY_OVERRIDES: StyleOverrides = {
 
 export interface SubtitleStyleV3 extends Omit<SubtitleStyleV2, '_version'> {
   _version: 3;
+  canvasUnitVersion?: number;
   overrides: StyleOverrides;
   activePreset?: {
     id: string;
@@ -296,6 +297,7 @@ export interface ResolvedWordStyle {
 export const DEFAULT_STYLE_V3: SubtitleStyleV3 = {
   ...DEFAULT_STYLE,
   _version: 3,
+  canvasUnitVersion: 1,
   overrides: { ...EMPTY_OVERRIDES },
 };
 
@@ -303,7 +305,7 @@ export const DEFAULT_STYLE_V3: SubtitleStyleV3 = {
 // STYLE RESOLUTION — Cascade: Project → Line → Word
 // ═══════════════════════════════════════════════════════════════════════
 
-import { evaluatePresetRule } from './preset-engine';
+import { evaluatePresetRule, PRESET_FONT_MAP } from './preset-engine';
 import type { SemanticTag } from './semantic-engine';
 
 /**
@@ -327,8 +329,8 @@ export function resolveWordStyle(
   let presetOverride: Partial<ResolvedWordStyle> | null = null;
   if (projectStyle.activePreset && semanticTag) {
     presetOverride = evaluatePresetRule(
-      semanticTag, 
-      projectStyle.activePreset.id, 
+      semanticTag,
+      projectStyle.activePreset.id,
       projectStyle.activePreset.version
     );
   }
@@ -362,8 +364,8 @@ export function resolveWordStyle(
     // Color
     textColor: resolve(wordOverride?.textColor, segOverride?.textColor, presetOverride?.textColor, projectStyle.textColor.solid),
     gradient: resolve(
-      wordOverride?.gradient, 
-      segOverride?.gradient, 
+      wordOverride?.gradient,
+      segOverride?.gradient,
       presetOverride?.gradient,
       projectStyle.textColor.mode === 'gradient' ? {
         type: 'linear',
@@ -376,7 +378,7 @@ export function resolveWordStyle(
     ),
     strokeColor: resolve(wordOverride?.strokeColor, segOverride?.strokeColor, presetOverride?.strokeColor, projectStyle.stroke.color),
     strokeWidth: resolve(wordOverride?.strokeWidth, segOverride?.strokeWidth, presetOverride?.strokeWidth, projectStyle.stroke.width),
-    strokeEnabled: projectStyle.stroke.enabled || 
+    strokeEnabled: projectStyle.stroke.enabled ||
       (wordOverride?.strokeWidth !== undefined && wordOverride.strokeWidth > 0) ||
       (segOverride?.strokeWidth !== undefined && segOverride.strokeWidth > 0) ||
       (presetOverride?.strokeWidth !== undefined && presetOverride.strokeWidth > 0),
@@ -445,19 +447,71 @@ export function isV3(style: unknown): style is SubtitleStyleV3 {
  * - V3 passthrough with self-healing
  */
 export function ensureV3(style: unknown): SubtitleStyleV3 {
-  if (isV3(style)) {
-    // Self-heal: ensure overrides object exists
-    const v3 = style as SubtitleStyleV3;
-    if (!v3.overrides) {
-      v3.overrides = { wordStyles: {}, segmentStyles: {} };
-    }
-    if (!v3.overrides.wordStyles) v3.overrides.wordStyles = {};
-    if (!v3.overrides.segmentStyles) v3.overrides.segmentStyles = {};
-    return v3;
+  const base = JSON.parse(JSON.stringify(DEFAULT_STYLE_V3)) as SubtitleStyleV3;
+
+  if (!style || typeof style !== 'object') {
+    return base;
   }
-  // Ensure V2 first, then migrate to V3
-  const v2 = ensureV2(style);
-  return migrateV2ToV3(v2);
+
+  // Pure clone to prevent mutating the original input
+  const cloned = JSON.parse(JSON.stringify(style)) as Partial<SubtitleStyleV3>;
+  let v3: SubtitleStyleV3;
+
+  if (isV3(cloned)) {
+    v3 = cloned as SubtitleStyleV3;
+  } else {
+    const v2 = ensureV2(cloned);
+    v3 = migrateV2ToV3(v2);
+  }
+
+  // Protect against malformed fontSize
+  if (typeof v3.fontSize !== 'number' || !isFinite(v3.fontSize) || v3.fontSize <= 0) {
+    base.fontSize = DEFAULT_STYLE_V3.fontSize; // canonical 160
+  } else {
+    // Unversioned finite fontSize below 60 becomes 96
+    if (v3.canvasUnitVersion === undefined && v3.fontSize < 60) {
+      base.fontSize = 96;
+    } else {
+      base.fontSize = v3.fontSize;
+    }
+  }
+
+  // Deeply merge into base to guarantee no missing fields
+  if (v3.font) base.font = { ...base.font, ...v3.font };
+  if (typeof v3.letterSpacing === 'number' && isFinite(v3.letterSpacing)) base.letterSpacing = v3.letterSpacing;
+  if (typeof v3.wordSpacing === 'number' && isFinite(v3.wordSpacing)) base.wordSpacing = v3.wordSpacing;
+  if (typeof v3.lineSpacing === 'number' && isFinite(v3.lineSpacing)) base.lineSpacing = v3.lineSpacing;
+
+  if (v3.textColor) base.textColor = { ...base.textColor, ...v3.textColor };
+  if (v3.stroke) base.stroke = { ...base.stroke, ...v3.stroke };
+  if (v3.shadow) base.shadow = { ...base.shadow, ...v3.shadow };
+  if (v3.background) base.background = { ...base.background, ...v3.background };
+
+  if (typeof v3.blur === 'number' && isFinite(v3.blur)) base.blur = v3.blur;
+  if (v3.alignment) base.alignment = v3.alignment;
+  if (typeof v3.positionX === 'number' && isFinite(v3.positionX)) base.positionX = v3.positionX;
+  if (typeof v3.positionY === 'number' && isFinite(v3.positionY)) base.positionY = v3.positionY;
+  if (v3.highlightMode) base.highlightMode = v3.highlightMode;
+  if (v3.activeWordColor) base.activeWordColor = v3.activeWordColor;
+  if (typeof v3.inactiveOpacity === 'number' && isFinite(v3.inactiveOpacity)) base.inactiveOpacity = v3.inactiveOpacity;
+
+  if (v3.transition) base.transition = { ...base.transition, ...v3.transition };
+  if (v3.activePreset) base.activePreset = { ...v3.activePreset };
+
+  if (v3.overrides) {
+    if (v3.overrides.wordStyles) {
+      for (const [k, v] of Object.entries(v3.overrides.wordStyles)) {
+        if (v) base.overrides.wordStyles[k] = { ...v };
+      }
+    }
+    if (v3.overrides.segmentStyles) {
+      for (const [k, v] of Object.entries(v3.overrides.segmentStyles)) {
+        if (v) base.overrides.segmentStyles[Number(k)] = { ...v };
+      }
+    }
+  }
+
+  return base;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -474,6 +528,15 @@ export function wordHasOverrides(style: SubtitleStyleV3, wordId: string): boolea
 export function segmentHasOverrides(style: SubtitleStyleV3, segmentId: number): boolean {
   const override = style.overrides.segmentStyles[segmentId];
   return !!override && Object.keys(override).length > 0;
+}
+
+/**
+ * Computes the canonical inter-word gap to apply between rendered words.
+ * Consumes the measured natural space width of the active font.
+ * Negative wordSpacing safely subtracts without going below 0.
+ */
+export function getInterWordGap(measuredNaturalSpaceWidth: number, wordSpacing?: number): number {
+  return Math.max(0, measuredNaturalSpaceWidth + (wordSpacing || 0));
 }
 
 /** Remove all undefined values from an override to keep it clean */
@@ -493,7 +556,6 @@ export function getAllUsedFonts(style: SubtitleStyleV3): string[] {
   fonts.add(style.font.family);
 
   if (style.activePreset) {
-    const { PRESET_FONT_MAP } = require('./preset-engine');
     if (PRESET_FONT_MAP[style.activePreset.id]) {
       fonts.add(PRESET_FONT_MAP[style.activePreset.id]);
     }

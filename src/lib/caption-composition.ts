@@ -1,5 +1,5 @@
 import { Word, Segment } from '@/store/editor-store';
-import { SubtitleStyleV3 } from '@/lib/subtitle-schema-v3';
+import { SubtitleStyleV3, getInterWordGap } from '@/lib/subtitle-schema-v3';
 
 // ─── Models ─────────────────────────────────────────────────────────────
 
@@ -38,12 +38,12 @@ export interface Line {
 }
 
 
-export type ManualConstraint = 
-  | "lineBreak" 
-  | "blockBreak" 
-  | "keepTogether" 
-  | "keepApart" 
-  | "pinLine" 
+export type ManualConstraint =
+  | "lineBreak"
+  | "blockBreak"
+  | "keepTogether"
+  | "keepApart"
+  | "pinLine"
   | "excludeBalancing";
 
 export interface ManualOverride {
@@ -254,29 +254,29 @@ export class PhraseDetector {
 
   static detect(words: Word[], preset: CompositionPreset, blockBreaks: Set<string>, keepTogether: Set<string>): WordGroup[] {
     if (words.length === 0) return [];
-    
+
     const maxWords = preset.parameters.maxWordsPerLine * preset.parameters.maxLinesPerBlock;
     const groups: WordGroup[] = [];
     let currentGroup: Word[] = [];
-    
+
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
       const cleanWord = w.word.trim().toLowerCase();
       currentGroup.push(w);
-      
+
       const lastChar = cleanWord.slice(-1);
       const isEndPunct = this.END_PUNCTUATION.has(lastChar);
       const isWeakPunct = this.WEAK_PUNCTUATION.has(lastChar);
-      
+
       const nextWord = i < words.length - 1 ? words[i+1].word.trim().toLowerCase() : null;
       const isNextConjunction = nextWord ? this.CONJUNCTIONS.has(nextWord) : false;
-      
+
       const hitMaxLength = currentGroup.length >= maxWords;
-      
+
       let shouldSplit = false;
       let reason: SplitReason = 'none';
       let confidence = 1.0;
-      
+
       // 1. Manual Constraints
       const isNextManualBreak = nextWord && blockBreaks.has(words[i+1].id);
       const isNextKeepTogether = nextWord && keepTogether.has(words[i+1].id);
@@ -285,7 +285,7 @@ export class PhraseDetector {
         shouldSplit = true;
         reason = 'manual';
         confidence = 1.0;
-      } 
+      }
       // 2. Automated Constraints (only if not forced to keep together)
       else if (!isNextKeepTogether) {
         if (isEndPunct) {
@@ -300,13 +300,13 @@ export class PhraseDetector {
           reason = 'preset';
           confidence = 0.6;
         }
-        
+
         // Orphan prevention: don't split if only 1 word remains in the segment
         if (shouldSplit && i === words.length - 2) {
           shouldSplit = false;
         }
       }
-      
+
       if (shouldSplit || i === words.length - 1) {
         groups.push({
           words: [...currentGroup],
@@ -316,7 +316,7 @@ export class PhraseDetector {
         currentGroup = [];
       }
     }
-    
+
     return groups;
   }
 }
@@ -325,20 +325,20 @@ export class TimingSegmenter {
   static segment(phraseGroups: WordGroup[], preset: CompositionPreset): WordGroup[] {
     const finalGroups: WordGroup[] = [];
     const threshold = preset.parameters.pauseThresholdMs / 1000.0;
-    
+
     for (const group of phraseGroups) {
       const words = group.words;
       if (words.length <= 1) {
         finalGroups.push(group);
         continue;
       }
-      
+
       let currentSubGroup: Word[] = [];
-      let splitReason = group.splitReason;
-      
+      const splitReason = group.splitReason;
+
       for (let i = 0; i < words.length; i++) {
         currentSubGroup.push(words[i]);
-        
+
         let shouldSplit = false;
         if (i < words.length - 1) {
           const gap = words[i+1].start - words[i].end;
@@ -346,14 +346,14 @@ export class TimingSegmenter {
             shouldSplit = true;
           }
         }
-        
+
         // Orphan prevention
         if (shouldSplit && i === words.length - 2 && words.length > 2) {
-            // Re-evaluate: if it's a huge pause, maybe we still split. 
+            // Re-evaluate: if it's a huge pause, maybe we still split.
             // For now, let's keep it simple: don't orphan the last word of a grammatical phrase.
             shouldSplit = false;
         }
-        
+
         if (shouldSplit) {
           finalGroups.push({
             words: [...currentSubGroup],
@@ -370,7 +370,7 @@ export class TimingSegmenter {
         }
       }
     }
-    
+
     return finalGroups;
   }
 }
@@ -385,27 +385,27 @@ export class GeometrySolver {
     context: LayoutContext,
     measureWord: (word: string) => number,
     lineBreaks: Set<string>,
-    targetLineCount?: number
+    interWordGap: number
   ): Line[] {
     const availableWidth = context.containerWidth * preset.parameters.safeAreaWidthRatio;
     const maxWords = preset.parameters.maxWordsPerLine;
     const maxChars = preset.parameters.maxCharactersPerLine;
-    
+
     const lines: Line[] = [];
     let currentLineWords: Word[] = [];
     let currentLineWidth = 0;
-    
+
     // Evaluate candidates greedily for now, structured as a constraint solver
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
       const wordText = w.word.trim();
       const wordWidth = measureWord(wordText);
-      const spaceWidth = currentLineWords.length > 0 ? measureWord(' ') : 0;
-      
+      const spaceWidth = currentLineWords.length > 0 ? interWordGap : 0;
+
       const candidateWidth = currentLineWidth + spaceWidth + wordWidth;
       const candidateCount = currentLineWords.length + 1;
       const candidateChars = currentLineWords.reduce((acc, curr) => acc + curr.word.trim().length + 1, 0) + wordText.length;
-      
+
       let commitLine = false;
       let constraintReason = 'none';
 
@@ -433,7 +433,7 @@ export class GeometrySolver {
       if (commitLine) {
         // Commit current line
         lines.push(this.createLine(blockId, lines.length, currentLineWords, currentLineWidth, availableWidth, constraintReason));
-        
+
         // Start new line with current word
         currentLineWords = [w];
         currentLineWidth = wordWidth;
@@ -443,15 +443,15 @@ export class GeometrySolver {
         currentLineWidth = candidateWidth;
       }
     }
-    
+
     // Commit remaining words
     if (currentLineWords.length > 0) {
       lines.push(this.createLine(blockId, lines.length, currentLineWords, currentLineWidth, availableWidth, 'end_of_block'));
     }
-    
+
     // Validation Pass
     this.validate(words, lines);
-    
+
     return lines;
   }
 
@@ -511,10 +511,11 @@ export class VisualBalancer {
     baseLines: Line[],
     preset: CompositionPreset,
     context: LayoutContext,
-    measureWord: (word: string) => number
+    measureWord: (word: string) => number,
+    interWordGap: number
   ): BalanceResult {
     const lineCount = baseLines.length;
-    
+
     // If any line is manually locked, we skip automated visual balancing for the whole block
     const isLocked = baseLines.some(l => l.locked);
 
@@ -525,10 +526,10 @@ export class VisualBalancer {
     }
 
     const availableWidth = context.containerWidth * preset.parameters.safeAreaWidthRatio;
-    
+
     // Generate all valid partitions of words into `lineCount` lines
     const partitions = this.generatePartitions(words, lineCount);
-    
+
     let bestScore = -Infinity;
     let bestLines: Line[] = baseLines; // fallback to base
 
@@ -536,25 +537,25 @@ export class VisualBalancer {
       // Build candidate lines
       const candidateLines: Line[] = [];
       let isValid = true;
-      
+
       for (let i = 0; i < partition.length; i++) {
         const lineWords = partition[i];
         if (lineWords.length === 0) {
           isValid = false;
           break; // Empty lines are invalid
         }
-        
+
         // Check hard constraints: max words/chars
         if (lineWords.length > preset.parameters.maxWordsPerLine) isValid = false;
         const charCount = lineWords.reduce((acc, w) => acc + w.word.trim().length, 0);
         if (charCount > preset.parameters.maxCharactersPerLine) isValid = false;
-        
+
         let lineWidth = 0;
         for (let j = 0; j < lineWords.length; j++) {
            lineWidth += measureWord(lineWords[j].word.trim());
-           if (j > 0) lineWidth += measureWord(' ');
+           if (j > 0) lineWidth += interWordGap;
         }
-        
+
         candidateLines.push({
           id: `line-${blockId}-${i}`,
           width: lineWidth,
@@ -572,11 +573,11 @@ export class VisualBalancer {
           penalties: { orphan: 0, raggedness: 0, overflow: 0 }
         });
       }
-      
+
       if (!isValid) continue;
-      
+
       const scored = this.scoreLayout(candidateLines, preset);
-      
+
       // We strongly penalize overflows. If it overflows, score will be highly negative.
       if (scored.score > bestScore) {
         bestScore = scored.score;
@@ -621,7 +622,7 @@ export class VisualBalancer {
       for (let i = 0; i < lines.length - 1; i++) {
         const current = lines[i];
         const next = lines[i+1];
-        
+
         if (preset.parameters.preferredShape === 'bottomHeavy') {
           if (current.fillRatio > next.fillRatio) {
             raggednessPenalty += (current.fillRatio - next.fillRatio) * 500;
@@ -636,7 +637,7 @@ export class VisualBalancer {
     }
 
     const totalScore = -(overflowPenalty + orphanPenalty + raggednessPenalty);
-    
+
     // Apply score to lines for metadata
     const scoredLines = lines.map(l => ({
       ...l,
@@ -651,20 +652,20 @@ export class VisualBalancer {
     // Generate all ways to partition `words` into `k` non-empty contiguous subarrays
     if (k === 1) return [[words]];
     if (words.length < k) return [];
-    
+
     const results: Word[][][] = [];
-    
+
     // Recursively partition
     for (let i = 1; i <= words.length - k + 1; i++) {
       const firstPart = words.slice(0, i);
       const remainder = words.slice(i);
       const subPartitions = this.generatePartitions(remainder, k - 1);
-      
+
       for (const sub of subPartitions) {
         results.push([firstPart, ...sub]);
       }
     }
-    
+
     return results;
   }
 
@@ -689,24 +690,24 @@ export class ReadingSpeedOptimizer {
       const block = blocks[i];
       const prevBlockEnd = i > 0 ? blocks[i - 1].end : -Infinity;
       const nextBlockStart = i < blocks.length - 1 ? blocks[i + 1].start : Infinity;
-      
+
       const charCount = block.lines.reduce((acc, line) => acc + line.words.reduce((sum, w) => sum + w.word.trim().length, 0), 0);
-      
+
       // Dynamic reading target
       const requiredDuration = Math.max(
         preset.parameters.minimumDurationMs / 1000.0,
         (charCount * preset.parameters.msPerCharacter) / 1000.0
       );
-      
+
       let actualDuration = block.end - block.start;
-      
+
       // Attempt Forward Extension
       if (actualDuration < requiredDuration && preset.parameters.allowForwardExtension) {
         const allowedExtension = Math.min(
           preset.parameters.maxExtensionMs / 1000.0,
           nextBlockStart - block.end
         );
-        
+
         if (allowedExtension > 0) {
           const extensionNeeded = requiredDuration - actualDuration;
           const extensionApplied = Math.min(extensionNeeded, allowedExtension);
@@ -714,14 +715,14 @@ export class ReadingSpeedOptimizer {
           actualDuration = block.end - block.start;
         }
       }
-      
+
       // Attempt Backward Extension (if still needed)
       if (actualDuration < requiredDuration && preset.parameters.allowBackwardExtension) {
         const allowedExtension = Math.min(
           preset.parameters.maxExtensionMs / 1000.0,
           block.start - prevBlockEnd
         );
-        
+
         if (allowedExtension > 0) {
           const extensionNeeded = requiredDuration - actualDuration;
           const extensionApplied = Math.min(extensionNeeded, allowedExtension);
@@ -729,16 +730,16 @@ export class ReadingSpeedOptimizer {
           actualDuration = block.end - block.start;
         }
       }
-      
+
       block.duration = actualDuration;
-      
+
       const deficit = requiredDuration - actualDuration;
-      
+
       let severity: 'ok' | 'mild' | 'moderate' | 'severe' = 'ok';
       if (deficit > 0.5) severity = 'severe';
       else if (deficit > 0.2) severity = 'moderate';
       else if (deficit > 0) severity = 'mild';
-      
+
       block.readingSpeed = {
         requiredMs: requiredDuration * 1000,
         actualMs: actualDuration * 1000,
@@ -746,10 +747,10 @@ export class ReadingSpeedOptimizer {
         severity
       };
     }
-    
+
     this.validate(blocks);
   }
-  
+
   private static validate(blocks: CaptionBlock[]) {
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -768,7 +769,7 @@ export class ReadingSpeedOptimizer {
 export class CaptionCompositionEngine {
   private layoutVersion = 1;
   private segmentCache = new Map<string, CaptionBlock[]>();
-  
+
   public diagnostics = {
     measureTimeMs: 0,
     phraseDetectionMs: 0,
@@ -780,7 +781,7 @@ export class CaptionCompositionEngine {
     cacheHits: 0,
     cacheMisses: 0,
   };
-  
+
   private resetDiagnostics() {
     this.diagnostics = {
       measureTimeMs: 0,
@@ -794,28 +795,29 @@ export class CaptionCompositionEngine {
       cacheMisses: 0,
     };
   }
-  
+
   private hashStyle(style: SubtitleStyleV3): string {
-    return `${style.font.family}-${style.font.weight}-${style.fontSize}-${style.letterSpacing}`;
+    return `${style.font.family}-${style.font.weight}-${style.fontSize}-${style.letterSpacing}-${style.wordSpacing || 0}`;
   }
 
   private hashSegment(segment: Segment, presetVersion: number, layoutProfileId: string, styleHash: string, overrides: ManualOverride[]): string {
-    const text = segment.words.map((w: any) => w.word).join(' ');
-    const times = segment.words.map((w: any) => `${w.start}-${w.end}`).join(',');
-    const overridesStr = overrides.filter(o => segment.words.some((w: any) => w.id === o.beforeWordId)).map(o => `${o.type}:${o.beforeWordId}`).join(',');
-    return `${segment.id}|${text}|${times}|${presetVersion}|${layoutProfileId}|${styleHash}|${overridesStr}`;
+    const wordIds = segment.words.map((w) => w.id).join(',');
+    const text = segment.words.map((w) => w.word).join(' ');
+    const times = segment.words.map((w) => `${w.start}-${w.end}`).join(',');
+    const overridesStr = overrides.filter(o => segment.words.some((w) => w.id === o.beforeWordId)).map(o => `${o.type}:${o.beforeWordId}`).join(',');
+    return `${segment.id}|${wordIds}|${text}|${times}|${presetVersion}|${layoutProfileId}|${styleHash}|${overridesStr}`;
   }
 
   public compose(
-    segments: Segment[], 
-    style: SubtitleStyleV3, 
+    segments: Segment[],
+    style: SubtitleStyleV3,
     context: LayoutContext,
     presetId: string = 'social_reels',
     overrides: ManualOverride[] = []
   ): CaptionBlock[] {
     const preset = COMPOSITION_PRESETS[presetId] || COMPOSITION_PRESETS['social_reels'];
     const generatedBlocks: CaptionBlock[] = [];
-    
+
     // Quick lookup sets for overrides
     const blockBreaks = new Set(overrides.filter(o => o.type === 'blockBreak').map(o => o.beforeWordId));
     const lineBreaks = new Set(overrides.filter(o => o.type === 'lineBreak').map(o => o.beforeWordId));
@@ -828,17 +830,17 @@ export class CaptionCompositionEngine {
     // Process each Segment independently
     for (const segment of segments) {
       if (!segment.words || segment.words.length === 0) continue;
-      
+
       const cacheKey = this.hashSegment(segment, preset.version, layoutProfileId, styleHash, overrides);
       if (this.segmentCache.has(cacheKey)) {
         this.diagnostics.cacheHits++;
-        
+
         // Deep clone the cached blocks because later passes (lifecycle, reading speed) modify their boundaries!
         const cachedBlocks = JSON.parse(JSON.stringify(this.segmentCache.get(cacheKey)!));
         generatedBlocks.push(...cachedBlocks);
         continue;
       }
-      
+
       this.diagnostics.cacheMisses++;
       const segmentBlocks: CaptionBlock[] = [];
 
@@ -846,7 +848,7 @@ export class CaptionCompositionEngine {
       const tP = performance.now();
       const phraseGroups = PhraseDetector.detect(segment.words, preset, blockBreaks, keepTogether);
       this.diagnostics.phraseDetectionMs += performance.now() - tP;
-      
+
       // 2. Timing Segmentation (Rhythm)
       const tT = performance.now();
       const timedGroups = TimingSegmenter.segment(phraseGroups, preset);
@@ -856,12 +858,12 @@ export class CaptionCompositionEngine {
       for (let i = 0; i < timedGroups.length; i++) {
         const group = timedGroups[i];
         if (group.words.length === 0) continue;
-        
+
         const firstWord = group.words[0];
         const lastWord = group.words[group.words.length - 1];
-        
+
         const blockId = `block-${segment.id}-${i}`;
-        
+
         // Use injected measurement function or fallback to simple char count estimation for safety if missing
         let mTime = 0;
         const measureWord = (text: string) => {
@@ -870,15 +872,17 @@ export class CaptionCompositionEngine {
            mTime += performance.now() - mt0;
            return res;
         };
-        
+
+        const interWordGap = getInterWordGap(measureWord(' '), style.wordSpacing);
+
         const tG = performance.now();
-        let lines = GeometrySolver.solve(blockId, group.words, preset, context, measureWord, lineBreaks);
+        let lines = GeometrySolver.solve(blockId, group.words, preset, context, measureWord, lineBreaks, interWordGap);
         this.diagnostics.geometryMs += (performance.now() - tG) - mTime;
-        
+
         // 3b. Visual Balance
         const tV = performance.now();
-        let balanceResult = VisualBalancer.balance(blockId, group.words, lines, preset, context, measureWord);
-        
+        const balanceResult = VisualBalancer.balance(blockId, group.words, lines, preset, context, measureWord, interWordGap);
+
         if (!balanceResult.success && balanceResult.reason === 'needs_reflow' && balanceResult.suggestedLineCount) {
            lines = balanceResult.lines;
         } else {
@@ -900,9 +904,9 @@ export class CaptionCompositionEngine {
           lines: lines
         });
       }
-      
+
       this.segmentCache.set(cacheKey, segmentBlocks);
-      
+
       // Push cloned blocks so modifications don't corrupt the cache
       generatedBlocks.push(...JSON.parse(JSON.stringify(segmentBlocks)));
     }
@@ -911,19 +915,19 @@ export class CaptionCompositionEngine {
     for (let i = 0; i < generatedBlocks.length; i++) {
       const block = generatedBlocks[i];
       const lastWord = block.lines[block.lines.length - 1].words.slice(-1)[0];
-      
-      const nextBlockStart = i < generatedBlocks.length - 1 
-        ? generatedBlocks[i + 1].start 
+
+      const nextBlockStart = i < generatedBlocks.length - 1
+        ? generatedBlocks[i + 1].start
         : Infinity;
-        
+
       const holdTime = lastWord.end + (0.150); // Hardcoded 150ms hold padding since ReadingSpeedOptimizer now handles duration extension
-      
+
       block.end = Math.min(holdTime, nextBlockStart);
-      
+
       if (block.end < lastWord.end) {
         block.end = lastWord.end; // clamp to not disappear before speaking ends
       }
-      
+
       block.duration = block.end - block.start;
     }
 
@@ -946,7 +950,7 @@ export class CaptionCompositionEngine {
     for (const seg of sourceSegments) {
       sourceWords.push(...seg.words);
     }
-    
+
     // Collect all generated words sequentially
     const genWords: Word[] = [];
     for (const block of generatedBlocks) {
@@ -957,11 +961,11 @@ export class CaptionCompositionEngine {
         genWords.push(...line.words);
       }
     }
-    
+
     if (sourceWords.length !== genWords.length) {
       console.error(`Validation Error: Word count mismatch! Source: ${sourceWords.length}, Output: ${genWords.length}`);
     }
-    
+
     for (let i = 0; i < Math.min(sourceWords.length, genWords.length); i++) {
       if (sourceWords[i].id !== genWords[i].id) {
         console.error(`Validation Error: Word mismatch at index ${i}. Expected ${sourceWords[i].word}, got ${genWords[i].word}`);

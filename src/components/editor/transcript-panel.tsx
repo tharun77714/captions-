@@ -44,7 +44,11 @@ function SplitByWords() {
   );
 }
 
-export function TranscriptPanel() {
+interface TranscriptPanelProps {
+  userId?: string;
+}
+
+export function TranscriptPanel({ userId }: TranscriptPanelProps) {
   const {
     segments,
     currentTime,
@@ -181,7 +185,7 @@ export function TranscriptPanel() {
             </button>
           </div>
 
-          <CaptionTools />
+          <CaptionTools userId={userId} />
         </div>
         
         <div className="mt-3 flex items-center justify-between">

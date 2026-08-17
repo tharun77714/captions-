@@ -2,8 +2,9 @@ import React from 'react';
 import type { Word, Segment } from '@/store/editor-store';
 import type { CaptionBlock } from '@/lib/caption-composition';
 import type { SubtitleStyleV3 } from '@/lib/subtitle-schema-v3';
-import { resolveWordStyle } from '@/lib/subtitle-schema-v3';
+import { resolveWordStyle, getInterWordGap } from '@/lib/subtitle-schema-v3';
 import { computeDurationMs, getCSSTransitionParams } from '@/lib/transition-engine';
+import { measurementService } from '@/lib/measurement-service';
 import type { SemanticTag } from '@/lib/semantic-engine';
 
 interface CaptionLayerProps {
@@ -29,14 +30,22 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
 }) => {
   const activeSegmentWords = activeSegment ? activeSegment.words : [];
 
+  const naturalSpaceWidth = measurementService.measureWidth({
+    text: ' ',
+    fontFamily: subtitleStyle.font.family,
+    fontSize: subtitleStyle.fontSize,
+    fontWeight: subtitleStyle.font.weight,
+    letterSpacing: subtitleStyle.letterSpacing,
+  });
+  const gap = getInterWordGap(naturalSpaceWidth, subtitleStyle.wordSpacing);
+
   const renderWordHelper = (wordObj: Word, parentId: string | number) => {
     const isWordActive = currentTime >= wordObj.start && currentTime <= wordObj.end;
-    
+
     const hasStarted = subtitleStyle.transition.target === 'line'
       ? isLineMounted
       : (isLineMounted && currentTime >= wordObj.start);
 
-    const mode = subtitleStyle.highlightMode || 'none';
     const semanticTag = semanticTags ? semanticTags[wordObj.id] : undefined;
     const computedStyle = resolveWordStyle(subtitleStyle, parentId as number, wordObj.id, semanticTag);
 
@@ -61,7 +70,7 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
       }
 
       const transType = subtitleStyle.transition.type;
-      let tStyle: React.CSSProperties = {};
+      const tStyle: React.CSSProperties = {};
 
       if (transType === 'fade') {
         tStyle.opacity = progress;
@@ -129,13 +138,14 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
       transform: `scale(${computedStyle.scaleX}, ${computedStyle.scaleY}) translate(${computedStyle.x}px, ${computedStyle.y}px) rotate(${computedStyle.rotation}deg)`,
       // Only apply background to individual words if there's an explicit word/segment override or highlight mode
       backgroundColor: (computedStyle.hasWordOverride && computedStyle.backgroundEnabled) ? computedStyle.backgroundColor : 'transparent',
-      marginRight: '6px',
       display: 'inline-flex',
       flexDirection: 'column',
       alignItems: 'center',
       verticalAlign: 'bottom',
       transition: isExportMode ? 'none' : `all ${transitionParams.durationMs}ms ${transitionParams.easing}`,
-      padding: `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 2}px`,
+      padding: (computedStyle.hasWordOverride && computedStyle.backgroundEnabled)
+        ? `${computedStyle.paddingY ?? 0}px ${computedStyle.paddingX ?? 0}px`
+        : (subtitleStyle.highlightMode === 'background' ? '2px 8px' : '0px'),
       borderRadius: `${computedStyle.borderRadius}px`,
       ...(isExportMode ? exportOverrideStyle : transitionState),
     };
@@ -146,12 +156,15 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
     if (computedStyle.strokeEnabled && computedStyle.strokeWidth > 0) {
       dynamicStyle.WebkitTextStroke = `${computedStyle.strokeWidth}px ${computedStyle.strokeColor}`;
       dynamicStyle.paintOrder = 'stroke fill';
-      (dynamicStyle as any).WebkitPaintOrder = 'stroke fill';
+      (dynamicStyle as Record<string, string>).WebkitPaintOrder = 'stroke fill';
     }
 
     // Highlight Modes
-    if (isWordActive && mode !== 'none') {
-      switch (mode) {
+    if (isWordActive) {
+      switch (subtitleStyle.highlightMode) {
+        case 'none':
+          dynamicStyle.opacity = 1.0;
+          break;
         case 'color':
           dynamicStyle.color = subtitleStyle.activeWordColor || '#facc15';
           if (computedStyle.gradient) {
@@ -172,6 +185,7 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
         case 'background':
           dynamicStyle.backgroundColor = subtitleStyle.activeWordColor || '#facc15';
           dynamicStyle.color = '#000000';
+          dynamicStyle.borderRadius = '8px';
           if (computedStyle.gradient) {
             dynamicStyle.backgroundImage = 'none';
             dynamicStyle.WebkitTextFillColor = '#000000';
@@ -218,6 +232,7 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
             className="composition-line"
             style={{
               display: 'flex',
+              columnGap: `${gap}px`,
               justifyContent: subtitleStyle.alignment === 'left' ? 'flex-start' : subtitleStyle.alignment === 'right' ? 'flex-end' : 'center',
             }}
           >
@@ -232,7 +247,14 @@ export const CaptionLayer: React.FC<CaptionLayerProps> = ({
   return (
     <>
       {activeSegmentWords.length > 0 ? (
-        activeSegmentWords.map((wordObj) => renderWordHelper(wordObj, activeSegment!.id))
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          columnGap: `${gap}px`,
+          justifyContent: subtitleStyle.alignment === 'left' ? 'flex-start' : subtitleStyle.alignment === 'right' ? 'flex-end' : 'center'
+        }}>
+          {activeSegmentWords.map((wordObj) => renderWordHelper(wordObj, activeSegment!.id))}
+        </div>
       ) : (
         <span style={{ fontFamily: `"${subtitleStyle.font.family}", "Noto Sans Telugu", sans-serif` }}>
           {activeSegment?.text}

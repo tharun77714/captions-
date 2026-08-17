@@ -1,9 +1,9 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
-import { EditorClient } from '@/components/editor/editor-client';
+import { EditorClientV2 } from '@/components/editor-v2/editor-client-v2';
 
-export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditorV2Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -38,7 +38,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <EditorClient
+    <EditorClientV2
       userId={user.id}
       project={{
         id: project.id,

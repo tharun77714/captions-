@@ -17,6 +17,7 @@ import { exportSrt, exportVtt, exportTranscript } from '@/lib/srt-export';
 import { DolbyEnhanceButton } from '@/components/editor/dolby-enhance-button';
 
 interface EditorClientProps {
+  userId?: string;
   project: {
     id: string;
     title: string;
@@ -51,7 +52,7 @@ function editableSignature(state: EditorStoreSnapshot): string {
   });
 }
 
-export function EditorClient({ project, transcription }: EditorClientProps) {
+export function EditorClient({ userId, project, transcription }: EditorClientProps) {
   const {
     segments,
     subtitleMode,
@@ -63,6 +64,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     setProjectData,
     setVideoUrl,
     setTranscriptData,
+    setUserId,
     setSubtitleStyle,
     undo,
     redo,
@@ -114,6 +116,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
   // Initialize store with server data
   useEffect(() => {
     setEditorReady(false);
+    setUserId(userId || null);
     setProjectData({
       projectId: project.id,
       projectTitle: project.title,
@@ -144,7 +147,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
     // Do not autosave the initial server hydration as a user edit.
     lastSavedSignatureRef.current = editableSignature(useEditorStore.getState());
     setEditorReady(true);
-  }, [project, transcription, setProjectData, setTranscriptData, setSubtitleStyle]);
+  }, [project, transcription, userId, setUserId, setProjectData, setTranscriptData, setSubtitleStyle]);
 
   // Dynamic Font Loading
   useEffect(() => {
@@ -325,7 +328,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (e) {
+    } catch {
       window.location.href = downloadUrl;
     }
   }, [downloadUrl, project.id]);
@@ -578,9 +581,9 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
                   className="absolute right-0 top-full mt-1 w-44 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   {[
-                    { label: 'Export SRT', ext: 'srt', action: () => { exportSrt(segments, project.title); setShowExportDropdown(false); } },
-                    { label: 'Export VTT', ext: 'vtt', action: () => { exportVtt(segments, project.title); setShowExportDropdown(false); } },
-                    { label: 'Export TXT', ext: 'txt', action: () => { exportTranscript(segments, project.title); setShowExportDropdown(false); } },
+                    { label: 'Export SRT', ext: 'srt', action: () => { exportSrt(segments); setShowExportDropdown(false); } },
+                    { label: 'Export VTT', ext: 'vtt', action: () => { exportVtt(segments); setShowExportDropdown(false); } },
+                    { label: 'Export TXT', ext: 'txt', action: () => { exportTranscript(segments); setShowExportDropdown(false); } },
                   ].map((item) => (
                     <button
                       key={item.ext}
@@ -654,7 +657,7 @@ export function EditorClient({ project, transcription }: EditorClientProps) {
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            {leftPanel === 'transcript' ? <TranscriptPanel /> : <AiClipFinder />}
+            {leftPanel === 'transcript' ? <TranscriptPanel userId={userId} /> : <AiClipFinder />}
           </div>
         </div>
 

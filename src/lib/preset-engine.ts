@@ -13,6 +13,8 @@ export interface CreatorPreset {
 }
 
 export const PRESET_FONT_MAP: Record<string, string> = {
+  'hyperframes-climax': 'Noto Serif Telugu',
+  'hyperframes-rail': 'Noto Sans Telugu',
   'hormozi': 'Montserrat',
   'ali': 'Outfit',
   'iman': 'Space Grotesk',
@@ -20,6 +22,22 @@ export const PRESET_FONT_MAP: Record<string, string> = {
 };
 
 export const PRESETS: CreatorPreset[] = [
+  {
+    id: 'hyperframes-climax',
+    name: 'HyperFrames 3D',
+    version: 1,
+    description: 'Cinematic 3D depth layer with hero punchline behind creator.',
+    author: 'HyperFrames AI',
+    thumbnailGradient: 'linear-gradient(135deg, #FACC15 0%, #E11D48 100%)'
+  },
+  {
+    id: 'hyperframes-rail',
+    name: 'HyperFrames Rail',
+    version: 1,
+    description: 'Clean glassmorphism kinetic rail with dynamic Telugu reflow.',
+    author: 'HyperFrames AI',
+    thumbnailGradient: 'linear-gradient(135deg, #38BDF8 0%, #6366F1 100%)'
+  },
   {
     id: 'hormozi',
     name: 'Hormozi',
@@ -70,13 +88,30 @@ export function evaluatePresetRule(
   if (!presetId) return null;
 
   const overrides: Partial<ResolvedWordStyle> = {};
-  
-  if (presetId === 'hormozi') {
+
+  if (presetId === 'hyperframes-climax') {
+    overrides.fontFamily = 'Noto Serif Telugu';
+    overrides.fontWeight = 800;
+    overrides.textColor = '#FACC15'; // Gold Climax
+    overrides.shadowColor = 'rgba(250, 204, 21, 0.4)';
+    overrides.shadowBlur = 24;
+    overrides.animation = 'scale';
+  }
+
+  else if (presetId === 'hyperframes-rail') {
+    overrides.fontFamily = 'Noto Sans Telugu';
+    overrides.fontWeight = 700;
+    overrides.textColor = '#FFFFFF';
+    overrides.shadowColor = 'rgba(56, 189, 248, 0.6)';
+    overrides.shadowBlur = 16;
+    overrides.animation = 'pop';
+  }
+
+  else if (presetId === 'hormozi') {
     overrides.fontFamily = 'Montserrat';
     overrides.fontWeight = 900;
     overrides.textTransform = 'uppercase';
     
-    // Hormozi V1 logic
     if (hasCategory(semanticTag, 'money')) {
       overrides.textColor = '#FFEA00'; // Yellow
       overrides.animation = 'pop';
@@ -117,7 +152,7 @@ export function evaluatePresetRule(
   
   else if (presetId === 'dev') {
     overrides.fontFamily = 'Bebas Neue';
-    overrides.fontWeight = 400; // Bebas is inherently bold
+    overrides.fontWeight = 400;
     overrides.textTransform = 'uppercase';
     
     if (hasCategory(semanticTag, 'action') || hasCategory(semanticTag, 'money')) {
@@ -147,7 +182,6 @@ export interface PreviewWord {
 export function generatePresetPreview(transcript: string, presetId: string, version: number): PreviewWord[] {
   const words = transcript.split(/\s+/).filter(Boolean);
   
-  // Fake words for the semantic engine to enrich
   const fakeWords: Word[] = words.map((w, i) => ({
     id: `pw-${i}`,
     word: w,

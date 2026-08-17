@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
-import { motion } from 'framer-motion';
+
 import { useEditorStore } from '@/store/editor-store';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { CaptionOverlay } from './CaptionOverlay';
+import { getInterWordGap } from '@/lib/subtitle-schema-v3';
+import { measurementService } from '@/lib/measurement-service';
 
 declare global {
   interface Window {
@@ -118,6 +120,16 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
   } = useEditorStore();
 
   const isExportMode = typeof window !== 'undefined' && window.__EXPORT_MODE__ === true;
+
+  const naturalSpaceWidth = measurementService.measureWidth({
+    text: ' ',
+    fontFamily: subtitleStyle.font.family,
+    fontSize: subtitleStyle.fontSize,
+    fontWeight: subtitleStyle.font.weight,
+    letterSpacing: subtitleStyle.letterSpacing,
+  });
+  const gap = getInterWordGap(naturalSpaceWidth, subtitleStyle.wordSpacing);
+
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -545,14 +557,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
               fontSize: `${subtitleStyle.fontSize}px`,
               fontWeight: subtitleStyle.font.weight,
               letterSpacing: `${subtitleStyle.letterSpacing}px`,
-              wordSpacing: `${subtitleStyle.wordSpacing}px`,
               lineHeight: subtitleStyle.lineSpacing,
             }}
           >
             {block.lines.map((line, lIdx) => (
-              <div key={lIdx} data-measure-line={lIdx} style={{ display: 'block', whiteSpace: 'nowrap' }}>
+              <div key={lIdx} data-measure-line={lIdx} style={{ display: 'flex', whiteSpace: 'nowrap', columnGap: `${gap}px` }}>
                 {line.words.map((w, wIdx) => (
-                  <span key={wIdx} data-measure-word={wIdx} style={{ marginRight: '6px', display: 'inline-block', padding: '0 2px' }}>
+                  <span key={wIdx} data-measure-word={wIdx} style={{ display: 'inline-block' }}>
                     {w.word.trim()}
                   </span>
                 ))}
@@ -569,15 +580,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
               fontSize: `${subtitleStyle.fontSize}px`,
               fontWeight: subtitleStyle.font.weight,
               letterSpacing: `${subtitleStyle.letterSpacing}px`,
-              wordSpacing: `${subtitleStyle.wordSpacing}px`,
               lineHeight: subtitleStyle.lineSpacing,
             }}
           >
-            {seg.words.length > 0 ? seg.words.map((w, wIdx) => (
-              <span key={wIdx} data-measure-word={wIdx} style={{ marginRight: '6px', display: 'inline-block', padding: '0 2px' }}>
-                {w.word.trim()}
-              </span>
-            )) : <span data-measure-word={0}>{seg.text}</span>}
+            {seg.words.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: `${gap}px`, justifyContent: 'center' }}>
+                {seg.words.map((w, wIdx) => (
+                  <span key={wIdx} data-measure-word={wIdx} style={{ display: 'inline-block' }}>
+                    {w.word.trim()}
+                  </span>
+                ))}
+              </div>
+            ) : <span data-measure-word={0}>{seg.text}</span>}
           </span>
         ))}
       </div>
