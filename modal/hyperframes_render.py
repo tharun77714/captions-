@@ -59,7 +59,26 @@ def generate_composition_html(
     plate_src: str = None,
     style: str = "3D_CLIMAX"
 ) -> str:
-    words_json = json.dumps(words)
+    # 1. Group words into dynamic spoken phrase blocks (2 to 4 words per phrase)
+    phrases = []
+    current_phrase = []
+    for i, w in enumerate(words):
+        current_phrase.append(w)
+        gap = 0
+        if i < len(words) - 1:
+            gap = words[i + 1]["start"] - w["end"]
+        
+        # Split phrase if 3-4 words or pause > 0.35s
+        if len(current_phrase) >= 3 or gap > 0.35 or i == len(words) - 1:
+            phrases.append({
+                "id": f"phrase_{len(phrases)}",
+                "start": current_phrase[0]["start"],
+                "end": current_phrase[-1]["end"],
+                "words": current_phrase
+            })
+            current_phrase = []
+
+    phrases_json = json.dumps(phrases)
     hero_json = json.dumps(hero_word_ids)
     has_matte = bool(matte_src and plate_src)
 
@@ -73,7 +92,7 @@ def generate_composition_html(
   <title>{comp_id}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+Telugu:wght@400;700;900&family=Noto+Serif+Telugu:wght@700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Noto+Sans+Telugu:wght@800;900&display=swap" rel="stylesheet">
   <style>
     * {{
       box-sizing: border-box;
@@ -87,7 +106,7 @@ def generate_composition_html(
       height: {height}px;
       overflow: hidden;
       background: #000;
-      font-family: 'Noto Sans Telugu', 'Inter', sans-serif;
+      font-family: 'Noto Sans Telugu', 'Montserrat', sans-serif;
     }}
 
     #root {{
@@ -106,38 +125,33 @@ def generate_composition_html(
       z-index: 1;
     }}
 
-    /* Layer 2: Hero Climax Stage (Behind Subject) */
-    .hero-climax-stage {{
+    /* Layer 2: 3D Punch Words Behind Speaker */
+    .hero-stage {{
       position: absolute;
-      top: 20%;
+      top: 22%;
       left: {safe_left}px;
       width: {safe_width}px;
-      height: 38%;
+      height: 30%;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       text-align: center;
       z-index: 2;
       pointer-events: none;
-      padding: 10px;
     }}
 
     .hero-word {{
-      font-family: 'Noto Serif Telugu', 'Inter', serif;
-      font-size: 88px;
+      font-family: 'Montserrat', 'Noto Sans Telugu', sans-serif;
+      font-size: 110px;
       font-weight: 900;
-      line-height: 1.15;
-      color: #FACC15;
-      text-transform: none;
+      color: #FFE600;
+      text-transform: uppercase;
       opacity: 0;
-      transform: scale(0.92) translateY(16px);
-      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.95), 0 0 60px rgba(250, 204, 21, 0.5);
-      hyphens: none;
-      -webkit-hyphens: none;
+      display: none;
+      transform: scale(0.85);
+      -webkit-text-stroke: 4px #000;
+      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 230, 0, 0.6);
       word-break: keep-all;
-      overflow-wrap: break-word;
-      max-width: 100%;
     }}
 
     .plate-video {{
@@ -162,106 +176,139 @@ def generate_composition_html(
       pointer-events: none;
     }}
 
-    /* Layer 5: Safe Lower Rail */
-    .caption-rail {{
+    /* Layer 5: Dynamic Lower-Third Phrase Subtitle Container */
+    .phrase-stage {{
       position: absolute;
-      bottom: 10%;
+      bottom: 18%;
       left: {safe_left}px;
       width: {safe_width}px;
       z-index: 10;
       display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }}
+
+    .phrase-block {{
+      display: none;
+      opacity: 0;
+      transform: scale(0.92);
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
       gap: 12px 18px;
-      padding: 14px 20px;
-      background: rgba(0, 0, 0, 0.55);
-      backdrop-filter: blur(12px);
-      border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      text-align: center;
+      width: 100%;
     }}
 
     .word {{
       display: inline-block;
-      font-size: 42px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.55);
-      text-transform: none;
-      hyphens: none;
-      -webkit-hyphens: none;
+      font-size: 76px;
+      font-weight: 900;
+      color: #FFFFFF;
+      opacity: 0.65;
+      transform: scale(1.0);
+      -webkit-text-stroke: 3px #000000;
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.95), 0 2px 6px #000000;
       word-break: keep-all;
+      transition: none;
     }}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
   <div id="root" data-composition-id="{comp_id}" data-width="{width}" data-height="{height}" data-start="0" data-duration="{duration_seconds}">
-    <!-- Layer 1: Background -->
+    <!-- Layer 1: Background Video -->
     <video id="bg-video-layer" class="bg-video clip" src="{video_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>
 
-    <!-- Layer 2: Hero Climax Text (Behind Person) -->
-    <div id="hero-stage" class="hero-climax-stage clip" data-start="0" data-duration="{duration_seconds}"></div>
+    <!-- Layer 2: 3D Punch Words (Behind Speaker) -->
+    <div id="hero-stage" class="hero-stage clip" data-start="0" data-duration="{duration_seconds}"></div>
 
-    {"<!-- Layer 3 & 4: Person Matte Separation -->" if has_matte else ""}
+    {"<!-- Layer 3 & 4: AI Person Matte Separation -->" if has_matte else ""}
     {f'<video id="plate-video-layer" class="plate-video clip" src="{plate_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>' if has_matte else ""}
     {f'<video id="subject-video-layer" class="subject-video clip" src="{matte_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>' if has_matte else ""}
 
-    <!-- Layer 5: Standard Lower Third Rail -->
-    <div id="caption-rail" class="caption-rail clip" data-start="0" data-duration="{duration_seconds}"></div>
+    <!-- Layer 5: Dynamic Active Subtitle Phrases -->
+    <div id="phrase-stage" class="phrase-stage clip" data-start="0" data-duration="{duration_seconds}"></div>
   </div>
 
   <script>
     (async function() {{
       await document.fonts.ready;
 
-      const WORDS = {words_json};
+      const PHRASES = {phrases_json};
       const HERO_WORD_IDS = new Set({hero_json});
+      const phraseStage = document.getElementById('phrase-stage');
       const heroStage = document.getElementById('hero-stage');
-      const rail = document.getElementById('caption-rail');
-      const safeWidth = {safe_width};
 
-      WORDS.forEach((w) => {{
-        if (HERO_WORD_IDS.has(w.id)) {{
-          const heroEl = document.createElement('div');
-          heroEl.id = 'hero_' + w.id;
-          heroEl.className = 'hero-word';
-          heroEl.textContent = w.text;
-          heroStage.appendChild(heroEl);
+      // 1. Build DOM for phrases and words
+      PHRASES.forEach((phrase) => {{
+        const phraseEl = document.createElement('div');
+        phraseEl.id = phrase.id;
+        phraseEl.className = 'phrase-block';
 
-          let currentSize = 92;
-          if (w.text.length > 12) {{
-            currentSize = Math.max(48, Math.floor(currentSize * 0.72));
-          }} else if (w.text.length > 8) {{
-            currentSize = Math.max(54, Math.floor(currentSize * 0.82));
+        phrase.words.forEach((w) => {{
+          const wordEl = document.createElement('span');
+          wordEl.id = 'w_' + w.id;
+          wordEl.className = 'word';
+          wordEl.textContent = w.text;
+          phraseEl.appendChild(wordEl);
+
+          // If hero word, also create element in hero 3D stage
+          if (HERO_WORD_IDS.has(w.id)) {{
+            const heroEl = document.createElement('div');
+            heroEl.id = 'hero_' + w.id;
+            heroEl.className = 'hero-word';
+            heroEl.textContent = w.text;
+            heroStage.appendChild(heroEl);
           }}
-          heroEl.style.fontSize = currentSize + 'px';
-        }}
+        }});
 
-        const railEl = document.createElement('span');
-        railEl.id = 'rail_' + w.id;
-        railEl.className = 'word';
-        railEl.textContent = w.text;
-        rail.appendChild(railEl);
+        phraseStage.appendChild(phraseEl);
       }});
 
+      // 2. Build GSAP timeline with precise micro-animations
       window.__timelines = window.__timelines || {{}};
       const tl = gsap.timeline({{ paused: true }});
 
-      WORDS.forEach((w) => {{
-        if (HERO_WORD_IDS.has(w.id)) {{
-          const heroEl = document.getElementById('hero_' + w.id);
-          if (heroEl) {{
-            tl.set(heroEl, {{ opacity: 1, scale: 1.0, y: 0, color: '#FACC15' }}, w.start);
-            tl.set(heroEl, {{ opacity: 0, scale: 0.92, y: 16 }}, w.end);
-          }}
-        }}
+      PHRASES.forEach((phrase) => {{
+        const phraseEl = document.getElementById(phrase.id);
+        if (!phraseEl) return;
 
-        const railEl = document.getElementById('rail_' + w.id);
-        if (railEl) {{
-          tl.set(railEl, {{ color: '#FFFFFF', opacity: 1, scale: 1.05 }}, w.start);
-          tl.set(railEl, {{ color: 'rgba(255, 255, 255, 0.55)', opacity: 0.55, scale: 1.0 }}, w.end);
-        }}
+        // Phrase enters at phrase.start, leaves at phrase.end
+        tl.set(phraseEl, {{ display: 'flex', opacity: 1, scale: 1.0 }}, phrase.start);
+        tl.set(phraseEl, {{ display: 'none', opacity: 0, scale: 0.92 }}, phrase.end);
+
+        // Word-level karaoke highlighting
+        phrase.words.forEach((w) => {{
+          const wordEl = document.getElementById('w_' + w.id);
+          if (wordEl) {{
+            // Word pop highlight
+            tl.set(wordEl, {{
+              color: '#FFE600',
+              opacity: 1.0,
+              scale: 1.15,
+              textShadow: '0 0 28px rgba(255, 230, 0, 0.95), 0 4px 14px #000'
+            }}, w.start);
+
+            // Word returned to white
+            tl.set(wordEl, {{
+              color: '#FFFFFF',
+              opacity: 0.65,
+              scale: 1.0,
+              textShadow: '0 4px 18px rgba(0, 0, 0, 0.95), 0 2px 6px #000000'
+            }}, w.end);
+          }}
+
+          // Hero 3D background punch word
+          if (HERO_WORD_IDS.has(w.id)) {{
+            const heroEl = document.getElementById('hero_' + w.id);
+            if (heroEl) {{
+              tl.set(heroEl, {{ display: 'block', opacity: 1, scale: 1.05 }}, w.start);
+              tl.set(heroEl, {{ display: 'none', opacity: 0, scale: 0.85 }}, w.end);
+            }}
+          }}
+        }});
       }});
 
       tl.to({{}}, {{ duration: {duration_seconds} }}, 0);
