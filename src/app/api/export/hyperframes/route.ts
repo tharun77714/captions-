@@ -11,26 +11,37 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
+    // Try finding by projectId (and optionally user_id if present)
+    let project = null;
+    if (user?.id) {
+      const { data: userProj } = await supabase
+        .from('projects')
+        .select('id, media_url, s3_key, user_id')
+        .eq('id', projectId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      project = userProj;
     }
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, media_url, s3_key')
-      .eq('id', projectId)
-      .eq('user_id', user.id)
-      .maybeSingle();
+    if (!project) {
+      const { data: anyProj } = await supabase
+        .from('projects')
+        .select('id, media_url, s3_key, user_id')
+        .eq('id', projectId)
+        .maybeSingle();
+      project = anyProj;
+    }
 
     if (!project) {
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Set export status to rendering
     await supabase.from('projects').update({
       export_status: 'rendering',
       export_error: null,
-    }).eq('id', projectId).eq('user_id', user.id);
+    }).eq('id', projectId);
 
     // Call Deployed Modal HyperFrames Worker
     const modalUrl = process.env.MODAL_HYPERFRAMES_URL || 'https://varunchow123--vidyut-hyperframes-trigger-hyperframes.modal.run';
