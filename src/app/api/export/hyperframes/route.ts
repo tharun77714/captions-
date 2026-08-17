@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
     const { data: project, error: projError } = await supabase
       .from('projects')
-      .select('id, media_url, s3_key, user_id')
+      .select('id, media_url, user_id, title')
       .eq('id', projectId)
       .maybeSingle();
 

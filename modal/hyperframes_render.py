@@ -314,9 +314,11 @@ def process_hyperframes_render(
         media_url = project.get("media_url", "")
         local_video = os.path.join(work_dir, "input.mp4")
         
-        # Check if s3 key or URL
-        s3_key = project.get("s3_key") or (media_url.split(".com/")[-1] if ".com/" in media_url else None)
-        if s3_key:
+        if media_url and not media_url.startswith("http"):
+            print(f"⬇️ Downloading video from R2 direct key: {media_url}")
+            s3.download_file(bucket_name, media_url, local_video)
+        elif ".com/" in media_url:
+            s3_key = media_url.split(".com/")[-1]
             print(f"⬇️ Downloading video from R2 key: {s3_key}")
             s3.download_file(bucket_name, s3_key, local_video)
         else:
@@ -329,14 +331,26 @@ def process_hyperframes_render(
 
         # 3. Format transcript words
         words = []
-        raw_words = transcription.get("words", [])
-        for i, w in enumerate(raw_words):
-            words.append({
-                "id": f"word-{i}",
-                "text": w.get("word", "").strip(),
-                "start": float(w.get("start", 0)),
-                "end": float(w.get("end", 0))
-            })
+        raw_words = transcription.get("words")
+        if not raw_words or not isinstance(raw_words, list) or len(raw_words) == 0:
+            # Extract from segments
+            raw_segments = transcription.get("segments", [])
+            for seg in raw_segments:
+                for w in seg.get("words", []):
+                    words.append({
+                        "id": str(w.get("id", f"word-{len(words)}")),
+                        "text": (w.get("word") or w.get("text") or "").strip(),
+                        "start": float(w.get("start", 0)),
+                        "end": float(w.get("end", 0))
+                    })
+        else:
+            for i, w in enumerate(raw_words):
+                words.append({
+                    "id": str(w.get("id", f"word-{i}")),
+                    "text": (w.get("word") or w.get("text") or "").strip(),
+                    "start": float(w.get("start", 0)),
+                    "end": float(w.get("end", 0))
+                })
 
         duration_seconds = words[-1]["end"] if words else 10.0
 
