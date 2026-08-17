@@ -13,7 +13,7 @@ def generate_camera_punch_animation(
 ) -> str:
     """
     Generates deterministic GSAP camera punch-zoom and micro-shake on #bg-video-layer.
-    Uses direct GSAP element selectors to prevent variable declaration conflicts.
+    Uses immediateRender: false to avoid pre-rendering scale distortion before the hit.
     """
     if archetype == "editorial":
         return ""
@@ -25,7 +25,7 @@ def generate_camera_punch_animation(
       // Camera Punch at {start}s
       tl.fromTo('#bg-video-layer',
         {{ scale: {zoom_scale}, x: -4, y: 3 }},
-        {{ scale: 1.0, x: 0, y: 0, duration: {duration}, ease: 'power2.out' }},
+        {{ scale: 1.0, x: 0, y: 0, duration: {duration}, ease: 'power2.out', immediateRender: false }},
         {start}
       );
     """

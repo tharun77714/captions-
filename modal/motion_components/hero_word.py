@@ -60,10 +60,10 @@ def generate_hero_word_animation(word_id: str, start: float, end: float, color: 
       if (heroEl_{v_id}) {{
         tl.set(heroEl_{v_id}, {{ display: 'block', color: '{color}' }}, {start});
         
-        // Snappy 3D Optical Slam (No blur filter for maximum sharpness)
+        // Snappy 3D Optical Slam
         tl.fromTo(heroEl_{v_id}, 
           {{ opacity: 0, scale: 1.8, y: 40, rotationX: 18, rotationY: -10 }},
-          {{ opacity: 1, scale: 1.08, y: -6, rotationX: 6, rotationY: -2, duration: {min(0.22, dur * 0.4)}, ease: 'back.out(2.5)' }},
+          {{ opacity: 1, scale: 1.08, y: -6, rotationX: 6, rotationY: -2, duration: {min(0.22, dur * 0.4)}, ease: 'back.out(2.5)', immediateRender: false }},
           {start}
         );
         

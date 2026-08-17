@@ -5,6 +5,7 @@ KineticRail Component: Ultra-Crisp Floating Kinetic Typography
 - Uses paint-order: stroke fill to prevent stroke bleeding into complex Indic/Telugu glyphs
 - Razor-sharp vector outlines with hard-edge contrast
 - Spring micro-motion and vibrant pop without muddy blur halos
+- Strict display: none / block lifecycle with immediateRender: false
 """
 
 def generate_kinetic_rail_css() -> str:
@@ -75,7 +76,7 @@ def generate_phrase_block_animation(phrase_id: str, start: float, end: float) ->
         tl.set(pEl_{v_id}, {{ display: 'flex' }}, {start});
         tl.fromTo(pEl_{v_id},
           {{ opacity: 0, scale: 0.92, y: 16 }},
-          {{ opacity: 1, scale: 1.0, y: 0, duration: 0.15, ease: 'back.out(2.0)' }},
+          {{ opacity: 1, scale: 1.0, y: 0, duration: 0.15, ease: 'back.out(2.0)', immediateRender: false }},
           {start}
         );
         tl.to(pEl_{v_id},
@@ -113,7 +114,8 @@ def generate_word_highlight_animation(
             rotation: {rotation_deg},
             textShadow: '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 3px 0 #000, 0 0 12px {accent_color}, 0 6px 14px rgba(0,0,0,0.85)', 
             duration: {min(0.12, dur * 0.4)}, 
-            ease: 'back.out(2.8)' 
+            ease: 'back.out(2.8)',
+            immediateRender: false
           }},
           {start}
         );

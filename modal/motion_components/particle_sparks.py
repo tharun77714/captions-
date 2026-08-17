@@ -5,8 +5,8 @@ from typing import List
 """
 ParticleSparks Component: Deterministic Dual-Tier Particle VFX
 - Small DOM spark dots & radial shockwave rings for Emphasis hits (~15%)
-- High-density radial spark explosions for Hero climax hits (~5%)
-All animated deterministically through GSAP virtual clock.
+- Positioned around the bottom caption rail (Y=1420px), NEVER over the presenter's face
+- Strict display: none lifecycle with immediateRender: false to avoid phantom static orbs
 """
 
 def generate_particle_css() -> str:
@@ -24,25 +24,27 @@ def generate_particle_css() -> str:
 
     .spark-dot {
       position: absolute;
-      width: 12px;
-      height: 12px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       opacity: 0;
+      display: none;
       transform: translate(-50%, -50%) scale(0);
       pointer-events: none;
-      box-shadow: 0 0 16px currentColor, 0 0 32px currentColor;
+      box-shadow: 0 0 12px currentColor;
     }
 
     .shockwave-ring {
       position: absolute;
-      width: 140px;
-      height: 140px;
+      width: 120px;
+      height: 120px;
       border-radius: 50%;
-      border: 4px solid #FFE600;
+      border: 3px solid #FFE600;
       opacity: 0;
+      display: none;
       transform: translate(-50%, -50%) scale(0.2);
       pointer-events: none;
-      box-shadow: 0 0 32px currentColor, inset 0 0 20px currentColor;
+      box-shadow: 0 0 20px currentColor;
     }
     """
 
@@ -54,45 +56,49 @@ def generate_spark_burst_animation(
 ) -> str:
     """
     Generates GSAP timeline animations for a radial burst of particle sparks & shockwave.
-    Uses direct selectors to avoid variable collisions.
+    Uses strict display: none -> block -> none and immediateRender: false.
     """
     v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
-    spark_count = 20 if is_hero else 10
-    radius = 180 if is_hero else 95
-    dur = 0.35 if is_hero else 0.25
+    spark_count = 14 if is_hero else 8
+    radius = 120 if is_hero else 75
+    dur = 0.30 if is_hero else 0.22
 
     lines: List[str] = [
         f"// Particle Spark Burst for {word_id}",
+        f"tl.set('#ring_{v_id}', {{ display: 'block' }}, {start});",
         f"tl.fromTo('#ring_{v_id}',",
-        f"  {{ opacity: 0.95, scale: 0.15, borderColor: '{color}', boxShadow: '0 0 32px {color}' }},",
-        f"  {{ opacity: 0, scale: {3.5 if is_hero else 2.2}, duration: {dur + 0.1}, ease: 'power2.out' }},",
+        f"  {{ opacity: 0.9, scale: 0.15, borderColor: '{color}', boxShadow: '0 0 24px {color}' }},",
+        f"  {{ opacity: 0, scale: {2.8 if is_hero else 1.8}, duration: {dur + 0.08}, ease: 'power2.out', immediateRender: false }},",
         f"  {start}",
-        f");"
+        f");",
+        f"tl.set('#ring_{v_id}', {{ display: 'none' }}, {start + dur + 0.1});"
     ]
 
     for p in range(spark_count):
         angle = (p / float(spark_count)) * math.pi * 2.0
-        dist = radius * (0.7 + (p % 3) * 0.2)
+        dist = radius * (0.7 + (p % 3) * 0.25)
         dx = round(math.cos(angle) * dist, 1)
         dy = round(math.sin(angle) * dist, 1)
 
         lines.append(f"""
+        tl.set('#spark_{v_id}_{p}', {{ display: 'block' }}, {start});
         tl.fromTo('#spark_{v_id}_{p}',
-          {{ opacity: 1, scale: {1.8 if is_hero else 1.2}, x: 0, y: 0, backgroundColor: '{color}' }},
-          {{ opacity: 0, scale: 0.2, x: {dx}, y: {dy}, duration: {dur}, ease: 'power3.out' }},
+          {{ opacity: 1, scale: {1.4 if is_hero else 1.0}, x: 0, y: 0, backgroundColor: '{color}' }},
+          {{ opacity: 0, scale: 0.2, x: {dx}, y: {dy}, duration: {dur}, ease: 'power3.out', immediateRender: false }},
           {start}
         );
+        tl.set('#spark_{v_id}_{p}', {{ display: 'none' }}, {start + dur});
         """)
 
     return "\n".join(lines)
 
 def generate_spark_dom_elements(word_id: str, color: str = "#FFE600", is_hero: bool = False) -> str:
-    """Generates the DOM elements for sparks and shockwave ring around a word."""
+    """Generates the DOM elements for sparks and shockwave ring around caption rail."""
     v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
-    spark_count = 20 if is_hero else 10
+    spark_count = 14 if is_hero else 8
     
-    # Placed in the lower-third by default, or mid-screen for hero
-    base_top = "72%" if not is_hero else "40%"
+    # Placed at the caption rail (top: 1420px, left: 50%) — NEVER over presenter's face
+    base_top = "1420px"
     base_left = "50%"
 
     elements = [
