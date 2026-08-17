@@ -25,6 +25,9 @@ interface EditorClientProps {
     media_url: string;
     status: string;
     subtitle_style?: SubtitleStyle | null;
+    export_status?: string | null;
+    export_url?: string | null;
+    export_error?: string | null;
   };
   transcription: {
     language: string;
@@ -316,11 +319,42 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
     });
   }, [project.id, handleSave, videoUrl, subtitleStyle, subtitleMode, startExport]);
 
-  const [isHyperFramesExporting, setIsHyperFramesExporting] = useState(false);
-  const [hyperFramesUrl, setHyperFramesUrl] = useState<string | null>(null);
-  const [hyperFramesStatus, setHyperFramesStatus] = useState<'idle' | 'rendering' | 'ready' | 'failed'>('idle');
+  const [isHyperFramesExporting, setIsHyperFramesExporting] = useState(
+    project.export_status === 'rendering'
+  );
+  const [hyperFramesUrl, setHyperFramesUrl] = useState<string | null>(
+    project.export_url || null
+  );
+  const [hyperFramesStatus, setHyperFramesStatus] = useState<'idle' | 'rendering' | 'ready' | 'failed'>(
+    project.export_status === 'ready' || project.export_status === 'completed'
+      ? 'ready'
+      : project.export_status === 'rendering'
+      ? 'rendering'
+      : project.export_status === 'failed'
+      ? 'failed'
+      : 'idle'
+  );
+
+  const downloadHyperFramesVideo = useCallback((urlToDownload?: string) => {
+    const rawUrl = urlToDownload || hyperFramesUrl;
+    if (!rawUrl) return;
+    const downloadHref = rawUrl.includes('/api/video/stream')
+      ? `${rawUrl}&download=1`
+      : rawUrl;
+    const a = document.createElement('a');
+    a.href = downloadHref;
+    a.download = `vidyut_3d_cinematic_${project.id.slice(0, 8)}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, [hyperFramesUrl, project.id]);
 
   const handleHyperFramesExport = useCallback(async () => {
+    if (hyperFramesStatus === 'ready' && hyperFramesUrl) {
+      downloadHyperFramesVideo(hyperFramesUrl);
+      return;
+    }
+
     const saved = await handleSave();
     if (!saved) return;
 
@@ -354,13 +388,13 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
               setIsHyperFramesExporting(false);
               setHyperFramesStatus('ready');
               setHyperFramesUrl(data.export_url);
-              window.open(data.export_url, '_blank');
+              downloadHyperFramesVideo(data.export_url);
               return;
             } else if (data.export_status === 'failed') {
               clearInterval(pollInterval);
               setIsHyperFramesExporting(false);
               setHyperFramesStatus('failed');
-              alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+              alert(`HyperFrames 3D render failed: ${data.export_error || 'GPU worker error'}`);
               return;
             }
           }
@@ -368,21 +402,21 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
           // Fallback direct check
           const check = await supabase
             .from('projects')
-            .select('export_status, export_url')
+            .select('export_status, export_url, export_error')
             .eq('id', project.id)
             .maybeSingle();
 
-          if (check.data?.export_status === 'ready' && check.data?.export_url) {
+          if ((check.data?.export_status === 'ready' || check.data?.export_status === 'completed') && check.data?.export_url) {
             clearInterval(pollInterval);
             setIsHyperFramesExporting(false);
             setHyperFramesStatus('ready');
             setHyperFramesUrl(check.data.export_url);
-            window.open(check.data.export_url, '_blank');
+            downloadHyperFramesVideo(check.data.export_url);
           } else if (check.data?.export_status === 'failed') {
             clearInterval(pollInterval);
             setIsHyperFramesExporting(false);
             setHyperFramesStatus('failed');
-            alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+            alert(`HyperFrames 3D render failed: ${check.data.export_error || 'GPU worker error'}`);
           }
         } catch (pollErr) {
           console.warn('[HyperFrames Poll] Retrying status check...', pollErr);
@@ -394,7 +428,7 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
       setHyperFramesStatus('failed');
       alert(`Export error: ${(err as Error).message}`);
     }
-  }, [project.id, handleSave, aspectRatio]);
+  }, [project.id, handleSave, aspectRatio, hyperFramesStatus, hyperFramesUrl, downloadHyperFramesVideo]);
 
   const handleDirectDownload = useCallback(async () => {
     if (!downloadUrl) return;

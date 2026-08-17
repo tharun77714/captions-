@@ -16,14 +16,27 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('media_url', key)
-      .maybeSingle();
+    let isAuthorized = false;
 
-    if (!project) return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
+    if (key.startsWith(`${user.id}/`)) {
+      isAuthorized = true;
+    } else {
+      const { data: projects } = await supabase
+        .from('projects')
+        .select('id, media_url, export_url')
+        .eq('user_id', user.id);
+
+      if (projects && projects.length > 0) {
+        for (const p of projects) {
+          if (p.media_url === key || p.export_url?.includes(key) || key.includes(p.id)) {
+            isAuthorized = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!isAuthorized) return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
 
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,

@@ -46,6 +46,9 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
         media_url: project.media_url,
         status: project.status,
         subtitle_style: project.subtitle_style,
+        export_status: project.export_status,
+        export_url: project.export_url,
+        export_error: project.export_error,
       }}
       transcription={{
         language: transcription.language,

@@ -20,14 +20,30 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('media_url', key)
-      .maybeSingle();
+    let isAuthorized = false;
 
-    if (!project) return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
+    if (key.startsWith(`${user.id}/`)) {
+      isAuthorized = true;
+    } else {
+      // Check if key matches media_url or export of a project owned by user
+      const { data: projects } = await supabase
+        .from('projects')
+        .select('id, media_url, export_url')
+        .eq('user_id', user.id);
+
+      if (projects && projects.length > 0) {
+        for (const p of projects) {
+          if (p.media_url === key || p.export_url?.includes(key) || key.includes(p.id)) {
+            isAuthorized = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Video not found or access denied' }, { status: 404 });
+    }
 
     const presignedUrl = r2PresignedGetUrl(key, 300);
 
@@ -43,11 +59,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Storage fetch failed' }, { status: 502 });
     }
 
+    const isDownload = searchParams.get('download') === '1' || searchParams.get('download') === 'true';
+    const filename = key.split('/').pop() || 'vidyut_export.mp4';
+
     const responseHeaders: Record<string, string> = {
       'Content-Type':  r2Response.headers.get('content-type') || 'video/mp4',
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'private, max-age=3600',
     };
+
+    if (isDownload) {
+      responseHeaders['Content-Disposition'] = `attachment; filename="${filename}"`;
+    }
 
     const contentLength = r2Response.headers.get('content-length');
     const contentRange  = r2Response.headers.get('content-range');
