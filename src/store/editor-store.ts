@@ -593,11 +593,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   applyCreatorPreset: (presetId, version) =>
     set((state) => {
       const snapshot = getGlobalSnapshot(state);
+      const style = { ...state.subtitleStyle };
+
+      if (presetId === 'hyperframes-climax') {
+        style.font = { family: 'Noto Serif Telugu', weight: 800, italic: false };
+        style.textColor = 'rgba(255, 255, 255, 0.5)';
+        style.activeWordColor = '#FACC15';
+        style.glow = { enabled: true, color: 'rgba(250, 204, 21, 0.65)', radius: 24 };
+        style.transition = { type: 'scale', target: 'word', duration: 0.2 };
+        style.shadow = { color: 'rgba(0, 0, 0, 0.9)', offsetX: 0, offsetY: 4, blur: 16 };
+      } else if (presetId === 'hyperframes-rail') {
+        style.font = { family: 'Noto Sans Telugu', weight: 700, italic: false };
+        style.textColor = 'rgba(255, 255, 255, 0.45)';
+        style.activeWordColor = '#38BDF8';
+        style.glow = { enabled: true, color: 'rgba(56, 189, 248, 0.8)', radius: 18 };
+        style.transition = { type: 'pop', target: 'word', duration: 0.15 };
+        style.shadow = { color: 'rgba(0, 0, 0, 0.8)', offsetX: 0, offsetY: 2, blur: 10 };
+      } else if (presetId === 'hormozi') {
+        style.font = { family: 'Montserrat', weight: 900, italic: false };
+        style.textTransform = 'uppercase';
+        style.textColor = '#FFFFFF';
+        style.activeWordColor = '#FFEA00';
+        style.transition = { type: 'pop', target: 'word', duration: 0.15 };
+      } else if (presetId === 'ali') {
+        style.font = { family: 'Outfit', weight: 600, italic: false };
+        style.textColor = 'rgba(255, 255, 255, 0.7)';
+        style.activeWordColor = '#4DB8FF';
+        style.transition = { type: 'fade', target: 'word', duration: 0.2 };
+      } else if (presetId === 'iman') {
+        style.font = { family: 'Space Grotesk', weight: 500, italic: false };
+        style.textColor = '#808080';
+        style.activeWordColor = '#FFFFFF';
+        style.glow = { enabled: true, color: '#FFFFFF', radius: 16 };
+        style.transition = { type: 'fade', target: 'word', duration: 0.25 };
+      } else if (presetId === 'dev') {
+        style.font = { family: 'Bebas Neue', weight: 400, italic: false };
+        style.textTransform = 'uppercase';
+        style.textColor = '#FFFFFF';
+        style.activeWordColor = '#FF9933';
+        style.transition = { type: 'scale', target: 'word', duration: 0.15 };
+      }
+
+      style.activePreset = { id: presetId, version };
+
       return {
-        subtitleStyle: {
-          ...state.subtitleStyle,
-          activePreset: { id: presetId, version },
-        },
+        subtitleStyle: style,
         past: [...state.past, snapshot].slice(-50),
         future: [],
         canUndo: true,
