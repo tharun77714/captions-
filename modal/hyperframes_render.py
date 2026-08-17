@@ -427,11 +427,23 @@ def process_hyperframes_render(
             "--quality", "high",
             "--fps", "30"
         ]
-        res = subprocess.run(render_cmd, cwd=work_dir, env=custom_env, capture_output=True, text=True)
-        if res.returncode != 0:
-            print(f"❌ HyperFrames stdout: {res.stdout}")
-            print(f"❌ HyperFrames stderr: {res.stderr}")
-            raise RuntimeError(f"HyperFrames render error (code {res.returncode}): {res.stderr or res.stdout}")
+        process = subprocess.Popen(
+            render_cmd,
+            cwd=work_dir,
+            env=custom_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        for line in iter(process.stdout.readline, ''):
+            if line:
+                print(line.strip(), flush=True)
+        process.stdout.close()
+        return_code = process.wait()
+
+        if return_code != 0:
+            raise RuntimeError(f"HyperFrames render failed with code {return_code}")
 
         if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
             raise RuntimeError("HyperFrames render produced empty or missing MP4 file")
