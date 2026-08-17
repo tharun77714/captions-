@@ -70,13 +70,15 @@ def generate_hyperframes_html(
   <title>__COMPOSITION_ID__</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Noto+Sans+Telugu:wght@800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Noto+Sans+Telugu:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
 
     body, html {
@@ -84,7 +86,7 @@ def generate_hyperframes_html(
       height: __HEIGHT__px;
       overflow: hidden;
       background: #000000;
-      font-family: '__FONT_FAMILY__', 'Noto Sans Telugu', 'Montserrat', sans-serif;
+      font-family: 'Noto Sans Telugu', 'Montserrat', -apple-system, sans-serif;
     }
 
     #root {
@@ -144,14 +146,14 @@ def generate_hyperframes_html(
 
     __PLATE_VIDEO_TAG__
 
-    <!-- Track 1: 3D Punch Hero Climax Words (Behind Speaker) -->
+    <!-- Track 1: 3D Punch Hero Climax Words (Behind Speaker in upper billboard space) -->
     <div id="hero-stage" class="hero-stage">
       __HERO_ELEMENTS_HTML__
     </div>
 
     __SUBJECT_VIDEO_TAG__
 
-    <!-- Track 3: High-Contrast Floating Kinetic Caption Rail -->
+    <!-- Track 3: Ultra-Crisp Floating Kinetic Caption Rail -->
     <div id="phrase-stage" class="phrase-stage">
       __PHRASE_ELEMENTS_HTML__
     </div>
