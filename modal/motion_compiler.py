@@ -8,9 +8,10 @@ from motion_components.svg_callout import generate_svg_underline_animation
 def compile_motion_timeline(spec: MotionIntentSpec) -> str:
     """
     Compiles high-level MotionIntentSpec into deterministic GSAP 3.x timelines
-    registered under window.__timelines[spec.composition_id].
+    registered under window.__timelines['root'] and window.__timelines[spec.composition_id].
     """
     script_lines: List[str] = [
+        "window.__timelines = window.__timelines || {};",
         "const tl = gsap.timeline({ paused: true });",
     ]
 
@@ -35,6 +36,7 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
 
     # Pad timeline to duration
     script_lines.append(f"tl.to({{}}, {{ duration: {spec.duration_seconds} }}, 0);")
+    script_lines.append(f"window.__timelines['root'] = tl;")
     script_lines.append(f"window.__timelines['{spec.composition_id}'] = tl;")
 
     return "\n".join(script_lines)

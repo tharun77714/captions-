@@ -120,20 +120,19 @@ def generate_hyperframes_html(
     {plate_video_tag}
 
     <!-- Track 3: 3D Punch Hero Climax Words (Behind Speaker) -->
-    <div id="hero-stage" class="hero-stage clip" data-start="0" data-duration="{duration_seconds}">
+    <div id="hero-stage" class="hero-stage">
       {hero_elements_html}
     </div>
 
     {subject_video_tag}
 
     <!-- Track 5: Glassmorphic Kinetic Lower-Third Caption Rail -->
-    <div id="phrase-stage" class="phrase-stage clip" data-start="0" data-duration="{duration_seconds}">
+    <div id="phrase-stage" class="phrase-stage">
       {phrase_elements_html}
     </div>
   </div>
 
   <script>
-    window.__timelines = window.__timelines || {};
     {timeline_script}
     document.fonts.ready.then(function() {
       window.__captionReady = true;
