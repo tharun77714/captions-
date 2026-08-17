@@ -7,7 +7,7 @@ import { TranscriptPanel } from '@/components/editor/transcript-panel';
 import { StylePanel } from '@/components/editor/style-panel';
 import { Timeline } from '@/components/editor/timeline';
 import { AiClipFinder } from '@/components/editor/ai-clip-finder';
-import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video, AlertCircle, X, FileText, ChevronDown, Sparkles, Type } from 'lucide-react';
+import { Loader2, ArrowLeft, Undo2, Redo2, Download, Video, AlertCircle, X, FileText, ChevronDown, Sparkles, Type, Check, Copy, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { ensureV3, getAllUsedFonts } from '@/lib/subtitle-schema-v3';
 import { preloadFonts } from '@/lib/font-registry';
@@ -334,6 +334,8 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
       ? 'failed'
       : 'idle'
   );
+  const [showHyperFramesModal, setShowHyperFramesModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const downloadHyperFramesVideo = useCallback((urlToDownload?: string) => {
     const rawUrl = urlToDownload || hyperFramesUrl;
@@ -351,6 +353,7 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
 
   const handleHyperFramesExport = useCallback(async () => {
     if (hyperFramesStatus === 'ready' && hyperFramesUrl) {
+      setShowHyperFramesModal(true);
       downloadHyperFramesVideo(hyperFramesUrl);
       return;
     }
@@ -360,6 +363,7 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
 
     setIsHyperFramesExporting(true);
     setHyperFramesStatus('rendering');
+    setShowHyperFramesModal(true);
 
     try {
       const res = await fetch('/api/export/hyperframes', {
@@ -388,13 +392,13 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
               setIsHyperFramesExporting(false);
               setHyperFramesStatus('ready');
               setHyperFramesUrl(data.export_url);
+              setShowHyperFramesModal(true);
               downloadHyperFramesVideo(data.export_url);
               return;
             } else if (data.export_status === 'failed') {
               clearInterval(pollInterval);
               setIsHyperFramesExporting(false);
               setHyperFramesStatus('failed');
-              alert(`HyperFrames 3D render failed: ${data.export_error || 'GPU worker error'}`);
               return;
             }
           }
@@ -411,12 +415,12 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
             setIsHyperFramesExporting(false);
             setHyperFramesStatus('ready');
             setHyperFramesUrl(check.data.export_url);
+            setShowHyperFramesModal(true);
             downloadHyperFramesVideo(check.data.export_url);
           } else if (check.data?.export_status === 'failed') {
             clearInterval(pollInterval);
             setIsHyperFramesExporting(false);
             setHyperFramesStatus('failed');
-            alert(`HyperFrames 3D render failed: ${check.data.export_error || 'GPU worker error'}`);
           }
         } catch (pollErr) {
           console.warn('[HyperFrames Poll] Retrying status check...', pollErr);
@@ -426,7 +430,6 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
       console.error('[HyperFrames Export] Error:', err);
       setIsHyperFramesExporting(false);
       setHyperFramesStatus('failed');
-      alert(`Export error: ${(err as Error).message}`);
     }
   }, [project.id, handleSave, aspectRatio, hyperFramesStatus, hyperFramesUrl, downloadHyperFramesVideo]);
 
@@ -984,6 +987,118 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
                 )}
               </div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 3D Cinematic HyperFrames Export Progress & Completion Modal Popup */}
+        <AnimatePresence>
+          {showHyperFramesModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full max-w-md bg-zinc-950 border border-amber-500/20 rounded-3xl shadow-2xl overflow-hidden text-white"
+              >
+                {/* Modal Header */}
+                <div className="p-5 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-zinc-100">3D Cinematic Video Export</h3>
+                      <p className="text-[11px] text-zinc-400">Modal GPU Engine with HyperFrames</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowHyperFramesModal(false)}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Modal Content */}
+                <div className="p-6 space-y-5">
+                  {isHyperFramesExporting || hyperFramesStatus === 'rendering' ? (
+                    <div className="space-y-4 text-center py-4">
+                      <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
+                        <Loader2 className="w-7 h-7 animate-spin" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-semibold text-white">Rendering 3D Depth & Captions...</h4>
+                        <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+                          Our cloud GPU worker is separating the speaker and animating 3D viral captions behind them.
+                        </p>
+                      </div>
+                      <div className="text-[11px] text-amber-400/80 font-mono bg-amber-500/5 border border-amber-500/10 py-1.5 px-3 rounded-lg inline-block">
+                        Takes ~30 to 60 seconds • Running in cloud
+                      </div>
+                    </div>
+                  ) : hyperFramesStatus === 'ready' && hyperFramesUrl ? (
+                    <div className="space-y-5 text-center py-2">
+                      <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto text-emerald-400">
+                        <Check className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-bold text-white">3D Render Complete!</h4>
+                        <p className="text-xs text-zinc-400 mt-1">Your 3D cinematic video with viral captions is ready to download.</p>
+                      </div>
+
+                      {/* Download Button */}
+                      <button
+                        onClick={() => downloadHyperFramesVideo(hyperFramesUrl)}
+                        className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black text-sm font-bold rounded-xl transition-all shadow-xl shadow-amber-500/10 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 text-black" />
+                        Download 3D Video (MP4)
+                      </button>
+
+                      {/* Copy Link Button */}
+                      <button
+                        onClick={() => {
+                          const fullUrl = window.location.origin + (hyperFramesUrl.startsWith('/') ? hyperFramesUrl : `/${hyperFramesUrl}`);
+                          navigator.clipboard.writeText(fullUrl);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2500);
+                        }}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-300 text-xs font-semibold rounded-xl transition-all"
+                      >
+                        {copiedLink ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Direct Link Copied to Clipboard!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Direct Video Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : hyperFramesStatus === 'failed' ? (
+                    <div className="text-center py-4 space-y-4">
+                      <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
+                        <AlertCircle className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-rose-400">3D Render Encountered an Issue</h4>
+                        <p className="text-xs text-zinc-400 mt-1">Please try re-triggering the export.</p>
+                      </div>
+                      <button
+                        onClick={handleHyperFramesExport}
+                        className="w-full py-2.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        Retry 3D Render
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </div>
