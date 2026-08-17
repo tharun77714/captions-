@@ -12,7 +12,7 @@ def generate_hyperframes_html(
 ) -> str:
     """
     Generates a full HyperFrames-compliant HTML document with multi-plane Z-depth stack
-    and deterministic GSAP timeline.
+    and deterministic GSAP timeline using robust string replacement.
     """
     has_matte = bool(matte_src and plate_src)
     timeline_script = compile_motion_timeline(spec)
@@ -46,7 +46,7 @@ def generate_hyperframes_html(
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{composition_id}</title>
+  <title>__COMPOSITION_ID__</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Noto+Sans+Telugu:wght@800;900&display=swap" rel="stylesheet">
@@ -59,17 +59,17 @@ def generate_hyperframes_html(
     }
 
     body, html {
-      width: {width}px;
-      height: {height}px;
+      width: __WIDTH__px;
+      height: __HEIGHT__px;
       overflow: hidden;
       background: #000000;
-      font-family: '{font_family}', 'Noto Sans Telugu', 'Montserrat', sans-serif;
+      font-family: '__FONT_FAMILY__', 'Noto Sans Telugu', 'Montserrat', sans-serif;
     }
 
     #root {
       position: relative;
-      width: {width}px;
-      height: {height}px;
+      width: __WIDTH__px;
+      height: __HEIGHT__px;
     }
 
     /* Track 0: Background Plate Video */
@@ -107,33 +107,33 @@ def generate_hyperframes_html(
       pointer-events: none;
     }
 
-    {hero_css}
-    {rail_css}
+    __HERO_CSS__
+    __RAIL_CSS__
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
-  <div id="root" data-composition-id="{composition_id}" data-width="{width}" data-height="{height}" data-start="0" data-duration="{duration_seconds}">
+  <div id="root" data-composition-id="__COMPOSITION_ID__" data-width="__WIDTH__" data-height="__HEIGHT__" data-start="0" data-duration="__DURATION__">
     <!-- Track 0: Background Video Plate -->
-    <video id="bg-video-layer" class="bg-video clip" src="{video_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>
+    <video id="bg-video-layer" class="bg-video clip" src="__VIDEO_SRC__" data-start="0" data-duration="__DURATION__" playsinline muted></video>
 
-    {plate_video_tag}
+    __PLATE_VIDEO_TAG__
 
     <!-- Track 3: 3D Punch Hero Climax Words (Behind Speaker) -->
     <div id="hero-stage" class="hero-stage">
-      {hero_elements_html}
+      __HERO_ELEMENTS_HTML__
     </div>
 
-    {subject_video_tag}
+    __SUBJECT_VIDEO_TAG__
 
     <!-- Track 5: Glassmorphic Kinetic Lower-Third Caption Rail -->
     <div id="phrase-stage" class="phrase-stage">
-      {phrase_elements_html}
+      __PHRASE_ELEMENTS_HTML__
     </div>
   </div>
 
   <script>
-    {timeline_script}
+    __TIMELINE_SCRIPT__
     document.fonts.ready.then(function() {
       window.__captionReady = true;
     });
@@ -141,18 +141,19 @@ def generate_hyperframes_html(
 </body>
 </html>"""
 
-    return html_template.format(
-        composition_id=spec.composition_id,
-        width=spec.width,
-        height=spec.height,
-        font_family=spec.font_family,
-        duration_seconds=spec.duration_seconds,
-        video_src=video_src,
-        plate_video_tag=plate_video_tag,
-        hero_elements_html=hero_elements_html,
-        subject_video_tag=subject_video_tag,
-        phrase_elements_html=phrase_elements_html,
-        hero_css=hero_css,
-        rail_css=rail_css,
-        timeline_script=timeline_script
-    )
+    result = html_template
+    result = result.replace("__COMPOSITION_ID__", str(spec.composition_id))
+    result = result.replace("__WIDTH__", str(spec.width))
+    result = result.replace("__HEIGHT__", str(spec.height))
+    result = result.replace("__FONT_FAMILY__", str(spec.font_family))
+    result = result.replace("__DURATION__", str(spec.duration_seconds))
+    result = result.replace("__VIDEO_SRC__", str(video_src))
+    result = result.replace("__PLATE_VIDEO_TAG__", plate_video_tag)
+    result = result.replace("__HERO_ELEMENTS_HTML__", hero_elements_html)
+    result = result.replace("__SUBJECT_VIDEO_TAG__", subject_video_tag)
+    result = result.replace("__PHRASE_ELEMENTS_HTML__", phrase_elements_html)
+    result = result.replace("__HERO_CSS__", hero_css)
+    result = result.replace("__RAIL_CSS__", rail_css)
+    result = result.replace("__TIMELINE_SCRIPT__", timeline_script)
+
+    return result
