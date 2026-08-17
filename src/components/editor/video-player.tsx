@@ -596,6 +596,45 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(function
         ))}
       </div>
 
+      {/* HyperFrames 3D Hero Word Stage */}
+      {subtitleStyle.activePreset?.id === 'hyperframes-climax' && (
+        <div
+          className="absolute top-[18%] left-[6%] w-[88%] h-[32%] flex flex-col items-center justify-center text-center pointer-events-none z-40 transition-all duration-200"
+        >
+          {(() => {
+            const currentWords = useCompositionRenderer
+              ? (activeBlock ? activeBlock.lines.flatMap((l) => l.words) : [])
+              : (activeSegment ? activeSegment.words : []);
+            const curActive = currentWords.find((w) => currentTime >= w.start && currentTime <= w.end);
+            if (!curActive) return null;
+            return (
+              <span
+                key={curActive.id || curActive.word}
+                style={{
+                  fontFamily: '"Noto Serif Telugu", "Inter", serif',
+                  fontSize: `${Math.round(64 * (isExportMode ? 1 : renderScale))}px`,
+                  fontWeight: 900,
+                  color: '#FACC15',
+                  textShadow: '0 10px 40px rgba(0,0,0,0.95), 0 0 60px rgba(250,204,21,0.6)',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.15,
+                  wordBreak: 'keep-all',
+                }}
+                className="animate-in fade-in zoom-in-90 duration-150"
+              >
+                {curActive.word.trim()}
+              </span>
+            );
+          })()}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-yellow-400/30 backdrop-blur-md mt-2 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+            <span className="text-[10px] text-yellow-300 font-bold tracking-widest uppercase">
+              HyperFrames 3D Climax
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Subtitle Overlay */}
       {(useCompositionRenderer ? activeBlock : activeSegment) && (
         <div
