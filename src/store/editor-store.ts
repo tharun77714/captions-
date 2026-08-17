@@ -595,29 +595,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const snapshot = getGlobalSnapshot(state);
       const style = { ...state.subtitleStyle };
 
-      if (presetId === 'hyperframes-climax') {
-        style.font = { family: 'Noto Serif Telugu', weight: 800, italic: false };
-        style.textColor = { type: 'solid', solid: '#ffffff' };
-        style.activeWordColor = '#FACC15';
-        style.highlightMode = 'karaoke';
-        style.fontSize = 44;
-        style.glow = { enabled: true, color: 'rgba(250, 204, 21, 0.75)', radius: 24 };
-        style.transition = { type: 'scale', target: 'word', duration: 0.2 };
-        style.shadow = { color: 'rgba(0, 0, 0, 0.95)', offsetX: 0, offsetY: 4, blur: 20 };
-        style.stroke = { enabled: true, color: '#000000', width: 2 };
-        style.background = { enabled: true, color: 'rgba(0, 0, 0, 0.65)' };
-      } else if (presetId === 'hyperframes-rail') {
-        style.font = { family: 'Noto Sans Telugu', weight: 700, italic: false };
-        style.textColor = { type: 'solid', solid: 'rgba(255, 255, 255, 0.6)' };
-        style.activeWordColor = '#38BDF8';
-        style.highlightMode = 'karaoke';
-        style.fontSize = 40;
-        style.glow = { enabled: true, color: 'rgba(56, 189, 248, 0.85)', radius: 20 };
-        style.transition = { type: 'pop', target: 'word', duration: 0.15 };
-        style.shadow = { color: 'rgba(0, 0, 0, 0.85)', offsetX: 0, offsetY: 2, blur: 12 };
-        style.stroke = { enabled: true, color: '#000000', width: 2 };
-        style.background = { enabled: true, color: 'rgba(15, 15, 20, 0.75)' };
-      } else if (presetId === 'hormozi') {
+      if (presetId === 'hormozi') {
         style.font = { family: 'Montserrat', weight: 900, italic: false };
         style.textTransform = 'uppercase';
         style.textColor = { type: 'solid', solid: '#ffffff' };
