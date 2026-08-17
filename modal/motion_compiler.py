@@ -11,8 +11,7 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
     registered under window.__timelines[spec.composition_id].
     """
     script_lines: List[str] = [
-        "window.__timelines = window.__timelines || {};",
-        f"const tl = gsap.timeline({{ paused: true }});",
+        "const tl = gsap.timeline({ paused: true });",
     ]
 
     hero_set = set(spec.hero_word_ids)
@@ -37,6 +36,5 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
     # Pad timeline to duration
     script_lines.append(f"tl.to({{}}, {{ duration: {spec.duration_seconds} }}, 0);")
     script_lines.append(f"window.__timelines['{spec.composition_id}'] = tl;")
-    script_lines.append("window.__captionReady = true;")
 
     return "\n".join(script_lines)
