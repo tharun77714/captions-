@@ -7,15 +7,16 @@ import json
 import boto3
 from supabase import create_client
 
-# Define high-performance Linux container image with Node 22, FFmpeg, Chromium, and HyperFrames
+# Define high-performance Linux container image with Node 22, FFmpeg, Chromium, unzip, and HyperFrames
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg", "curl", "git", "ca-certificates")
+    .apt_install("ffmpeg", "curl", "git", "ca-certificates", "unzip", "chromium", "fonts-noto-core", "fonts-noto-extra")
     .run_commands(
         "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",
         "apt-get install -y nodejs",
         "npx --yes playwright install-deps chromium",
-        "npm install -g hyperframes@0.7.109 gsap"
+        "npm install -g hyperframes@0.7.109 gsap yauzl",
+        "npx --yes hyperframes browser ensure || true"
     )
     .pip_install(
         "boto3==1.34.101",
@@ -29,9 +30,9 @@ image = (
 app = modal.App(name="vidyut-hyperframes", image=image)
 
 def get_s3_client():
-    account_id = os.environ.get("R2_ACCOUNT_ID")
-    access_key = os.environ.get("R2_ACCESS_KEY_ID")
-    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+    account_id = os.environ.get("R2_ACCOUNT_ID") or "92b92a493e0d155b9f3a36e492f3271b"
+    access_key = os.environ.get("R2_ACCESS_KEY_ID") or "8ac17e76d17b3e5dadf67b34368a5598"
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or "45c53972643d98db46bce1746a74b7d4cd54f564ba30ed2bbd8070d0aac1c2df"
     endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com"
     return boto3.client(
         "s3",
@@ -42,8 +43,8 @@ def get_s3_client():
     )
 
 def get_supabase_client():
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "https://teydehnwtfeyfmzxcsta.supabase.co"
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRleWRlaG53dGZleWZtenhjc3RhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTI0MjU3MCwiZXhwIjoyMDk2ODE4NTcwfQ.VprBWN0245PWK-yuts_7uj-jiPXQA7bjU_U-7NSIF5k"
     return create_client(url, key)
 
 def generate_composition_html(
@@ -291,7 +292,7 @@ def process_hyperframes_render(
 
     supabase = get_supabase_client()
     s3 = get_s3_client()
-    bucket_name = os.environ.get("R2_BUCKET_NAME", "vidyut-media")
+    bucket_name = os.environ.get("R2_BUCKET_NAME") or "vidyut-media-production"
 
     try:
         print(f"🎬 [HyperFrames] Starting render for project {project_id} (Style: {style_name})")
@@ -366,19 +367,19 @@ def process_hyperframes_render(
             print("✂️ Running AI Person Segmentation (u2net / remove-background)...")
             matte_dir = os.path.join(work_dir, "matte")
             os.makedirs(matte_dir, exist_ok=True)
+            subject_webm = os.path.join(matte_dir, "subject.webm")
             
             matte_cmd = [
                 "npx", "hyperframes", "remove-background",
                 local_video,
-                "--output", matte_dir
+                "--output", subject_webm
             ]
-            subprocess.run(matte_cmd, cwd=work_dir, check=False)
+            res_matte = subprocess.run(matte_cmd, cwd=work_dir, capture_output=True, text=True, check=False)
+            print(f"Matte output: {res_matte.stdout or res_matte.stderr}")
 
-            subject_webm = os.path.join(matte_dir, "subject.webm")
-            plate_webm = os.path.join(matte_dir, "plate.webm")
-            if os.path.exists(subject_webm) and os.path.exists(plate_webm):
+            if os.path.exists(subject_webm) and os.path.getsize(subject_webm) > 1000:
                 matte_src = "matte/subject.webm"
-                plate_src = "matte/plate.webm"
+                plate_src = "input.mp4"
                 print("✅ Person matte separated successfully!")
             else:
                 print("⚠️ Matte generation skipped or fallback to standard composite.")
@@ -412,6 +413,13 @@ def process_hyperframes_render(
         # 6. Render via HyperFrames
         output_mp4 = os.path.join(work_dir, "output.mp4")
         print("🚀 Invoking HyperFrames headless Chromium render...")
+        
+        custom_env = os.environ.copy()
+        if os.path.exists("/usr/bin/chromium"):
+            custom_env["HYPERFRAMES_BROWSER_PATH"] = "/usr/bin/chromium"
+        elif os.path.exists("/usr/bin/chromium-browser"):
+            custom_env["HYPERFRAMES_BROWSER_PATH"] = "/usr/bin/chromium-browser"
+
         render_cmd = [
             "npx", "hyperframes", "render",
             comp_dir,
@@ -419,7 +427,11 @@ def process_hyperframes_render(
             "--quality", "high",
             "--fps", "30"
         ]
-        subprocess.run(render_cmd, cwd=work_dir, check=True)
+        res = subprocess.run(render_cmd, cwd=work_dir, env=custom_env, capture_output=True, text=True)
+        if res.returncode != 0:
+            print(f"❌ HyperFrames stdout: {res.stdout}")
+            print(f"❌ HyperFrames stderr: {res.stderr}")
+            raise RuntimeError(f"HyperFrames render error (code {res.returncode}): {res.stderr or res.stdout}")
 
         if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
             raise RuntimeError("HyperFrames render produced empty or missing MP4 file")
@@ -434,13 +446,14 @@ def process_hyperframes_render(
             ExtraArgs={"ContentType": "video/mp4"}
         )
 
-        # Generate public/presigned URL or store key
-        export_url = f"https://pub-your-r2.r2.dev/{export_s3_key}"
+        # Use same streaming proxy URL as regular editor exports
+        export_url = f"/api/video/stream?key={export_s3_key}"
 
         # 8. Update Supabase
         supabase.table("projects").update({
             "export_status": "ready",
-            "export_url": export_url
+            "export_url": export_url,
+            "export_error": None
         }).eq("id", project_id).execute()
 
         render_duration = round(time.time() - start_time, 2)
@@ -449,16 +462,23 @@ def process_hyperframes_render(
         return {
             "status": "success",
             "project_id": project_id,
+            "export_url": export_url,
             "export_s3_key": export_s3_key,
             "render_duration_seconds": render_duration
         }
 
     except Exception as e:
-        err_msg = str(e)
-        print(f"❌ [HyperFrames] Render failed: {err_msg}")
-        supabase.table("projects").update({
-            "export_status": "failed"
-        }).eq("id", project_id).execute()
+        import traceback
+        err_trace = traceback.format_exc()
+        print(f"❌ [HyperFrames Render Error]: {err_trace}")
+        try:
+            supabase = get_supabase_client()
+            supabase.table("projects").update({
+                "export_status": "failed",
+                "export_error": str(e)
+            }).eq("id", project_id).execute()
+        except Exception as db_err:
+            print(f"⚠️ Failed to update failure status to Supabase: {db_err}")
         raise e
     finally:
         # Cleanup temp directory
