@@ -30,6 +30,7 @@ image = (
         "fastapi[standard]",
         "pydantic"
     )
+    .add_local_dir("modal", remote_path="/root")
 )
 
 app = modal.App(name="vidyut-hyperframes", image=image)

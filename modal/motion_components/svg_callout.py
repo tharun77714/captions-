@@ -1,3 +1,5 @@
+import re
+
 """
 SVGCallout Component: Hand-drawn SVG marker underlines and emphasis rings.
 """
@@ -11,17 +13,18 @@ def generate_svg_underline_html(word_id: str, width_px: int = 160) -> str:
 
 def generate_svg_underline_animation(word_id: str, start: float, end: float) -> str:
     dur = max(0.12, end - start)
+    v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
     return f"""
-      const svgUl_{word_id} = document.getElementById('svg_underline_{word_id}');
-      if (svgUl_{word_id}) {{
-        const path = svgUl_{word_id}.querySelector('path');
-        tl.set(svgUl_{word_id}, {{ opacity: 1 }}, {start});
+      const svgUl_{v_id} = document.getElementById('svg_underline_{word_id}');
+      if (svgUl_{v_id}) {{
+        const path = svgUl_{v_id}.querySelector('path');
+        tl.set(svgUl_{v_id}, {{ opacity: 1 }}, {start});
         tl.fromTo(path,
           {{ strokeDashoffset: 320 }},
           {{ strokeDashoffset: 0, duration: {min(0.18, dur * 0.5)}, ease: 'power2.out' }},
           {start}
         );
-        tl.to(svgUl_{word_id},
+        tl.to(svgUl_{v_id},
           {{ opacity: 0, duration: 0.12, ease: 'power1.in' }},
           {end}
         );
