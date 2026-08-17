@@ -596,40 +596,38 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const style = { ...state.subtitleStyle };
 
       if (presetId === 'hormozi') {
-        style.font = { family: 'Montserrat', weight: 900, italic: false };
-        style.textTransform = 'uppercase';
-        style.textColor = { type: 'solid', solid: '#ffffff' };
+        style.font = { ...style.font, family: 'Montserrat', weight: 900, italic: false, underline: false, textTransform: 'uppercase' };
+        style.textColor = { mode: 'solid', solid: '#ffffff' };
         style.activeWordColor = '#FFEA00';
         style.highlightMode = 'color';
         style.fontSize = 46;
         style.stroke = { enabled: true, color: '#000000', width: 4 };
         style.shadow = { color: 'rgba(0, 0, 0, 0.9)', offsetX: 0, offsetY: 4, blur: 10 };
-        style.transition = { type: 'pop', target: 'word', duration: 0.15 };
+        style.transition = { type: 'pop', target: 'word', speedMode: 'dynamic', speed: 20 };
       } else if (presetId === 'ali') {
-        style.font = { family: 'Outfit', weight: 600, italic: false };
-        style.textColor = { type: 'solid', solid: 'rgba(255, 255, 255, 0.7)' };
+        style.font = { ...style.font, family: 'Outfit', weight: 600, italic: false, underline: false, textTransform: 'none' };
+        style.textColor = { mode: 'solid', solid: 'rgba(255, 255, 255, 0.7)' };
         style.activeWordColor = '#4DB8FF';
         style.highlightMode = 'color';
         style.fontSize = 40;
-        style.background = { enabled: true, color: 'rgba(0, 0, 0, 0.5)' };
-        style.transition = { type: 'fade', target: 'word', duration: 0.2 };
+        style.background = { ...style.background, enabled: true, color: 'rgba(0, 0, 0, 0.5)' };
+        style.transition = { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 20 };
       } else if (presetId === 'iman') {
-        style.font = { family: 'Space Grotesk', weight: 500, italic: false };
-        style.textColor = { type: 'solid', solid: '#808080' };
+        style.font = { ...style.font, family: 'Space Grotesk', weight: 500, italic: false, underline: false, textTransform: 'none' };
+        style.textColor = { mode: 'solid', solid: '#808080' };
         style.activeWordColor = '#FFFFFF';
         style.highlightMode = 'color';
         style.fontSize = 42;
-        style.glow = { enabled: true, color: '#FFFFFF', radius: 18 };
-        style.transition = { type: 'fade', target: 'word', duration: 0.25 };
+        style.shadow = { color: '#FFFFFF', blur: 18, offsetX: 0, offsetY: 0 };
+        style.transition = { type: 'fade', target: 'word', speedMode: 'dynamic', speed: 20 };
       } else if (presetId === 'dev') {
-        style.font = { family: 'Bebas Neue', weight: 400, italic: false };
-        style.textTransform = 'uppercase';
-        style.textColor = { type: 'solid', solid: '#ffffff' };
+        style.font = { ...style.font, family: 'Bebas Neue', weight: 400, italic: false, underline: false, textTransform: 'uppercase' };
+        style.textColor = { mode: 'solid', solid: '#ffffff' };
         style.activeWordColor = '#FF9933';
         style.highlightMode = 'scale';
         style.fontSize = 48;
         style.stroke = { enabled: true, color: '#000000', width: 3 };
-        style.transition = { type: 'scale', target: 'word', duration: 0.15 };
+        style.transition = { type: 'scale', target: 'word', speedMode: 'dynamic', speed: 20 };
       }
 
       style.activePreset = { id: presetId, version };
