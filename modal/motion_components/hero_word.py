@@ -9,10 +9,10 @@ def generate_hero_word_css() -> str:
     return """
     .hero-stage {
       position: absolute;
-      top: 20%;
-      left: 6%;
-      width: 88%;
-      height: 32%;
+      top: 480px;
+      left: 54px;
+      width: 972px;
+      height: 400px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -22,18 +22,18 @@ def generate_hero_word_css() -> str:
     }
 
     .hero-word-item {
-      font-family: 'Montserrat', 'Noto Sans Telugu', sans-serif;
-      font-size: 112px;
+      font-family: 'Noto Sans Telugu', 'Montserrat', sans-serif;
+      font-size: 100px;
       font-weight: 900;
       color: #FFE600;
       text-transform: uppercase;
       opacity: 0;
       display: none;
       transform: scale(0.6) rotate(-2deg);
-      -webkit-text-stroke: 4px #000000;
+      -webkit-text-stroke: 3px #000000;
       text-shadow: 0 12px 48px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 230, 0, 0.7);
       word-break: keep-all;
-      letter-spacing: -2px;
+      letter-spacing: -1px;
     }
     """
 
