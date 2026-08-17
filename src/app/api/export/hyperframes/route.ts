@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -9,31 +9,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabase = createAdminClient();
 
-    // Try finding by projectId (and optionally user_id if present)
-    let project = null;
-    if (user?.id) {
-      const { data: userProj } = await supabase
-        .from('projects')
-        .select('id, media_url, s3_key, user_id')
-        .eq('id', projectId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      project = userProj;
-    }
+    const { data: project, error: projError } = await supabase
+      .from('projects')
+      .select('id, media_url, s3_key, user_id')
+      .eq('id', projectId)
+      .maybeSingle();
 
-    if (!project) {
-      const { data: anyProj } = await supabase
-        .from('projects')
-        .select('id, media_url, s3_key, user_id')
-        .eq('id', projectId)
-        .maybeSingle();
-      project = anyProj;
-    }
-
-    if (!project) {
+    if (projError || !project) {
+      console.error('[HyperFrames Export] Project query failed:', projError, projectId);
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -52,7 +37,7 @@ export async function POST(request: Request) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: projectId,
-          user_id: user.id,
+          user_id: project.user_id || 'anonymous',
           style_name: styleName,
           aspect_ratio: aspectRatio,
           hero_word_ids: heroWordIds,

@@ -345,23 +345,47 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
 
       const supabase = createClient();
       const pollInterval = setInterval(async () => {
-        const check = await supabase
-          .from('projects')
-          .select('export_status, export_url')
-          .eq('id', project.id)
-          .single();
+        try {
+          const res = await fetch(`/api/projects/${project.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if ((data.export_status === 'ready' || data.export_status === 'completed') && data.export_url) {
+              clearInterval(pollInterval);
+              setIsHyperFramesExporting(false);
+              setHyperFramesStatus('ready');
+              setHyperFramesUrl(data.export_url);
+              window.open(data.export_url, '_blank');
+              return;
+            } else if (data.export_status === 'failed') {
+              clearInterval(pollInterval);
+              setIsHyperFramesExporting(false);
+              setHyperFramesStatus('failed');
+              alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+              return;
+            }
+          }
 
-        if (check.data?.export_status === 'ready' && check.data?.export_url) {
-          clearInterval(pollInterval);
-          setIsHyperFramesExporting(false);
-          setHyperFramesStatus('ready');
-          setHyperFramesUrl(check.data.export_url);
-          window.open(check.data.export_url, '_blank');
-        } else if (check.data?.export_status === 'failed') {
-          clearInterval(pollInterval);
-          setIsHyperFramesExporting(false);
-          setHyperFramesStatus('failed');
-          alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+          // Fallback direct check
+          const check = await supabase
+            .from('projects')
+            .select('export_status, export_url')
+            .eq('id', project.id)
+            .maybeSingle();
+
+          if (check.data?.export_status === 'ready' && check.data?.export_url) {
+            clearInterval(pollInterval);
+            setIsHyperFramesExporting(false);
+            setHyperFramesStatus('ready');
+            setHyperFramesUrl(check.data.export_url);
+            window.open(check.data.export_url, '_blank');
+          } else if (check.data?.export_status === 'failed') {
+            clearInterval(pollInterval);
+            setIsHyperFramesExporting(false);
+            setHyperFramesStatus('failed');
+            alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+          }
+        } catch (pollErr) {
+          console.warn('[HyperFrames Poll] Retrying status check...', pollErr);
         }
       }, 3000);
     } catch (err) {
