@@ -74,3 +74,6 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     Component: BilingualIndiaPro,
   },
 ];
+
+export const REJECTED_EXPERIMENTS: string[] = [];
+
