@@ -1,8 +1,10 @@
+import re
 from typing import Dict, Any, List
 from motion_spec import MotionIntentSpec
 from motion_compiler import compile_motion_timeline
 from motion_components.hero_word import generate_hero_word_css
 from motion_components.kinetic_rail import generate_kinetic_rail_css
+from motion_components.particle_sparks import generate_particle_css, generate_spark_dom_elements
 
 def generate_hyperframes_html(
     spec: MotionIntentSpec,
@@ -11,33 +13,52 @@ def generate_hyperframes_html(
     plate_src: str = None
 ) -> str:
     """
-    Generates a full HyperFrames-compliant HTML document with multi-plane Z-depth stack
-    and deterministic GSAP timeline using robust string replacement.
+    Generates a full HyperFrames-compliant HTML document with multi-plane Z-depth stack:
+    - Track 0 (z:10): Background Video Plate (with camera punch transform origin)
+    - Track 1 (z:30): 3D Hero Typography (Behind speaker cutout)
+    - Track 2 (z:40): U2Net AI Person Cutout (Alpha Matte)
+    - Track 3 (z:50): Floating Kinetic Caption Rail (Foreground)
+    - Track 4 (z:55): Particle Sparks & Shockwave Rings (VFX Layer)
     """
     has_matte = bool(matte_src and plate_src)
     timeline_script = compile_motion_timeline(spec)
 
-    # Pre-render DOM elements for phrases & hero items
+    # Pre-render DOM elements for phrases, hero items, and VFX particles
     hero_dom_items: List[str] = []
     phrase_dom_items: List[str] = []
+    vfx_dom_items: List[str] = []
 
     hero_set = set(spec.hero_word_ids)
 
     for phrase in spec.phrases:
         words_html = []
-        for w in phrase.words:
-            words_html.append(f'<span id="w_{w.id}" class="word">{w.text}</span>')
-            if w.id in hero_set or w.visual_intent == "hero":
-                hero_dom_items.append(f'<div id="hero_{w.id}" class="hero-word-item">{w.text}</div>')
+        p_vid = re.sub(r'[^a-zA-Z0-9_]', '_', phrase.id)
         
+        for w in phrase.words:
+            w_vid = re.sub(r'[^a-zA-Z0-9_]', '_', w.id)
+            is_hero = (w.id in hero_set or w.visual_intent == "hero")
+            is_emphasis = (w.visual_intent == "emphasis")
+
+            accent = w.color_intent or (spec.accent_color if is_hero else (spec.contrast_color if is_emphasis else "#FFFFFF"))
+
+            words_html.append(f'<span id="w_{w_vid}" class="word">{w.text}</span>')
+            
+            if is_hero:
+                hero_dom_items.append(f'<div id="hero_{w_vid}" class="hero-word-item">{w.text}</div>')
+            
+            if is_emphasis or is_hero:
+                vfx_dom_items.append(generate_spark_dom_elements(w.id, color=accent, is_hero=is_hero))
+
         words_joined = "".join(words_html)
-        phrase_dom_items.append(f'<div id="{phrase.id}" class="phrase-block">{words_joined}</div>')
+        phrase_dom_items.append(f'<div id="{p_vid}" class="phrase-block">{words_joined}</div>')
 
     hero_elements_html = "\n".join(hero_dom_items)
     phrase_elements_html = "\n".join(phrase_dom_items)
+    vfx_elements_html = "\n".join(vfx_dom_items)
 
     hero_css = generate_hero_word_css()
     rail_css = generate_kinetic_rail_css()
+    vfx_css = generate_particle_css()
 
     plate_video_tag = f'<video id="plate-video-layer" class="plate-video clip" src="{plate_src}" data-start="0" data-duration="{spec.duration_seconds}" playsinline muted></video>' if has_matte else ''
     subject_video_tag = f'<video id="subject-video-layer" class="subject-video clip" src="{matte_src}" data-start="0" data-duration="{spec.duration_seconds}" playsinline muted></video>' if has_matte else ''
@@ -70,6 +91,7 @@ def generate_hyperframes_html(
       position: relative;
       width: __WIDTH__px;
       height: __HEIGHT__px;
+      transform-origin: center center;
     }
 
     /* Track 0: Background Plate Video */
@@ -81,6 +103,7 @@ def generate_hyperframes_html(
       height: 100%;
       object-fit: cover;
       z-index: 10;
+      transform-origin: center center;
     }
 
     /* Track 2: Plate fallback */
@@ -93,6 +116,7 @@ def generate_hyperframes_html(
       object-fit: cover;
       z-index: 20;
       pointer-events: none;
+      transform-origin: center center;
     }
 
     /* Track 4: Subject Alpha Cutout */
@@ -109,6 +133,7 @@ def generate_hyperframes_html(
 
     __HERO_CSS__
     __RAIL_CSS__
+    __VFX_CSS__
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
@@ -119,16 +144,21 @@ def generate_hyperframes_html(
 
     __PLATE_VIDEO_TAG__
 
-    <!-- Track 3: 3D Punch Hero Climax Words (Behind Speaker) -->
+    <!-- Track 1: 3D Punch Hero Climax Words (Behind Speaker) -->
     <div id="hero-stage" class="hero-stage">
       __HERO_ELEMENTS_HTML__
     </div>
 
     __SUBJECT_VIDEO_TAG__
 
-    <!-- Track 5: Glassmorphic Kinetic Lower-Third Caption Rail -->
+    <!-- Track 3: High-Contrast Floating Kinetic Caption Rail -->
     <div id="phrase-stage" class="phrase-stage">
       __PHRASE_ELEMENTS_HTML__
+    </div>
+
+    <!-- Track 4: Particle VFX & Shockwaves -->
+    <div id="vfx-stage" class="vfx-stage">
+      __VFX_ELEMENTS_HTML__
     </div>
   </div>
 
@@ -152,8 +182,10 @@ def generate_hyperframes_html(
     result = result.replace("__HERO_ELEMENTS_HTML__", hero_elements_html)
     result = result.replace("__SUBJECT_VIDEO_TAG__", subject_video_tag)
     result = result.replace("__PHRASE_ELEMENTS_HTML__", phrase_elements_html)
+    result = result.replace("__VFX_ELEMENTS_HTML__", vfx_elements_html)
     result = result.replace("__HERO_CSS__", hero_css)
     result = result.replace("__RAIL_CSS__", rail_css)
+    result = result.replace("__VFX_CSS__", vfx_css)
     result = result.replace("__TIMELINE_SCRIPT__", timeline_script)
 
     return result
