@@ -1,0 +1,1 @@
+# Vidyut Motion Components Registry

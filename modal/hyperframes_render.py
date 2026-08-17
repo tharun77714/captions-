@@ -7,6 +7,11 @@ import json
 import boto3
 from supabase import create_client
 
+from motion_spec import MotionIntentSpec, Archetype
+from phrase_engine import build_adaptive_phrases
+from composition_builder import generate_hyperframes_html
+from motion_diagnostics import audit_motion_density
+
 # Define high-performance Linux container image with Node 22, FFmpeg, Chromium, unzip, and HyperFrames
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -47,278 +52,6 @@ def get_supabase_client():
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRleWRlaG53dGZleWZtenhjc3RhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTI0MjU3MCwiZXhwIjoyMDk2ODE4NTcwfQ.VprBWN0245PWK-yuts_7uj-jiPXQA7bjU_U-7NSIF5k"
     return create_client(url, key)
 
-def generate_composition_html(
-    comp_id: str,
-    width: int,
-    height: int,
-    duration_seconds: float,
-    words: list,
-    hero_word_ids: list,
-    video_src: str,
-    matte_src: str = None,
-    plate_src: str = None,
-    style: str = "3D_CLIMAX"
-) -> str:
-    # 1. Group words into dynamic spoken phrase blocks (2 to 4 words per phrase)
-    phrases = []
-    current_phrase = []
-    for i, w in enumerate(words):
-        current_phrase.append(w)
-        gap = 0
-        if i < len(words) - 1:
-            gap = words[i + 1]["start"] - w["end"]
-        
-        # Split phrase if 3-4 words or pause > 0.35s
-        if len(current_phrase) >= 3 or gap > 0.35 or i == len(words) - 1:
-            phrases.append({
-                "id": f"phrase_{len(phrases)}",
-                "start": current_phrase[0]["start"],
-                "end": current_phrase[-1]["end"],
-                "words": current_phrase
-            })
-            current_phrase = []
-
-    phrases_json = json.dumps(phrases)
-    hero_json = json.dumps(hero_word_ids)
-    has_matte = bool(matte_src and plate_src)
-
-    safe_width = int(width * 0.88)
-    safe_left = int(width * 0.06)
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>{comp_id}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Noto+Sans+Telugu:wght@800;900&display=swap" rel="stylesheet">
-  <style>
-    * {{
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-font-smoothing: antialiased;
-    }}
-
-    body, html {{
-      width: {width}px;
-      height: {height}px;
-      overflow: hidden;
-      background: #000;
-      font-family: 'Noto Sans Telugu', 'Montserrat', sans-serif;
-    }}
-
-    #root {{
-      position: relative;
-      width: {width}px;
-      height: {height}px;
-    }}
-
-    .bg-video {{
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 1;
-    }}
-
-    /* Layer 2: 3D Punch Words Behind Speaker */
-    .hero-stage {{
-      position: absolute;
-      top: 22%;
-      left: {safe_left}px;
-      width: {safe_width}px;
-      height: 30%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      z-index: 2;
-      pointer-events: none;
-    }}
-
-    .hero-word {{
-      font-family: 'Montserrat', 'Noto Sans Telugu', sans-serif;
-      font-size: 110px;
-      font-weight: 900;
-      color: #FFE600;
-      text-transform: uppercase;
-      opacity: 0;
-      display: none;
-      transform: scale(0.85);
-      -webkit-text-stroke: 4px #000;
-      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 230, 0, 0.6);
-      word-break: keep-all;
-    }}
-
-    .plate-video {{
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 3;
-      pointer-events: none;
-    }}
-
-    .subject-video {{
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 4;
-      pointer-events: none;
-    }}
-
-    /* Layer 5: Dynamic Lower-Third Phrase Subtitle Container */
-    .phrase-stage {{
-      position: absolute;
-      bottom: 18%;
-      left: {safe_left}px;
-      width: {safe_width}px;
-      z-index: 10;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      pointer-events: none;
-    }}
-
-    .phrase-block {{
-      display: none;
-      opacity: 0;
-      transform: scale(0.92);
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: center;
-      gap: 12px 18px;
-      text-align: center;
-      width: 100%;
-    }}
-
-    .word {{
-      display: inline-block;
-      font-size: 76px;
-      font-weight: 900;
-      color: #FFFFFF;
-      opacity: 0.65;
-      transform: scale(1.0);
-      -webkit-text-stroke: 3px #000000;
-      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.95), 0 2px 6px #000000;
-      word-break: keep-all;
-      transition: none;
-    }}
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-</head>
-<body>
-  <div id="root" data-composition-id="{comp_id}" data-width="{width}" data-height="{height}" data-start="0" data-duration="{duration_seconds}">
-    <!-- Layer 1: Background Video -->
-    <video id="bg-video-layer" class="bg-video clip" src="{video_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>
-
-    <!-- Layer 2: 3D Punch Words (Behind Speaker) -->
-    <div id="hero-stage" class="hero-stage clip" data-start="0" data-duration="{duration_seconds}"></div>
-
-    {"<!-- Layer 3 & 4: AI Person Matte Separation -->" if has_matte else ""}
-    {f'<video id="plate-video-layer" class="plate-video clip" src="{plate_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>' if has_matte else ""}
-    {f'<video id="subject-video-layer" class="subject-video clip" src="{matte_src}" data-start="0" data-duration="{duration_seconds}" playsinline muted></video>' if has_matte else ""}
-
-    <!-- Layer 5: Dynamic Active Subtitle Phrases -->
-    <div id="phrase-stage" class="phrase-stage clip" data-start="0" data-duration="{duration_seconds}"></div>
-  </div>
-
-  <script>
-    (async function() {{
-      await document.fonts.ready;
-
-      const PHRASES = {phrases_json};
-      const HERO_WORD_IDS = new Set({hero_json});
-      const phraseStage = document.getElementById('phrase-stage');
-      const heroStage = document.getElementById('hero-stage');
-
-      // 1. Build DOM for phrases and words
-      PHRASES.forEach((phrase) => {{
-        const phraseEl = document.createElement('div');
-        phraseEl.id = phrase.id;
-        phraseEl.className = 'phrase-block';
-
-        phrase.words.forEach((w) => {{
-          const wordEl = document.createElement('span');
-          wordEl.id = 'w_' + w.id;
-          wordEl.className = 'word';
-          wordEl.textContent = w.text;
-          phraseEl.appendChild(wordEl);
-
-          // If hero word, also create element in hero 3D stage
-          if (HERO_WORD_IDS.has(w.id)) {{
-            const heroEl = document.createElement('div');
-            heroEl.id = 'hero_' + w.id;
-            heroEl.className = 'hero-word';
-            heroEl.textContent = w.text;
-            heroStage.appendChild(heroEl);
-          }}
-        }});
-
-        phraseStage.appendChild(phraseEl);
-      }});
-
-      // 2. Build GSAP timeline with precise micro-animations
-      window.__timelines = window.__timelines || {{}};
-      const tl = gsap.timeline({{ paused: true }});
-
-      PHRASES.forEach((phrase) => {{
-        const phraseEl = document.getElementById(phrase.id);
-        if (!phraseEl) return;
-
-        // Phrase enters at phrase.start, leaves at phrase.end
-        tl.set(phraseEl, {{ display: 'flex', opacity: 1, scale: 1.0 }}, phrase.start);
-        tl.set(phraseEl, {{ display: 'none', opacity: 0, scale: 0.92 }}, phrase.end);
-
-        // Word-level karaoke highlighting
-        phrase.words.forEach((w) => {{
-          const wordEl = document.getElementById('w_' + w.id);
-          if (wordEl) {{
-            // Word pop highlight
-            tl.set(wordEl, {{
-              color: '#FFE600',
-              opacity: 1.0,
-              scale: 1.15,
-              textShadow: '0 0 28px rgba(255, 230, 0, 0.95), 0 4px 14px #000'
-            }}, w.start);
-
-            // Word returned to white
-            tl.set(wordEl, {{
-              color: '#FFFFFF',
-              opacity: 0.65,
-              scale: 1.0,
-              textShadow: '0 4px 18px rgba(0, 0, 0, 0.95), 0 2px 6px #000000'
-            }}, w.end);
-          }}
-
-          // Hero 3D background punch word
-          if (HERO_WORD_IDS.has(w.id)) {{
-            const heroEl = document.getElementById('hero_' + w.id);
-            if (heroEl) {{
-              tl.set(heroEl, {{ display: 'block', opacity: 1, scale: 1.05 }}, w.start);
-              tl.set(heroEl, {{ display: 'none', opacity: 0, scale: 0.85 }}, w.end);
-            }}
-          }}
-        }});
-      }});
-
-      tl.to({{}}, {{ duration: {duration_seconds} }}, 0);
-      window.__timelines["{comp_id}"] = tl;
-      window.__captionReady = true;
-    }})();
-  </script>
-</body>
-</html>"""
-
 @app.function(
     gpu="T4",
     cpu=4.0,
@@ -342,7 +75,7 @@ def process_hyperframes_render(
     bucket_name = os.environ.get("R2_BUCKET_NAME") or "vidyut-media-production"
 
     try:
-        print(f"🎬 [HyperFrames] Starting render for project {project_id} (Style: {style_name})")
+        print(f"🎬 [Vidyut Kinetic Motion Engine] Starting render for project {project_id} (Style: {style_name})")
 
         # 1. Fetch project and transcription from Supabase
         project_res = supabase.table("projects").select("*").eq("id", project_id).single().execute()
@@ -358,7 +91,7 @@ def process_hyperframes_render(
         # Update status to rendering
         supabase.table("projects").update({"export_status": "rendering"}).eq("id", project_id).execute()
 
-        # 2. Download source video
+        # 2. Download source video from R2
         media_url = project.get("media_url", "")
         local_video = os.path.join(work_dir, "input.mp4")
         
@@ -378,40 +111,39 @@ def process_hyperframes_render(
                     f.write(chunk)
 
         # 3. Format transcript words
-        words = []
+        raw_words_input = []
         raw_words = transcription.get("words")
         if not raw_words or not isinstance(raw_words, list) or len(raw_words) == 0:
-            # Extract from segments
             raw_segments = transcription.get("segments", [])
             for seg in raw_segments:
                 for w in seg.get("words", []):
-                    words.append({
-                        "id": str(w.get("id", f"word-{len(words)}")),
+                    raw_words_input.append({
+                        "id": str(w.get("id", f"word-{len(raw_words_input)}")),
                         "text": (w.get("word") or w.get("text") or "").strip(),
                         "start": float(w.get("start", 0)),
                         "end": float(w.get("end", 0))
                     })
         else:
             for i, w in enumerate(raw_words):
-                words.append({
+                raw_words_input.append({
                     "id": str(w.get("id", f"word-{i}")),
                     "text": (w.get("word") or w.get("text") or "").strip(),
                     "start": float(w.get("start", 0)),
                     "end": float(w.get("end", 0))
                 })
 
-        duration_seconds = words[-1]["end"] if words else 10.0
+        duration_seconds = raw_words_input[-1]["end"] if raw_words_input else 10.0
 
-        # Auto-pick hero words if not provided (e.g. longest 3 Telugu words)
+        # Auto-pick hero words if not provided
         if not hero_word_ids:
-            sorted_words = sorted(words, key=lambda x: len(x["text"]), reverse=True)
+            sorted_words = sorted(raw_words_input, key=lambda x: len(x["text"]), reverse=True)
             hero_word_ids = [w["id"] for w in sorted_words[:3]]
 
-        # 4. If 3D_CLIMAX, run background separation
+        # 4. If 3D_CLIMAX, run AI background separation (U2Net)
         matte_src = None
         plate_src = None
         if style_name == "3D_CLIMAX":
-            print("✂️ Running AI Person Segmentation (u2net / remove-background)...")
+            print("✂️ Running AI Person Segmentation (U2Net / remove-background)...")
             matte_dir = os.path.join(work_dir, "matte")
             os.makedirs(matte_dir, exist_ok=True)
             subject_webm = os.path.join(matte_dir, "subject.webm")
@@ -429,35 +161,60 @@ def process_hyperframes_render(
                 plate_src = "input.mp4"
                 print("✅ Person matte separated successfully!")
             else:
-                print("⚠️ Matte generation skipped or fallback to standard composite.")
+                print("⚠️ Matte generation skipped, fallback to standard composite.")
 
-        # 5. Build composition HTML
+        # 5. Build Adaptive Phrases & MotionIntentSpec
+        archetype: Archetype = "viral"
+        if "EDITORIAL" in style_name:
+            archetype = "editorial"
+        elif "LUXURY" in style_name:
+            archetype = "luxury"
+        elif "TECH" in style_name:
+            archetype = "tech"
+        elif "CINEMATIC" in style_name or "3D" in style_name:
+            archetype = "cinematic"
+
+        phrases = build_adaptive_phrases(raw_words_input, archetype=archetype)
+
         dim_map = {
             "9:16": (1080, 1920),
             "1:1": (1080, 1080),
             "16:9": (1920, 1080)
         }
         width, height = dim_map.get(aspect_ratio, (1080, 1920))
-        comp_dir = os.path.join(work_dir, "composition")
-        os.makedirs(comp_dir, exist_ok=True)
 
-        html_content = generate_composition_html(
-            comp_id=project_id,
+        spec = MotionIntentSpec(
+            composition_id=project_id,
             width=width,
             height=height,
             duration_seconds=duration_seconds,
-            words=words,
+            fps=30,
+            aspect_ratio=aspect_ratio,
+            archetype=archetype,
+            phrases=phrases,
             hero_word_ids=hero_word_ids,
+            enable_subject_separation=bool(matte_src)
+        )
+
+        # 6. Run Motion Diagnostics
+        diag = audit_motion_density(spec)
+        print(f"📊 [Motion Diagnostics]: {diag}")
+
+        # 7. Generate Composition HTML
+        comp_dir = os.path.join(work_dir, "composition")
+        os.makedirs(comp_dir, exist_ok=True)
+
+        html_content = generate_hyperframes_html(
+            spec=spec,
             video_src="../input.mp4",
             matte_src=f"../{matte_src}" if matte_src else None,
-            plate_src=f"../{plate_src}" if plate_src else None,
-            style=style_name
+            plate_src=f"../{plate_src}" if plate_src else None
         )
 
         with open(os.path.join(comp_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        # 6. Render via HyperFrames
+        # 8. Render via HyperFrames Headless Chromium
         output_mp4 = os.path.join(work_dir, "output.mp4")
         print("🚀 Invoking HyperFrames headless Chromium render...")
         
@@ -495,7 +252,7 @@ def process_hyperframes_render(
         if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
             raise RuntimeError("HyperFrames render produced empty or missing MP4 file")
 
-        # 7. Upload to Cloudflare R2
+        # 9. Upload to Cloudflare R2
         export_s3_key = f"exports/{project_id}-hyperframes.mp4"
         print(f"☁️ Uploading finished MP4 to R2: {export_s3_key}")
         s3.upload_file(
@@ -505,10 +262,9 @@ def process_hyperframes_render(
             ExtraArgs={"ContentType": "video/mp4"}
         )
 
-        # Use same streaming proxy URL as regular editor exports
         export_url = f"/api/video/stream?key={export_s3_key}"
 
-        # 8. Update Supabase
+        # 10. Update Supabase
         supabase.table("projects").update({
             "export_status": "ready",
             "export_url": export_url,
@@ -516,7 +272,7 @@ def process_hyperframes_render(
         }).eq("id", project_id).execute()
 
         render_duration = round(time.time() - start_time, 2)
-        print(f"🎉 [HyperFrames] Complete in {render_duration}s! Export ready at {export_s3_key}")
+        print(f"🎉 [Vidyut Motion Engine] Complete in {render_duration}s! Export ready at {export_s3_key}")
 
         return {
             "status": "success",
@@ -540,7 +296,6 @@ def process_hyperframes_render(
             print(f"⚠️ Failed to update failure status to Supabase: {db_err}")
         raise e
     finally:
-        # Cleanup temp directory
         import shutil
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
