@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRemotionExport } from '@/hooks/use-remotion-export';
 import { exportSrt, exportVtt, exportTranscript } from '@/lib/srt-export';
 import { DolbyEnhanceButton } from '@/components/editor/dolby-enhance-button';
+import { createClient } from '@/lib/supabase/client';
 
 interface EditorClientProps {
   userId?: string;
@@ -315,6 +316,62 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
     });
   }, [project.id, handleSave, videoUrl, subtitleStyle, subtitleMode, startExport]);
 
+  const [isHyperFramesExporting, setIsHyperFramesExporting] = useState(false);
+  const [hyperFramesUrl, setHyperFramesUrl] = useState<string | null>(null);
+  const [hyperFramesStatus, setHyperFramesStatus] = useState<'idle' | 'rendering' | 'ready' | 'failed'>('idle');
+
+  const handleHyperFramesExport = useCallback(async () => {
+    const saved = await handleSave();
+    if (!saved) return;
+
+    setIsHyperFramesExporting(true);
+    setHyperFramesStatus('rendering');
+
+    try {
+      const res = await fetch('/api/export/hyperframes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          styleName: '3D_CLIMAX',
+          aspectRatio,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to start HyperFrames render');
+      }
+
+      const supabase = createClient();
+      const pollInterval = setInterval(async () => {
+        const check = await supabase
+          .from('projects')
+          .select('export_status, export_url')
+          .eq('id', project.id)
+          .single();
+
+        if (check.data?.export_status === 'ready' && check.data?.export_url) {
+          clearInterval(pollInterval);
+          setIsHyperFramesExporting(false);
+          setHyperFramesStatus('ready');
+          setHyperFramesUrl(check.data.export_url);
+          window.open(check.data.export_url, '_blank');
+        } else if (check.data?.export_status === 'failed') {
+          clearInterval(pollInterval);
+          setIsHyperFramesExporting(false);
+          setHyperFramesStatus('failed');
+          alert('HyperFrames 3D render failed on GPU worker. Please retry.');
+        }
+      }, 3000);
+    } catch (err) {
+      console.error('[HyperFrames Export] Error:', err);
+      setIsHyperFramesExporting(false);
+      setHyperFramesStatus('failed');
+      alert(`Export error: ${(err as Error).message}`);
+    }
+  }, [project.id, handleSave, aspectRatio]);
+
   const handleDirectDownload = useCallback(async () => {
     if (!downloadUrl) return;
     try {
@@ -599,6 +656,37 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
               )}
             </AnimatePresence>
           </div>
+
+          {/* HyperFrames Real 3D Cinematic Render (Modal GPU) */}
+          <button
+            onClick={handleHyperFramesExport}
+            disabled={isHyperFramesExporting}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all border flex items-center gap-1.5 shadow-lg ${
+              isHyperFramesExporting
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 cursor-not-allowed animate-pulse'
+                : hyperFramesStatus === 'ready'
+                ? 'bg-amber-500 hover:bg-amber-400 border-amber-400 text-black'
+                : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black border-yellow-300'
+            }`}
+            title="Render true 3D text behind speaker using Modal GPU Worker + HyperFrames Engine"
+          >
+            {isHyperFramesExporting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Rendering 3D GPU...</span>
+              </>
+            ) : hyperFramesStatus === 'ready' && hyperFramesUrl ? (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>Download 3D Video</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-black" />
+                <span>3D Cinematic (Modal GPU)</span>
+              </>
+            )}
+          </button>
 
           <button
             onClick={handleExport}
