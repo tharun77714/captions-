@@ -13,21 +13,19 @@ def generate_camera_punch_animation(
 ) -> str:
     """
     Generates deterministic GSAP camera punch-zoom and micro-shake on #bg-video-layer.
+    Uses direct GSAP element selectors to prevent variable declaration conflicts.
     """
     if archetype == "editorial":
-        return ""  # Minimal/no shake for editorial
+        return ""
 
     zoom_scale = 1.05 * intensity if archetype == "viral" else 1.025 * intensity
     duration = 0.22 if archetype == "viral" else 0.35
 
     return f"""
       // Camera Punch at {start}s
-      const bgVideo = document.getElementById('bg-video-layer');
-      if (bgVideo) {{
-        tl.fromTo(bgVideo,
-          {{ scale: {zoom_scale}, x: -4, y: 3 }},
-          {{ scale: 1.0, x: 0, y: 0, duration: {duration}, ease: 'power2.out' }},
-          {start}
-        );
-      }}
+      tl.fromTo('#bg-video-layer',
+        {{ scale: {zoom_scale}, x: -4, y: 3 }},
+        {{ scale: 1.0, x: 0, y: 0, duration: {duration}, ease: 'power2.out' }},
+        {start}
+      );
     """

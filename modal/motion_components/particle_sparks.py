@@ -24,25 +24,25 @@ def generate_particle_css() -> str:
 
     .spark-dot {
       position: absolute;
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       opacity: 0;
       transform: translate(-50%, -50%) scale(0);
       pointer-events: none;
-      box-shadow: 0 0 12px currentColor, 0 0 24px currentColor;
+      box-shadow: 0 0 16px currentColor, 0 0 32px currentColor;
     }
 
     .shockwave-ring {
       position: absolute;
-      width: 120px;
-      height: 120px;
+      width: 140px;
+      height: 140px;
       border-radius: 50%;
       border: 4px solid #FFE600;
       opacity: 0;
       transform: translate(-50%, -50%) scale(0.2);
       pointer-events: none;
-      box-shadow: 0 0 24px #FFE600, inset 0 0 16px #FFE600;
+      box-shadow: 0 0 32px currentColor, inset 0 0 20px currentColor;
     }
     """
 
@@ -54,22 +54,20 @@ def generate_spark_burst_animation(
 ) -> str:
     """
     Generates GSAP timeline animations for a radial burst of particle sparks & shockwave.
+    Uses direct selectors to avoid variable collisions.
     """
     v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
     spark_count = 20 if is_hero else 10
-    radius = 160 if is_hero else 90
+    radius = 180 if is_hero else 95
     dur = 0.35 if is_hero else 0.25
 
     lines: List[str] = [
         f"// Particle Spark Burst for {word_id}",
-        f"const ringEl_{v_id} = document.getElementById('ring_{v_id}');",
-        f"if (ringEl_{v_id}) {{",
-        f"  tl.fromTo(ringEl_{v_id},",
-        f"    {{ opacity: 0.9, scale: 0.15, borderColor: '{color}', boxShadow: '0 0 28px {color}' }},",
-        f"    {{ opacity: 0, scale: {3.2 if is_hero else 2.0}, duration: {dur + 0.1}, ease: 'power2.out' }},",
-        f"    {start}",
-        f"  );",
-        f"}}",
+        f"tl.fromTo('#ring_{v_id}',",
+        f"  {{ opacity: 0.95, scale: 0.15, borderColor: '{color}', boxShadow: '0 0 32px {color}' }},",
+        f"  {{ opacity: 0, scale: {3.5 if is_hero else 2.2}, duration: {dur + 0.1}, ease: 'power2.out' }},",
+        f"  {start}",
+        f");"
     ]
 
     for p in range(spark_count):
@@ -79,14 +77,11 @@ def generate_spark_burst_animation(
         dy = round(math.sin(angle) * dist, 1)
 
         lines.append(f"""
-        const sparkEl_{v_id}_{p} = document.getElementById('spark_{v_id}_{p}');
-        if (sparkEl_{v_id}_{p}) {{
-          tl.fromTo(sparkEl_{v_id}_{p},
-            {{ opacity: 1, scale: {1.8 if is_hero else 1.2}, x: 0, y: 0, backgroundColor: '{color}' }},
-            {{ opacity: 0, scale: 0.2, x: {dx}, y: {dy}, duration: {dur}, ease: 'power3.out' }},
-            {start}
-          );
-        }}
+        tl.fromTo('#spark_{v_id}_{p}',
+          {{ opacity: 1, scale: {1.8 if is_hero else 1.2}, x: 0, y: 0, backgroundColor: '{color}' }},
+          {{ opacity: 0, scale: 0.2, x: {dx}, y: {dy}, duration: {dur}, ease: 'power3.out' }},
+          {start}
+        );
         """)
 
     return "\n".join(lines)
@@ -97,7 +92,7 @@ def generate_spark_dom_elements(word_id: str, color: str = "#FFE600", is_hero: b
     spark_count = 20 if is_hero else 10
     
     # Placed in the lower-third by default, or mid-screen for hero
-    base_top = "70%" if not is_hero else "35%"
+    base_top = "72%" if not is_hero else "40%"
     base_left = "50%"
 
     elements = [
