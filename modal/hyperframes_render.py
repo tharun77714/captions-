@@ -165,30 +165,49 @@ def process_hyperframes_render(
             sorted_words = sorted(raw_words_input, key=lambda x: len(x["text"]), reverse=True)
             hero_word_ids = [w["id"] for w in sorted_words[:3]]
 
-        # 4. If enable_3d is true or style is 3D, run AI person segmentation
+        # 4. Check for cached AI Person Segmentation Matte or run only when 3D style is active
         matte_src = None
         plate_src = None
-        should_run_3d = bool(enable_3d or style_name in ["3D_CLIMAX", "cinematic", "3d-climax"])
-        if should_run_3d:
-            print("✂️ Running AI Person Segmentation (U2Net / remove-background)...")
+        
+        # Only run heavy rotoscoping if template specifically requires 3D behind-subject text
+        is_3d_billboard_style = any(s in (style_name or "").lower() for s in ["3d_climax", "3d-climax", "behind", "billboard"])
+        
+        if is_3d_billboard_style or (enable_3d and style_name == "3D_CLIMAX"):
             matte_dir = os.path.join(work_dir, "matte")
             os.makedirs(matte_dir, exist_ok=True)
             subject_webm = os.path.join(matte_dir, "subject.webm")
-            
-            matte_cmd = [
-                "npx", "hyperframes", "remove-background",
-                local_video,
-                "--output", subject_webm
-            ]
-            res_matte = subprocess.run(matte_cmd, cwd=work_dir, capture_output=True, text=True, check=False)
-            print(f"Matte output: {res_matte.stdout or res_matte.stderr}")
+            matte_s3_key = f"mattes/{project_id}-matte.webm"
 
-            if os.path.exists(subject_webm) and os.path.getsize(subject_webm) > 1000:
-                matte_src = "matte/subject.webm"
-                plate_src = "input.mp4"
-                print("✅ Person matte separated successfully!")
-            else:
-                print("⚠️ Matte generation skipped, fallback to standard composite.")
+            # Check if matte already exists in R2 cache
+            try:
+                print(f"🔍 Checking for cached matte in R2: {matte_s3_key}")
+                s3.download_file(bucket_name, matte_s3_key, subject_webm)
+                if os.path.exists(subject_webm) and os.path.getsize(subject_webm) > 1000:
+                    matte_src = "matte/subject.webm"
+                    plate_src = "input.mp4"
+                    print("⚡ Loaded cached person matte in 0.5s!")
+            except Exception:
+                print("✂️ Cached matte not found. Running AI Person Segmentation (U2Net)...")
+                matte_cmd = [
+                    "npx", "hyperframes", "remove-background",
+                    local_video,
+                    "--output", subject_webm
+                ]
+                res_matte = subprocess.run(matte_cmd, cwd=work_dir, capture_output=True, text=True, check=False)
+                print(f"Matte output: {res_matte.stdout or res_matte.stderr}")
+
+                if os.path.exists(subject_webm) and os.path.getsize(subject_webm) > 1000:
+                    matte_src = "matte/subject.webm"
+                    plate_src = "input.mp4"
+                    print("✅ Person matte separated! Uploading to cache...")
+                    try:
+                        s3.upload_file(subject_webm, bucket_name, matte_s3_key)
+                    except Exception as ce:
+                        print(f"Matte cache upload notice: {ce}")
+                else:
+                    print("⚠️ Matte generation skipped, using fast direct composite.")
+        else:
+            print("⚡ Fast kinetic mode: rendering in ~20-30s without heavy rotoscoping.")
 
         # 5. Extract Subtitle Style Properties
         eff_style = subtitle_style or transcription.get("subtitle_style") or {}
@@ -342,6 +361,7 @@ def process_hyperframes_render(
         print("🚀 Invoking HyperFrames headless Chromium render...")
         
         custom_env = os.environ.copy()
+        custom_env["CHROMIUM_FLAGS"] = "--no-sandbox --disable-dev-shm-usage --disable-gpu-sandbox --disable-setuid-sandbox"
         if os.path.exists("/usr/bin/chromium"):
             custom_env["HYPERFRAMES_BROWSER_PATH"] = "/usr/bin/chromium"
         elif os.path.exists("/usr/bin/chromium-browser"):
