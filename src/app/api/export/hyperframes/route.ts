@@ -44,9 +44,10 @@ export async function POST(request: Request) {
       effectiveStyle = trans?.subtitle_style || null;
     }
 
-    // Set export status to rendering
+    // Set export status to rendering and clear previous export_url
     await supabase.from('projects').update({
       export_status: 'rendering',
+      export_url: null,
       export_error: null,
     }).eq('id', projectId);
 

@@ -71,7 +71,9 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
             # 4. Hero 3D Typography Behind Subject & Camera Punch
             if is_hero:
                 script_lines.append(generate_hero_word_animation(w.id, w.start, w.end, color=accent))
-                script_lines.append(generate_camera_punch_animation(w.start, archetype=spec.archetype))
+                script_lines.append(generate_camera_punch_animation(w.start, archetype=spec.archetype, intensity=1.2))
+            elif is_emphasis:
+                script_lines.append(generate_camera_punch_animation(w.start, archetype=spec.archetype, intensity=0.7))
 
     # Pad timeline to full duration
     script_lines.append(f"tl.to({{}}, {{ duration: {spec.duration_seconds} }}, 0);")

@@ -353,17 +353,12 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
   }, [hyperFramesUrl, project.id]);
 
   const handleHyperFramesExport = useCallback(async () => {
-    if (hyperFramesStatus === 'ready' && hyperFramesUrl) {
-      setShowHyperFramesModal(true);
-      downloadHyperFramesVideo(hyperFramesUrl);
-      return;
-    }
-
     const saved = await handleSave();
     if (!saved) return;
 
     setIsHyperFramesExporting(true);
     setHyperFramesStatus('rendering');
+    setHyperFramesUrl(null);
     setShowHyperFramesModal(true);
 
     try {
