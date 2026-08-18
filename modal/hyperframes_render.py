@@ -60,13 +60,6 @@ def get_supabase_client():
     timeout=600,
     secrets=[modal.Secret.from_name("vidyut-secrets")]
 )
-@app.function(
-    gpu="T4",
-    cpu=4.0,
-    memory=8192,
-    timeout=600,
-    secrets=[modal.Secret.from_name("vidyut-secrets")]
-)
 def process_hyperframes_render(
     project_id: str,
     user_id: str,
