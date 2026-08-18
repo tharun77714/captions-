@@ -34,11 +34,7 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
 
             accent = w.color_intent or (spec.accent_color if is_hero else (spec.contrast_color if is_emphasis else "#FFFFFF"))
 
-            # 1. Word Highlight in caption rail with animated Hormozi badge and Emoji pop
-            clean_word = re.sub(r'[^\w]', '', w.text).lower()
-            keyword_list = ["hair", "head", "beard", "seed", "seeds", "flax", "food", "eat", "grow", "growth", "strong", "money", "cash", "rich", "fire", "magic", "secret", "power", "super", "stop", "danger", "warning", "best", "top", "perfect", "100", "హెయిర్", "జుట్టు", "సీడ్స్", "తింటే", "పెరుగుతుంది", "డబ్బులు"]
-            has_emoji = any(k == clean_word or (len(k) > 3 and k in clean_word) for k in keyword_list)
-
+            # 1. Word Highlight in caption rail
             script_lines.append(
                 generate_word_highlight_animation(
                     w.id,
@@ -48,8 +44,7 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
                     primary_color=spec.primary_color,
                     inactive_opacity=spec.inactive_opacity,
                     is_emphasis=is_emphasis or is_hero,
-                    transition_type=spec.transition_type,
-                    has_emoji=has_emoji
+                    transition_type=spec.transition_type
                 )
             )
 

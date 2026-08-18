@@ -17,24 +17,6 @@ def get_google_fonts_link(font_family: str) -> str:
   <link href="https://fonts.googleapis.com/css2?family={encoded_name}:wght@400;600;700;800;900&family=Montserrat:wght@700;800;900&family=Noto+Sans+Telugu:wght@600;700;800;900&display=swap" rel="stylesheet">
     """
 
-EMOJI_KEYWORD_MAP = {
-    "hair": "💇‍♂️", "head": "🧔", "beard": "🧔", "oil": "🧴", "shampoo": "🧴",
-    "seed": "🌱", "seeds": "🌱", "flax": "🌾", "food": "🥗", "eat": "🍽️", "eating": "🍽️", "diet": "🥗",
-    "grow": "📈", "growth": "🚀", "strong": "💪", "gain": "📈", "fast": "⚡", "quick": "⚡",
-    "money": "💰", "cash": "💵", "cost": "💳", "free": "🎁", "lakh": "💰", "crore": "💎", "rich": "🤑",
-    "fire": "🔥", "hot": "🔥", "magic": "✨", "secret": "🤫", "power": "⚡", "super": "⚡", "insane": "🤯",
-    "stop": "🛑", "danger": "⚠️", "warning": "⚠️", "mistake": "❌", "wrong": "❌",
-    "best": "👑", "top": "🏆", "winner": "🥇", "perfect": "💯", "100": "💯",
-    "హెయిర్": "💇‍♂️", "జుట్టు": "💇‍♂️", "సీడ్స్": "🌱", "తింటే": "🥗", "పెరుగుతుంది": "📈", "డబ్బులు": "💰"
-}
-
-def get_keyword_emoji(text: str) -> str:
-    clean = re.sub(r'[^\w]', '', text).lower()
-    for k, emoji in EMOJI_KEYWORD_MAP.items():
-        if k == clean or (len(k) > 3 and k in clean):
-            return emoji
-    return ""
-
 def generate_hyperframes_html(
     spec: MotionIntentSpec,
     video_src: str,
@@ -74,12 +56,7 @@ def generate_hyperframes_html(
             elif spec.text_transform == "capitalize":
                 word_text = word_text.capitalize()
 
-            emoji = get_keyword_emoji(w.text)
-            emoji_tag = f'<div id="emoji_{w_vid}" class="word-emoji-badge">{emoji}</div>' if emoji else ''
-
-            words_html.append(
-                f'<div class="word-wrapper">{emoji_tag}<span id="w_{w_vid}" class="word">{word_text}</span></div>'
-            )
+            words_html.append(f'<span id="w_{w_vid}" class="word">{word_text}</span>')
             
             if is_hero:
                 hero_dom_items.append(f'<div id="hero_{w_vid}" class="hero-word-item">{word_text}</div>')

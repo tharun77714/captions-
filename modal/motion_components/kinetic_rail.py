@@ -66,31 +66,11 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
-      gap: 12px 18px;
+      gap: 14px 20px;
       text-align: center;
       width: auto;
       max-width: {stage_width - 20}px;
-      padding: 12px 20px;
-    }}
-
-    .word-wrapper {{
-      position: relative;
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }}
-
-    .word-emoji-badge {{
-      position: absolute;
-      top: -68px;
-      left: 50%;
-      transform: translateX(-50%) scale(0);
-      font-size: 58px;
-      display: none;
-      pointer-events: none;
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.85));
-      z-index: 60;
+      padding: 12px 24px;
     }}
 
     .word {{
@@ -102,8 +82,6 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
       color: {primary_color};
       opacity: {inactive_opacity};
       transform: scale(1.0);
-      padding: 4px 10px;
-      border-radius: 12px;
       -webkit-text-stroke: 3.5px #000000;
       paint-order: stroke fill;
       text-shadow: 
@@ -119,7 +97,6 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
       transform-origin: center center;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      transition: background-color 0.1s ease, color 0.1s ease;
     }}
     """
 
@@ -131,12 +108,12 @@ def generate_phrase_block_animation(phrase_id: str, start: float, end: float) ->
       if (pEl_{v_id}) {{
         tl.set(pEl_{v_id}, {{ display: 'flex' }}, {start});
         tl.fromTo(pEl_{v_id},
-          {{ opacity: 0, scale: 0.90, y: 20 }},
+          {{ opacity: 0, scale: 0.92, y: 16 }},
           {{ opacity: 1, scale: 1.0, y: 0, duration: 0.14, ease: 'back.out(2.2)', immediateRender: false }},
           {start}
         );
         tl.to(pEl_{v_id},
-          {{ opacity: 0, scale: 0.94, y: 10, duration: 0.10, ease: 'power2.in' }},
+          {{ opacity: 0, scale: 0.95, y: 8, duration: 0.10, ease: 'power2.in' }},
           {max(start + 0.1, end - 0.10)}
         );
         tl.set(pEl_{v_id}, {{ display: 'none' }}, {end});
@@ -151,81 +128,49 @@ def generate_word_highlight_animation(
     primary_color: str = "#FFFFFF",
     inactive_opacity: float = 0.85,
     is_emphasis: bool = False,
-    transition_type: str = "pop",
-    has_emoji: bool = False
+    transition_type: str = "pop"
 ) -> str:
-    """GSAP word pop highlight with animated Hormozi/Viral highlight box badge and emoji pop."""
+    """GSAP ultra-clean word pop highlight with radiant neon glow and smooth spring physics."""
     dur = max(0.08, end - start)
     v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
-    rotation_deg = "-2.5" if is_emphasis else "-1.5"
-    
-    emoji_script = ""
-    if has_emoji:
-        emoji_script = f"""
-        tl.set('#emoji_{v_id}', {{ display: 'block' }}, {start});
-        tl.fromTo('#emoji_{v_id}',
-          {{ opacity: 0, scale: 0, y: 20, rotation: -20 }},
-          {{ opacity: 1, scale: 1.35, y: -8, rotation: 8, duration: 0.18, ease: 'back.out(3.5)', immediateRender: false }},
-          {start}
-        );
-        tl.to('#emoji_{v_id}',
-          {{ scale: 1.05, y: 0, rotation: 0, duration: 0.12, ease: 'power2.out' }},
-          {start + 0.18}
-        );
-        tl.to('#emoji_{v_id}',
-          {{ opacity: 0, scale: 0.3, y: -20, duration: 0.12, ease: 'power2.in' }},
-          {end}
-        );
-        tl.set('#emoji_{v_id}', {{ display: 'none' }}, {end + 0.15});
-        """
+    scale_pop = 1.20 if is_emphasis else 1.15
     
     return f"""
       const wEl_{v_id} = document.getElementById('w_{v_id}');
       if (wEl_{v_id}) {{
-        // Explosive Active Word Badge Punch
+        // Clean High-Impact Word Highlight
         tl.fromTo(wEl_{v_id},
           {{ 
             color: '{primary_color}', 
-            backgroundColor: 'transparent', 
             opacity: {inactive_opacity}, 
             scale: 1.0, 
-            y: 0, 
-            rotation: 0, 
-            webkitTextStroke: '3.5px #000000', 
-            boxShadow: 'none' 
+            y: 0,
+            textShadow: '0 4px 0 #000000, 0 8px 24px rgba(0,0,0,0.95), 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000'
           }},
           {{ 
-            color: '#000000', 
-            backgroundColor: '{accent_color}', 
+            color: '{accent_color}', 
             opacity: 1.0, 
-            scale: 1.25, 
-            y: -6, 
-            rotation: {rotation_deg},
-            webkitTextStroke: '0px transparent',
-            boxShadow: '0 0 35px {accent_color}, 0 8px 24px rgba(0,0,0,0.85)',
-            textShadow: 'none',
-            duration: 0.12, 
-            ease: 'back.out(3.5)',
+            scale: {scale_pop}, 
+            y: -5,
+            textShadow: '0 0 28px {accent_color}, 0 0 50px {accent_color}, 0 4px 0 #000000, 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000',
+            duration: {min(0.12, dur * 0.4)}, 
+            ease: 'back.out(2.8)',
             immediateRender: false
           }},
           {start}
         );
         // Settle micro-motion
         tl.to(wEl_{v_id},
-          {{ scale: 1.18, y: -3, duration: {min(0.10, dur * 0.3)}, ease: 'power1.out' }},
-          {start + 0.12}
+          {{ scale: 1.10, y: -2, duration: {min(0.10, dur * 0.3)}, ease: 'power1.out' }},
+          {start + min(0.12, dur * 0.4)}
         );
         // Clean snap back to inactive baseline
         tl.to(wEl_{v_id},
           {{ 
             color: '{primary_color}', 
-            backgroundColor: 'transparent', 
             opacity: {inactive_opacity}, 
             scale: 1.0, 
             y: 0,
-            rotation: 0,
-            webkitTextStroke: '3.5px #000000',
-            boxShadow: 'none',
             textShadow: '0 4px 0 #000000, 0 8px 24px rgba(0,0,0,0.95), 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000',
             duration: 0.10, 
             ease: 'power2.out' 
@@ -233,7 +178,6 @@ def generate_word_highlight_animation(
           {end}
         );
       }}
-      {emoji_script}
     """
 
 
