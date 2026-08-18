@@ -195,16 +195,22 @@ def process_hyperframes_render(
         
         font_dict = eff_style.get("font", {})
         font_family = font_dict.get("family", "Montserrat")
-        font_weight = int(font_dict.get("weight", 800))
+        font_weight = max(800, int(font_dict.get("weight", 900)))
         text_transform = font_dict.get("textTransform", "none")
         
-        font_size = int(eff_style.get("fontSize", 56))
-        # Ensure optimal scale for 1080x1920 video
-        if font_size < 36:
-            font_size = int(font_size * 1.5)
+        # Auto-uppercase Romanized/English text for punchy viral short captions
+        if script_mode in ["romanized", "transliterated", "translated"] and text_transform in ["none", ""]:
+            text_transform = "uppercase"
+        
+        raw_font_size = int(eff_style.get("fontSize", 76))
+        # Ensure high-impact sizing for 1080x1920 video
+        if raw_font_size < 68:
+            font_size = max(76, int(raw_font_size * 1.8))
+        else:
+            font_size = raw_font_size
             
-        letter_spacing = float(eff_style.get("letterSpacing", -0.2))
-        line_spacing = float(eff_style.get("lineSpacing", 1.35))
+        letter_spacing = float(eff_style.get("letterSpacing", -1.5))
+        line_spacing = float(eff_style.get("lineSpacing", 1.25))
         
         color_dict = eff_style.get("textColor", {})
         if isinstance(color_dict, dict):
@@ -216,18 +222,18 @@ def process_hyperframes_render(
             gradient_from = None
             gradient_to = None
             
-        active_word_color = eff_style.get("activeWordColor", "#FFE600")
-        inactive_opacity = float(eff_style.get("inactiveOpacity", 0.75))
+        active_word_color = eff_style.get("activeWordColor") or "#FFE600"
+        inactive_opacity = max(0.70, float(eff_style.get("inactiveOpacity", 0.80)))
         highlight_mode = eff_style.get("highlightMode", "color")
         
         stroke_dict = eff_style.get("stroke", {})
         stroke_enabled = bool(stroke_dict.get("enabled", True))
         stroke_color = stroke_dict.get("color", "#000000")
-        stroke_width = float(stroke_dict.get("width", 2.5))
+        stroke_width = max(3.0, float(stroke_dict.get("width", 3.5)))
         
         shadow_dict = eff_style.get("shadow", {})
-        shadow_color = shadow_dict.get("color", "rgba(0, 0, 0, 0.85)")
-        shadow_blur = float(shadow_dict.get("blur", 12.0))
+        shadow_color = shadow_dict.get("color", "rgba(0, 0, 0, 0.95)")
+        shadow_blur = float(shadow_dict.get("blur", 16.0))
         shadow_x = float(shadow_dict.get("offsetX", 0.0))
         shadow_y = float(shadow_dict.get("offsetY", 4.0))
         
@@ -236,7 +242,7 @@ def process_hyperframes_render(
         background_color = bg_dict.get("color", "rgba(0, 0, 0, 0.6)")
         background_padding_x = float(bg_dict.get("paddingX", 24.0))
         background_padding_y = float(bg_dict.get("paddingY", 12.0))
-        background_radius = float(bg_dict.get("borderRadius", 8.0))
+        background_radius = float(bg_dict.get("borderRadius", 12.0))
         
         trans_dict = eff_style.get("transition", {})
         if isinstance(trans_dict, dict):
@@ -332,7 +338,7 @@ def process_hyperframes_render(
             f.write(html_content)
 
         # 9. Render via HyperFrames Headless Chromium
-        output_mp4 = os.path.join(work_dir, "output.mp4")
+        rendered_frames_mp4 = os.path.join(work_dir, "rendered_frames.mp4")
         print("🚀 Invoking HyperFrames headless Chromium render...")
         
         custom_env = os.environ.copy()
@@ -344,7 +350,7 @@ def process_hyperframes_render(
         render_cmd = [
             "npx", "hyperframes", "render",
             comp_dir,
-            "--output", output_mp4,
+            "--output", rendered_frames_mp4,
             "--quality", "high",
             "--fps", "30"
         ]
@@ -366,10 +372,32 @@ def process_hyperframes_render(
         if return_code != 0:
             raise RuntimeError(f"HyperFrames render failed with code {return_code}")
 
-        if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
+        if not os.path.exists(rendered_frames_mp4) or os.path.getsize(rendered_frames_mp4) < 1000:
             raise RuntimeError("HyperFrames render produced empty or missing MP4 file")
 
-        # 10. Upload to Cloudflare R2
+        # 10. Mux original high-fidelity audio track into the rendered video
+        output_mp4 = os.path.join(work_dir, "output.mp4")
+        print("🔊 Muxing original audio track from source video into final MP4...")
+        mux_cmd = [
+            "ffmpeg", "-y",
+            "-i", rendered_frames_mp4,
+            "-i", local_video,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-map", "0:v:0",
+            "-map", "1:a:0?",
+            "-shortest",
+            output_mp4
+        ]
+        mux_res = subprocess.run(mux_cmd, cwd=work_dir, capture_output=True, text=True)
+        if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
+            print(f"⚠️ Audio muxing fallback: {mux_res.stderr}, using rendered video directly")
+            output_mp4 = rendered_frames_mp4
+        else:
+            print("✅ Audio muxed successfully into final MP4!")
+
+        # 11. Upload to Cloudflare R2
         export_s3_key = f"exports/{project_id}-hyperframes.mp4"
         print(f"☁️ Uploading finished MP4 to R2: {export_s3_key}")
         s3.upload_file(
