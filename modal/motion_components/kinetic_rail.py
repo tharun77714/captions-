@@ -13,22 +13,19 @@ KineticRail Component: Ultra-Crisp Floating Kinetic Typography (Viral Studio Qua
 def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
     if spec is None:
         font_family = "'Montserrat', 'Noto Sans Telugu', -apple-system, sans-serif"
-        font_size = 76
+        font_size = 78
         font_weight = 900
         text_transform = "uppercase"
         letter_spacing = -1.5
         line_spacing = 1.25
         primary_color = "#FFFFFF"
-        inactive_opacity = 0.80
-        stroke_css = "-webkit-text-stroke: 3.5px #000000; paint-order: stroke fill;"
-        shadow_css = "text-shadow: 0 4px 0 #000, 0 8px 20px rgba(0,0,0,0.9), 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;"
-        bg_css = ""
-        stage_top = 1180
+        inactive_opacity = 0.85
+        stage_top = 1160
         stage_left = 40
         stage_width = 1000
     else:
-        # Calculate optimal vertical positioning (~62% screen height)
-        base_top = int(spec.height * 0.62)
+        # Calculate optimal vertical positioning (~60% screen height)
+        base_top = int(spec.height * 0.60)
         if spec.position_y != 0:
             base_top = int(base_top + (spec.position_y * (spec.height / 100.0)))
         
@@ -41,32 +38,13 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
         stage_left = max(0, min(spec.width - 200, base_left))
 
         font_family = f"'{spec.font_family}', 'Montserrat', 'Noto Sans Telugu', -apple-system, sans-serif"
-        font_size = max(68, spec.font_size)
+        font_size = max(72, spec.font_size)
         font_weight = max(800, spec.font_weight)
         text_transform = spec.text_transform
         letter_spacing = spec.letter_spacing if spec.letter_spacing != -0.2 else -1.5
         line_spacing = 1.25
         primary_color = spec.primary_color or "#FFFFFF"
-        inactive_opacity = max(0.70, spec.inactive_opacity)
-
-        if spec.stroke_enabled and spec.stroke_width > 0:
-            stroke_width = max(3.0, spec.stroke_width)
-            stroke_css = f"-webkit-text-stroke: {stroke_width}px {spec.stroke_color}; paint-order: stroke fill;"
-        else:
-            stroke_css = "-webkit-text-stroke: 3.5px #000000; paint-order: stroke fill;"
-
-        shadow_css = f"text-shadow: 0 4px 0 #000000, 0 8px 24px rgba(0, 0, 0, 0.95), 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000;"
-
-        if spec.background_enabled:
-            bg_css = f"""
-            background: {spec.background_color};
-            padding: {spec.background_padding_y}px {spec.background_padding_x}px;
-            border-radius: {spec.background_radius}px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-            backdrop-filter: blur(12px);
-            """
-        else:
-            bg_css = ""
+        inactive_opacity = max(0.75, spec.inactive_opacity)
 
     return f"""
     .phrase-stage {{
@@ -88,12 +66,31 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
-      gap: 14px 22px;
+      gap: 12px 18px;
       text-align: center;
       width: auto;
       max-width: {stage_width - 20}px;
       padding: 12px 20px;
-      {bg_css}
+    }}
+
+    .word-wrapper {{
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }}
+
+    .word-emoji-badge {{
+      position: absolute;
+      top: -68px;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      font-size: 58px;
+      display: none;
+      pointer-events: none;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.85));
+      z-index: 60;
     }}
 
     .word {{
@@ -105,19 +102,24 @@ def generate_kinetic_rail_css(spec: Optional[MotionIntentSpec] = None) -> str:
       color: {primary_color};
       opacity: {inactive_opacity};
       transform: scale(1.0);
-      {stroke_css}
-      {shadow_css}
+      padding: 4px 10px;
+      border-radius: 12px;
+      -webkit-text-stroke: 3.5px #000000;
+      paint-order: stroke fill;
+      text-shadow: 
+        0 4px 0 #000000, 
+        0 8px 24px rgba(0, 0, 0, 0.95), 
+        2px 2px 0 #000000, 
+        -2px -2px 0 #000000, 
+        2px -2px 0 #000000, 
+        -2px 2px 0 #000000;
       word-break: keep-all;
       letter-spacing: {letter_spacing}px;
       line-height: {line_spacing};
-      transform-origin: center bottom;
+      transform-origin: center center;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-    }}
-
-    .word.active {{
-      opacity: 1.0;
-      transform: scale(1.22) translateY(-6px);
+      transition: background-color 0.1s ease, color 0.1s ease;
     }}
     """
 
@@ -147,69 +149,92 @@ def generate_word_highlight_animation(
     end: float,
     accent_color: str = "#FFE600",
     primary_color: str = "#FFFFFF",
-    inactive_opacity: float = 0.80,
+    inactive_opacity: float = 0.85,
     is_emphasis: bool = False,
-    transition_type: str = "pop"
+    transition_type: str = "pop",
+    has_emoji: bool = False
 ) -> str:
-    """GSAP word pop highlight and settle animations with high-intensity electric glow and spring physics."""
+    """GSAP word pop highlight with animated Hormozi/Viral highlight box badge and emoji pop."""
     dur = max(0.08, end - start)
     v_id = re.sub(r'[^a-zA-Z0-9_]', '_', word_id)
+    rotation_deg = "-2.5" if is_emphasis else "-1.5"
     
-    if transition_type in ["bounce", "elastic"]:
-        scale_pop = 1.32 if is_emphasis else 1.24
-        ease_in = "elastic.out(1, 0.35)"
-        rotation_deg = "-4" if is_emphasis else "0"
-    elif transition_type in ["slide", "slide-up"]:
-        scale_pop = 1.22 if is_emphasis else 1.15
-        ease_in = "back.out(2.5)"
-        rotation_deg = "0"
-    elif transition_type in ["fade", "subtle"]:
-        scale_pop = 1.12 if is_emphasis else 1.06
-        ease_in = "power2.out"
-        rotation_deg = "0"
-    else:  # pop / viral default
-        scale_pop = 1.28 if is_emphasis else 1.22
-        ease_in = "back.out(3.2)"
-        rotation_deg = "-3" if is_emphasis else "0"
+    emoji_script = ""
+    if has_emoji:
+        emoji_script = f"""
+        tl.set('#emoji_{v_id}', {{ display: 'block' }}, {start});
+        tl.fromTo('#emoji_{v_id}',
+          {{ opacity: 0, scale: 0, y: 20, rotation: -20 }},
+          {{ opacity: 1, scale: 1.35, y: -8, rotation: 8, duration: 0.18, ease: 'back.out(3.5)', immediateRender: false }},
+          {start}
+        );
+        tl.to('#emoji_{v_id}',
+          {{ scale: 1.05, y: 0, rotation: 0, duration: 0.12, ease: 'power2.out' }},
+          {start + 0.18}
+        );
+        tl.to('#emoji_{v_id}',
+          {{ opacity: 0, scale: 0.3, y: -20, duration: 0.12, ease: 'power2.in' }},
+          {end}
+        );
+        tl.set('#emoji_{v_id}', {{ display: 'none' }}, {end + 0.15});
+        """
     
     return f"""
       const wEl_{v_id} = document.getElementById('w_{v_id}');
       if (wEl_{v_id}) {{
-        // Explosive active word punch with vibrant glow
+        // Explosive Active Word Badge Punch
         tl.fromTo(wEl_{v_id},
-          {{ color: '{primary_color}', opacity: {inactive_opacity}, scale: 1.0, y: 0, rotation: 0 }},
           {{ 
-            color: '{accent_color}', 
+            color: '{primary_color}', 
+            backgroundColor: 'transparent', 
+            opacity: {inactive_opacity}, 
+            scale: 1.0, 
+            y: 0, 
+            rotation: 0, 
+            webkitTextStroke: '3.5px #000000', 
+            boxShadow: 'none' 
+          }},
+          {{ 
+            color: '#000000', 
+            backgroundColor: '{accent_color}', 
             opacity: 1.0, 
-            scale: {scale_pop}, 
-            y: -6,
+            scale: 1.25, 
+            y: -6, 
             rotation: {rotation_deg},
-            textShadow: '0 0 24px {accent_color}, 0 0 45px {accent_color}, 0 4px 0 #000000, 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000', 
-            duration: {min(0.12, dur * 0.4)}, 
-            ease: '{ease_in}',
+            webkitTextStroke: '0px transparent',
+            boxShadow: '0 0 35px {accent_color}, 0 8px 24px rgba(0,0,0,0.85)',
+            textShadow: 'none',
+            duration: 0.12, 
+            ease: 'back.out(3.5)',
             immediateRender: false
           }},
           {start}
         );
-        // Settle into steady spoken state
+        // Settle micro-motion
         tl.to(wEl_{v_id},
-          {{ scale: {1.14 if is_emphasis else 1.08}, y: -2, rotation: 0, duration: {min(0.10, dur * 0.3)}, ease: 'power1.out' }},
-          {start + min(0.12, dur * 0.4)}
+          {{ scale: 1.18, y: -3, duration: {min(0.10, dur * 0.3)}, ease: 'power1.out' }},
+          {start + 0.12}
         );
         // Clean snap back to inactive baseline
         tl.to(wEl_{v_id},
           {{ 
             color: '{primary_color}', 
+            backgroundColor: 'transparent', 
             opacity: {inactive_opacity}, 
             scale: 1.0, 
             y: 0,
-            textShadow: '0 4px 0 #000000, 0 8px 20px rgba(0,0,0,0.9), 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000', 
+            rotation: 0,
+            webkitTextStroke: '3.5px #000000',
+            boxShadow: 'none',
+            textShadow: '0 4px 0 #000000, 0 8px 24px rgba(0,0,0,0.95), 2px 2px 0 #000000, -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000',
             duration: 0.10, 
             ease: 'power2.out' 
           }},
           {end}
         );
       }}
+      {emoji_script}
     """
+
 
 

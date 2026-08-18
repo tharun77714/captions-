@@ -86,8 +86,8 @@ def build_adaptive_phrases(
         return []
 
     overall_wps = analyze_speech_cadence(raw_words)
-    max_chunk_size = 4 if overall_wps > 3.2 else (2 if archetype in ["viral", "tech"] else 3)
-    pause_threshold = 0.28 if archetype == "viral" else 0.38
+    max_chunk_size = 2  # Fast viral pacing (1 to 2 words per screen)
+    pause_threshold = 0.22
 
     # Calculate average word duration for anomaly detection
     durations = [max(0.05, float(w.get("end", 0)) - float(w.get("start", 0))) for w in raw_words]

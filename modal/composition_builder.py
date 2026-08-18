@@ -17,6 +17,24 @@ def get_google_fonts_link(font_family: str) -> str:
   <link href="https://fonts.googleapis.com/css2?family={encoded_name}:wght@400;600;700;800;900&family=Montserrat:wght@700;800;900&family=Noto+Sans+Telugu:wght@600;700;800;900&display=swap" rel="stylesheet">
     """
 
+EMOJI_KEYWORD_MAP = {
+    "hair": "💇‍♂️", "head": "🧔", "beard": "🧔", "oil": "🧴", "shampoo": "🧴",
+    "seed": "🌱", "seeds": "🌱", "flax": "🌾", "food": "🥗", "eat": "🍽️", "eating": "🍽️", "diet": "🥗",
+    "grow": "📈", "growth": "🚀", "strong": "💪", "gain": "📈", "fast": "⚡", "quick": "⚡",
+    "money": "💰", "cash": "💵", "cost": "💳", "free": "🎁", "lakh": "💰", "crore": "💎", "rich": "🤑",
+    "fire": "🔥", "hot": "🔥", "magic": "✨", "secret": "🤫", "power": "⚡", "super": "⚡", "insane": "🤯",
+    "stop": "🛑", "danger": "⚠️", "warning": "⚠️", "mistake": "❌", "wrong": "❌",
+    "best": "👑", "top": "🏆", "winner": "🥇", "perfect": "💯", "100": "💯",
+    "హెయిర్": "💇‍♂️", "జుట్టు": "💇‍♂️", "సీడ్స్": "🌱", "తింటే": "🥗", "పెరుగుతుంది": "📈", "డబ్బులు": "💰"
+}
+
+def get_keyword_emoji(text: str) -> str:
+    clean = re.sub(r'[^\w]', '', text).lower()
+    for k, emoji in EMOJI_KEYWORD_MAP.items():
+        if k == clean or (len(k) > 3 and k in clean):
+            return emoji
+    return ""
+
 def generate_hyperframes_html(
     spec: MotionIntentSpec,
     video_src: str,
@@ -24,14 +42,9 @@ def generate_hyperframes_html(
     plate_src: str = None
 ) -> str:
     """
-    Generates a full HyperFrames-compliant HTML document with multi-plane Z-depth stack:
-    - Track 0 (z:10): Background Video Plate (with camera punch transform origin)
-    - Track 1 (z:30): 3D Hero Typography (Behind speaker cutout)
-    - Track 2 (z:40): U2Net AI Person Cutout (Alpha Matte)
-    - Track 3 (z:50): Floating Kinetic Caption Rail (Foreground)
-    - Track 4 (z:55): Particle Sparks & Shockwave Rings (VFX Layer)
+    Generates deterministic HTML5/CSS3/GSAP DOM markup for HyperFrames rendering.
     """
-    has_matte = bool(matte_src and plate_src)
+    has_matte = bool(matte_src and spec.enable_subject_separation)
     timeline_script = compile_motion_timeline(spec)
 
     # Pre-render DOM elements for phrases, hero items, and VFX particles
@@ -42,15 +55,15 @@ def generate_hyperframes_html(
     hero_set = set(spec.hero_word_ids)
 
     for phrase in spec.phrases:
-        words_html = []
         p_vid = re.sub(r'[^a-zA-Z0-9_]', '_', phrase.id)
+        words_html = []
         
         for w in phrase.words:
             w_vid = re.sub(r'[^a-zA-Z0-9_]', '_', w.id)
             is_hero = (w.id in hero_set or w.visual_intent == "hero")
             is_emphasis = (w.visual_intent == "emphasis")
 
-            accent = w.color_intent or (spec.accent_color if is_hero else (spec.contrast_color if is_emphasis else "#FFFFFF"))
+            accent = w.color_intent or (spec.accent_color if is_hero else (spec.contrast_color if is_emphasis else "#FFE600"))
             
             # Format text case if requested
             word_text = w.text
@@ -61,7 +74,12 @@ def generate_hyperframes_html(
             elif spec.text_transform == "capitalize":
                 word_text = word_text.capitalize()
 
-            words_html.append(f'<span id="w_{w_vid}" class="word">{word_text}</span>')
+            emoji = get_keyword_emoji(w.text)
+            emoji_tag = f'<div id="emoji_{w_vid}" class="word-emoji-badge">{emoji}</div>' if emoji else ''
+
+            words_html.append(
+                f'<div class="word-wrapper">{emoji_tag}<span id="w_{w_vid}" class="word">{word_text}</span></div>'
+            )
             
             if is_hero:
                 hero_dom_items.append(f'<div id="hero_{w_vid}" class="hero-word-item">{word_text}</div>')
