@@ -3,7 +3,18 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
-    const { projectId, styleName = '3D_CLIMAX', aspectRatio = '9:16', heroWordIds = [] } = await request.json();
+    const body = await request.json();
+    const {
+      projectId,
+      styleName = 'kalakar-glow',
+      templateId,
+      aspectRatio = '9:16',
+      heroWordIds = [],
+      subtitleStyle,
+      scriptMode = 'original',
+      words = [],
+      enable3D = true,
+    } = body;
 
     if (!projectId || typeof projectId !== 'string') {
       return NextResponse.json({ error: 'Missing projectId' }, { status: 400 });
@@ -13,13 +24,24 @@ export async function POST(request: Request) {
 
     const { data: project, error: projError } = await supabase
       .from('projects')
-      .select('id, media_url, user_id, title')
+      .select('id, media_url, user_id, title, subtitle_style')
       .eq('id', projectId)
       .maybeSingle();
 
     if (projError || !project) {
       console.error('[HyperFrames Export] Project query failed:', projError, projectId);
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // If subtitleStyle is not passed in request, retrieve it from project or transcription
+    let effectiveStyle = subtitleStyle || project.subtitle_style;
+    if (!effectiveStyle) {
+      const { data: trans } = await supabase
+        .from('transcriptions')
+        .select('subtitle_style')
+        .eq('project_id', projectId)
+        .maybeSingle();
+      effectiveStyle = trans?.subtitle_style || null;
     }
 
     // Set export status to rendering
@@ -38,9 +60,14 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           project_id: projectId,
           user_id: project.user_id || 'anonymous',
-          style_name: styleName,
+          style_name: styleName || templateId || 'kalakar-glow',
+          template_id: templateId || styleName || 'kalakar-glow',
           aspect_ratio: aspectRatio,
           hero_word_ids: heroWordIds,
+          subtitle_style: effectiveStyle,
+          script_mode: scriptMode,
+          words: words,
+          enable_3d: enable3D,
         }),
       });
 
@@ -54,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       status: 'rendering',
-      message: 'HyperFrames 3D render job sent to Modal GPU worker',
+      message: 'HyperFrames render job sent to Modal GPU worker',
     });
   } catch (error) {
     console.error('[HyperFrames Export] API error:', error);

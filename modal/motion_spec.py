@@ -50,7 +50,46 @@ class MotionIntentSpec:
     phrases: List[PhraseIntent] = field(default_factory=list)
     hero_word_ids: List[str] = field(default_factory=list)
     enable_subject_separation: bool = True
+    
+    # Typography & Styling Tokens
+    font_family: str = "Montserrat"
+    font_weight: int = 800
+    font_size: int = 56
+    text_transform: str = "none"  # "none", "uppercase", "lowercase", "capitalize"
+    letter_spacing: float = -0.2
+    line_spacing: float = 1.35
+    
+    # Colors
     primary_color: str = "#FFFFFF"
     accent_color: str = "#FFE600"
     contrast_color: str = "#38BDF8"
-    font_family: str = "Montserrat"
+    inactive_opacity: float = 0.75
+    gradient_from: Optional[str] = None
+    gradient_to: Optional[str] = None
+    
+    # Stroke
+    stroke_enabled: bool = True
+    stroke_color: str = "#000000"
+    stroke_width: float = 2.5
+    
+    # Shadow
+    shadow_color: str = "rgba(0, 0, 0, 0.85)"
+    shadow_blur: float = 12.0
+    shadow_x: float = 0.0
+    shadow_y: float = 4.0
+    
+    # Background Box
+    background_enabled: bool = False
+    background_color: str = "rgba(0, 0, 0, 0.6)"
+    background_padding_x: float = 24.0
+    background_padding_y: float = 12.0
+    background_radius: float = 8.0
+    
+    # Layout & Animation
+    position_x: float = 0.0  # -50 to 50
+    position_y: float = 0.0  # -50 to 50
+    alignment: str = "center"  # "left", "center", "right"
+    highlight_mode: str = "color"  # "color", "scale", "karaoke", "underline", "background"
+    transition_type: str = "pop"  # "pop", "bounce", "slide", "scale", "fade", "elastic", "3d-climax"
+    subtitle_style: Optional[Dict[str, Any]] = None
+

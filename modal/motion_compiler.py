@@ -41,7 +41,10 @@ def compile_motion_timeline(spec: MotionIntentSpec) -> str:
                     w.start,
                     w.end,
                     accent_color=accent,
-                    is_emphasis=is_emphasis or is_hero
+                    primary_color=spec.primary_color,
+                    inactive_opacity=spec.inactive_opacity,
+                    is_emphasis=is_emphasis or is_hero,
+                    transition_type=spec.transition_type
                 )
             )
 

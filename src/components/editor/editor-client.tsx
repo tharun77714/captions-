@@ -62,6 +62,7 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
     subtitleMode,
     setSubtitleMode,
     subtitleStyle,
+    activeTemplateId,
     originalSegments,
     transliteratedSegments,
     translatedSegments,
@@ -366,13 +367,29 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
     setShowHyperFramesModal(true);
 
     try {
+      // Map currently active segments and words (which include user edits)
+      const activeWords = segments.flatMap((s) =>
+        s.words.map((w) => ({
+          id: String(w.id),
+          text: w.word,
+          start: Number(w.start),
+          end: Number(w.end),
+          style: w.style,
+        }))
+      );
+
       const res = await fetch('/api/export/hyperframes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId: project.id,
-          styleName: '3D_CLIMAX',
+          styleName: activeTemplateId || 'kalakar-glow',
+          templateId: activeTemplateId || 'kalakar-glow',
           aspectRatio,
+          subtitleStyle,
+          scriptMode: subtitleMode,
+          words: activeWords,
+          enable3D: true,
         }),
       });
 
@@ -431,7 +448,7 @@ export function EditorClient({ userId, project, transcription }: EditorClientPro
       setIsHyperFramesExporting(false);
       setHyperFramesStatus('failed');
     }
-  }, [project.id, handleSave, aspectRatio, hyperFramesStatus, hyperFramesUrl, downloadHyperFramesVideo]);
+  }, [project.id, handleSave, aspectRatio, subtitleStyle, activeTemplateId, subtitleMode, segments, hyperFramesStatus, hyperFramesUrl, downloadHyperFramesVideo]);
 
   const handleDirectDownload = useCallback(async () => {
     if (!downloadUrl) return;

@@ -60,12 +60,24 @@ def get_supabase_client():
     timeout=600,
     secrets=[modal.Secret.from_name("vidyut-secrets")]
 )
+@app.function(
+    gpu="T4",
+    cpu=4.0,
+    memory=8192,
+    timeout=600,
+    secrets=[modal.Secret.from_name("vidyut-secrets")]
+)
 def process_hyperframes_render(
     project_id: str,
     user_id: str,
-    style_name: str = "3D_CLIMAX",
+    style_name: str = "kalakar-glow",
     aspect_ratio: str = "9:16",
-    hero_word_ids: list = None
+    hero_word_ids: list = None,
+    subtitle_style: dict = None,
+    script_mode: str = "original",
+    template_id: str = None,
+    words_payload: list = None,
+    enable_3d: bool = True
 ):
     start_time = time.time()
     work_dir = f"/tmp/hf_{project_id}_{int(time.time())}"
@@ -76,7 +88,7 @@ def process_hyperframes_render(
     bucket_name = os.environ.get("R2_BUCKET_NAME") or "vidyut-media-production"
 
     try:
-        print(f"🎬 [Vidyut Kinetic Motion Engine] Starting render for project {project_id} (Style: {style_name})")
+        print(f"🎬 [Vidyut Kinetic Motion Engine] Starting render for project {project_id} (Template/Style: {style_name}, Script: {script_mode})")
 
         # 1. Fetch project and transcription from Supabase
         project_res = supabase.table("projects").select("*").eq("id", project_id).single().execute()
@@ -111,27 +123,47 @@ def process_hyperframes_render(
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-        # 3. Format transcript words
+        # 3. Format transcript words based on user payload or selected script_mode
         raw_words_input = []
-        raw_words = transcription.get("words")
-        if not raw_words or not isinstance(raw_words, list) or len(raw_words) == 0:
-            raw_segments = transcription.get("segments", [])
-            for seg in raw_segments:
-                for w in seg.get("words", []):
-                    raw_words_input.append({
-                        "id": str(w.get("id", f"word-{len(raw_words_input)}")),
-                        "text": (w.get("word") or w.get("text") or "").strip(),
-                        "start": float(w.get("start", 0)),
-                        "end": float(w.get("end", 0))
-                    })
-        else:
-            for i, w in enumerate(raw_words):
+        if words_payload and isinstance(words_payload, list) and len(words_payload) > 0:
+            print(f"📝 Using {len(words_payload)} edited words directly from editor state")
+            for i, w in enumerate(words_payload):
                 raw_words_input.append({
                     "id": str(w.get("id", f"word-{i}")),
-                    "text": (w.get("word") or w.get("text") or "").strip(),
+                    "text": str(w.get("text") or w.get("word") or "").strip(),
                     "start": float(w.get("start", 0)),
                     "end": float(w.get("end", 0))
                 })
+        else:
+            # Check script_mode
+            if script_mode in ["transliterated", "romanized"] and transcription.get("transliterated_words"):
+                source_words = transcription.get("transliterated_words")
+                print("📝 Using Romanized / Transliterated transcript words")
+            elif script_mode == "translated" and transcription.get("translated_words"):
+                source_words = transcription.get("translated_words")
+                print("📝 Using Translated transcript words")
+            else:
+                source_words = transcription.get("words")
+                print("📝 Using Original transcript words")
+
+            if not source_words or not isinstance(source_words, list) or len(source_words) == 0:
+                raw_segments = transcription.get("segments", [])
+                for seg in raw_segments:
+                    for w in seg.get("words", []):
+                        raw_words_input.append({
+                            "id": str(w.get("id", f"word-{len(raw_words_input)}")),
+                            "text": str(w.get("word") or w.get("text") or "").strip(),
+                            "start": float(w.get("start", 0)),
+                            "end": float(w.get("end", 0))
+                        })
+            else:
+                for i, w in enumerate(source_words):
+                    raw_words_input.append({
+                        "id": str(w.get("id", f"word-{i}")),
+                        "text": str(w.get("word") or w.get("text") or "").strip(),
+                        "start": float(w.get("start", 0)),
+                        "end": float(w.get("end", 0))
+                    })
 
         duration_seconds = raw_words_input[-1]["end"] if raw_words_input else 10.0
 
@@ -140,10 +172,11 @@ def process_hyperframes_render(
             sorted_words = sorted(raw_words_input, key=lambda x: len(x["text"]), reverse=True)
             hero_word_ids = [w["id"] for w in sorted_words[:3]]
 
-        # 4. If 3D_CLIMAX, run AI background separation (U2Net)
+        # 4. If enable_3d is true or style is 3D, run AI person segmentation
         matte_src = None
         plate_src = None
-        if style_name == "3D_CLIMAX":
+        should_run_3d = bool(enable_3d or style_name in ["3D_CLIMAX", "cinematic", "3d-climax"])
+        if should_run_3d:
             print("✂️ Running AI Person Segmentation (U2Net / remove-background)...")
             matte_dir = os.path.join(work_dir, "matte")
             os.makedirs(matte_dir, exist_ok=True)
@@ -164,15 +197,73 @@ def process_hyperframes_render(
             else:
                 print("⚠️ Matte generation skipped, fallback to standard composite.")
 
-        # 5. Build Adaptive Phrases & MotionIntentSpec
+        # 5. Extract Subtitle Style Properties
+        eff_style = subtitle_style or transcription.get("subtitle_style") or {}
+        
+        font_dict = eff_style.get("font", {})
+        font_family = font_dict.get("family", "Montserrat")
+        font_weight = int(font_dict.get("weight", 800))
+        text_transform = font_dict.get("textTransform", "none")
+        
+        font_size = int(eff_style.get("fontSize", 56))
+        # Ensure optimal scale for 1080x1920 video
+        if font_size < 36:
+            font_size = int(font_size * 1.5)
+            
+        letter_spacing = float(eff_style.get("letterSpacing", -0.2))
+        line_spacing = float(eff_style.get("lineSpacing", 1.35))
+        
+        color_dict = eff_style.get("textColor", {})
+        if isinstance(color_dict, dict):
+            primary_color = color_dict.get("solid", "#FFFFFF")
+            gradient_from = color_dict.get("gradientFrom")
+            gradient_to = color_dict.get("gradientTo")
+        else:
+            primary_color = str(color_dict or "#FFFFFF")
+            gradient_from = None
+            gradient_to = None
+            
+        active_word_color = eff_style.get("activeWordColor", "#FFE600")
+        inactive_opacity = float(eff_style.get("inactiveOpacity", 0.75))
+        highlight_mode = eff_style.get("highlightMode", "color")
+        
+        stroke_dict = eff_style.get("stroke", {})
+        stroke_enabled = bool(stroke_dict.get("enabled", True))
+        stroke_color = stroke_dict.get("color", "#000000")
+        stroke_width = float(stroke_dict.get("width", 2.5))
+        
+        shadow_dict = eff_style.get("shadow", {})
+        shadow_color = shadow_dict.get("color", "rgba(0, 0, 0, 0.85)")
+        shadow_blur = float(shadow_dict.get("blur", 12.0))
+        shadow_x = float(shadow_dict.get("offsetX", 0.0))
+        shadow_y = float(shadow_dict.get("offsetY", 4.0))
+        
+        bg_dict = eff_style.get("background", {})
+        background_enabled = bool(bg_dict.get("enabled", False))
+        background_color = bg_dict.get("color", "rgba(0, 0, 0, 0.6)")
+        background_padding_x = float(bg_dict.get("paddingX", 24.0))
+        background_padding_y = float(bg_dict.get("paddingY", 12.0))
+        background_radius = float(bg_dict.get("borderRadius", 8.0))
+        
+        trans_dict = eff_style.get("transition", {})
+        if isinstance(trans_dict, dict):
+            transition_type = trans_dict.get("type", "pop")
+        else:
+            transition_type = str(trans_dict or "pop")
+            
+        pos_x = float(eff_style.get("positionX", 0.0))
+        pos_y = float(eff_style.get("positionY", 0.0))
+        alignment = eff_style.get("alignment", "center")
+
+        # 6. Build Adaptive Phrases & MotionIntentSpec
         archetype: Archetype = "viral"
-        if "EDITORIAL" in style_name:
+        if "editorial" in style_name.lower():
             archetype = "editorial"
-        elif "LUXURY" in style_name:
+        elif "luxury" in style_name.lower():
             archetype = "luxury"
-        elif "TECH" in style_name:
+        elif "tech" in style_name.lower():
             archetype = "tech"
-        elif "CINEMATIC" in style_name or "3D" in style_name:
+        elif "cinematic" in style_name.lower() or "3d" in style_name.lower():
             archetype = "cinematic"
 
         phrases = build_adaptive_phrases(raw_words_input, archetype=archetype)
@@ -194,14 +285,46 @@ def process_hyperframes_render(
             archetype=archetype,
             phrases=phrases,
             hero_word_ids=hero_word_ids,
-            enable_subject_separation=bool(matte_src)
+            enable_subject_separation=bool(matte_src),
+            
+            # Subtitle styling values
+            font_family=font_family,
+            font_weight=font_weight,
+            font_size=font_size,
+            text_transform=text_transform,
+            letter_spacing=letter_spacing,
+            line_spacing=line_spacing,
+            primary_color=primary_color,
+            accent_color=active_word_color,
+            contrast_color="#38BDF8",
+            inactive_opacity=inactive_opacity,
+            gradient_from=gradient_from,
+            gradient_to=gradient_to,
+            stroke_enabled=stroke_enabled,
+            stroke_color=stroke_color,
+            stroke_width=stroke_width,
+            shadow_color=shadow_color,
+            shadow_blur=shadow_blur,
+            shadow_x=shadow_x,
+            shadow_y=shadow_y,
+            background_enabled=background_enabled,
+            background_color=background_color,
+            background_padding_x=background_padding_x,
+            background_padding_y=background_padding_y,
+            background_radius=background_radius,
+            position_x=pos_x,
+            position_y=pos_y,
+            alignment=alignment,
+            highlight_mode=highlight_mode,
+            transition_type=transition_type,
+            subtitle_style=eff_style
         )
 
-        # 6. Run Motion Diagnostics
+        # 7. Run Motion Diagnostics
         diag = audit_motion_density(spec)
         print(f"📊 [Motion Diagnostics]: {diag}")
 
-        # 7. Generate Composition HTML
+        # 8. Generate Composition HTML
         comp_dir = os.path.join(work_dir, "composition")
         os.makedirs(comp_dir, exist_ok=True)
 
@@ -215,7 +338,7 @@ def process_hyperframes_render(
         with open(os.path.join(comp_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        # 8. Render via HyperFrames Headless Chromium
+        # 9. Render via HyperFrames Headless Chromium
         output_mp4 = os.path.join(work_dir, "output.mp4")
         print("🚀 Invoking HyperFrames headless Chromium render...")
         
@@ -253,7 +376,7 @@ def process_hyperframes_render(
         if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 1000:
             raise RuntimeError("HyperFrames render produced empty or missing MP4 file")
 
-        # 9. Upload to Cloudflare R2
+        # 10. Upload to Cloudflare R2
         export_s3_key = f"exports/{project_id}-hyperframes.mp4"
         print(f"☁️ Uploading finished MP4 to R2: {export_s3_key}")
         s3.upload_file(
@@ -265,7 +388,7 @@ def process_hyperframes_render(
 
         export_url = f"/api/video/stream?key={export_s3_key}"
 
-        # 10. Update Supabase
+        # 11. Update Supabase
         supabase.table("projects").update({
             "export_status": "ready",
             "export_url": export_url,
@@ -309,9 +432,14 @@ def process_hyperframes_render(
 def trigger_hyperframes(data: dict):
     project_id = data.get("project_id")
     user_id = data.get("user_id")
-    style_name = data.get("style_name", "3D_CLIMAX")
+    style_name = data.get("style_name", "kalakar-glow")
     aspect_ratio = data.get("aspect_ratio", "9:16")
     hero_word_ids = data.get("hero_word_ids", [])
+    subtitle_style = data.get("subtitle_style")
+    script_mode = data.get("script_mode", "original")
+    template_id = data.get("template_id")
+    words_payload = data.get("words", [])
+    enable_3d = bool(data.get("enable_3d", True))
 
     if not project_id:
         return {"error": "Missing project_id"}, 400
@@ -321,11 +449,18 @@ def trigger_hyperframes(data: dict):
         user_id=user_id,
         style_name=style_name,
         aspect_ratio=aspect_ratio,
-        hero_word_ids=hero_word_ids
+        hero_word_ids=hero_word_ids,
+        subtitle_style=subtitle_style,
+        script_mode=script_mode,
+        template_id=template_id,
+        words_payload=words_payload,
+        enable_3d=enable_3d
     )
 
     return {
         "status": "queued",
         "project_id": project_id,
-        "style": style_name
+        "style": style_name,
+        "script_mode": script_mode
     }
+

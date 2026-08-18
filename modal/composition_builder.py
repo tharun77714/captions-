@@ -1,10 +1,21 @@
 import re
+import urllib.parse
 from typing import Dict, Any, List
 from motion_spec import MotionIntentSpec
 from motion_compiler import compile_motion_timeline
 from motion_components.hero_word import generate_hero_word_css
 from motion_components.kinetic_rail import generate_kinetic_rail_css
 from motion_components.particle_sparks import generate_particle_css, generate_spark_dom_elements
+
+def get_google_fonts_link(font_family: str) -> str:
+    """Generates optimized Google Fonts <link> tags for the selected font family + Indic fonts."""
+    clean_name = font_family.strip().replace('"', '').replace("'", "")
+    encoded_name = urllib.parse.quote_plus(clean_name)
+    return f"""
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family={encoded_name}:wght@400;600;700;800;900&family=Montserrat:wght@700;800;900&family=Noto+Sans+Telugu:wght@600;700;800;900&display=swap" rel="stylesheet">
+    """
 
 def generate_hyperframes_html(
     spec: MotionIntentSpec,
@@ -40,11 +51,20 @@ def generate_hyperframes_html(
             is_emphasis = (w.visual_intent == "emphasis")
 
             accent = w.color_intent or (spec.accent_color if is_hero else (spec.contrast_color if is_emphasis else "#FFFFFF"))
+            
+            # Format text case if requested
+            word_text = w.text
+            if spec.text_transform == "uppercase":
+                word_text = word_text.upper()
+            elif spec.text_transform == "lowercase":
+                word_text = word_text.lower()
+            elif spec.text_transform == "capitalize":
+                word_text = word_text.capitalize()
 
-            words_html.append(f'<span id="w_{w_vid}" class="word">{w.text}</span>')
+            words_html.append(f'<span id="w_{w_vid}" class="word">{word_text}</span>')
             
             if is_hero:
-                hero_dom_items.append(f'<div id="hero_{w_vid}" class="hero-word-item">{w.text}</div>')
+                hero_dom_items.append(f'<div id="hero_{w_vid}" class="hero-word-item">{word_text}</div>')
             
             if is_emphasis or is_hero:
                 vfx_dom_items.append(generate_spark_dom_elements(w.id, color=accent, is_hero=is_hero))
@@ -57,8 +77,9 @@ def generate_hyperframes_html(
     vfx_elements_html = "\n".join(vfx_dom_items)
 
     hero_css = generate_hero_word_css()
-    rail_css = generate_kinetic_rail_css()
+    rail_css = generate_kinetic_rail_css(spec)
     vfx_css = generate_particle_css()
+    fonts_links = get_google_fonts_link(spec.font_family)
 
     plate_video_tag = f'<video id="plate-video-layer" class="plate-video clip" src="{plate_src}" data-start="0" data-duration="{spec.duration_seconds}" playsinline muted></video>' if has_matte else ''
     subject_video_tag = f'<video id="subject-video-layer" class="subject-video clip" src="{matte_src}" data-start="0" data-duration="{spec.duration_seconds}" playsinline muted></video>' if has_matte else ''
@@ -68,9 +89,7 @@ def generate_hyperframes_html(
 <head>
   <meta charset="UTF-8">
   <title>__COMPOSITION_ID__</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Noto+Sans+Telugu:wght@600;700;800;900&display=swap" rel="stylesheet">
+  __FONTS_LINKS__
   <style>
     * {
       box-sizing: border-box;
@@ -86,7 +105,7 @@ def generate_hyperframes_html(
       height: __HEIGHT__px;
       overflow: hidden;
       background: #000000;
-      font-family: 'Noto Sans Telugu', 'Montserrat', -apple-system, sans-serif;
+      font-family: '__FONT_FAMILY__', 'Noto Sans Telugu', 'Montserrat', -apple-system, sans-serif;
     }
 
     #root {
@@ -178,6 +197,7 @@ def generate_hyperframes_html(
     result = result.replace("__WIDTH__", str(spec.width))
     result = result.replace("__HEIGHT__", str(spec.height))
     result = result.replace("__FONT_FAMILY__", str(spec.font_family))
+    result = result.replace("__FONTS_LINKS__", fonts_links)
     result = result.replace("__DURATION__", str(spec.duration_seconds))
     result = result.replace("__VIDEO_SRC__", str(video_src))
     result = result.replace("__PLATE_VIDEO_TAG__", plate_video_tag)
@@ -191,3 +211,4 @@ def generate_hyperframes_html(
     result = result.replace("__TIMELINE_SCRIPT__", timeline_script)
 
     return result
+
